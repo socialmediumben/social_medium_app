@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.4';
+export const APP_VERSION = '1.5';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,16 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '1.5',
+    date: '2026-10-27',
+    title: 'Portal Door Deep-Link Integration & QR Auto-Authentication',
+    changes: [
+      'Added URL query parameter deep linking (?card=...) for seamless Tap Card authentication.',
+      'Designed QR code workflow for Portal Door kiosk when a card has no assigned Portal Media.',
+      'Enabled immediate redirect to personal Portal Media editor upon scanning the QR code.',
+    ],
+  },
   {
     version: '1.4',
     date: '2026-10-27',

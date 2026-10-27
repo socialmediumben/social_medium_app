@@ -30,34 +30,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Load active card ID from localStorage on mount
+  // Load active card ID from URL query param (e.g. from Portal Door QR scan) or localStorage
   useEffect(() => {
-    try {
-      const storedCardId = localStorage.getItem('sm_active_tap_card');
-      if (storedCardId) {
-        // Load cached member profile first for instant UI
-        const savedProfile = localStorage.getItem(`sm_profile_${storedCardId}`);
-        if (savedProfile) {
-          setMember(JSON.parse(savedProfile));
-          setActiveCardId(storedCardId);
-        }
-        // Then refresh from Neon One in background
-        refreshFromNeon(storedCardId);
-      }
-    } catch (_) {}
-    setIsLoading(false);
-  }, []);
-
-  const refreshFromNeon = async (cardId: string) => {
-    const res = await searchMemberByTapCard(cardId);
-    if (res.success && res.member) {
-      setMember(res.member);
-      setActiveCardId(cardId);
+    const initAuth = async () => {
       try {
-        localStorage.setItem(`sm_profile_${cardId}`, JSON.stringify(res.member));
+        let initialCard: string | null = null;
+
+        // 1. Check for URL deep link query param (?card=... or ?tapCard=...)
+        if (typeof window !== 'undefined') {
+          const urlParams = new URLSearchParams(window.location.search);
+          const urlCard = urlParams.get('card') || urlParams.get('tapCard');
+          if (urlCard && urlCard.trim()) {
+            initialCard = urlCard.trim();
+          }
+        }
+
+        // 2. Fallback to localStorage if no URL parameter
+        if (!initialCard) {
+          initialCard = localStorage.getItem('sm_active_tap_card');
+        }
+
+        if (initialCard) {
+          // Load cached member profile first for instant UI response
+          const savedProfile = localStorage.getItem(`sm_profile_${initialCard}`);
+          if (savedProfile) {
+            setMember(JSON.parse(savedProfile));
+            setActiveCardId(initialCard);
+          }
+
+          // Then refresh from Neon One in background (or log in directly if from URL)
+          const res = await searchMemberByTapCard(initialCard);
+          if (res.success && res.member) {
+            setMember(res.member);
+            setActiveCardId(initialCard);
+            localStorage.setItem('sm_active_tap_card', initialCard);
+            localStorage.setItem(`sm_profile_${initialCard}`, JSON.stringify(res.member));
+          } else if (!savedProfile && res.error) {
+            setLoginError(res.error);
+          }
+        }
       } catch (_) {}
-    }
-  };
+      setIsLoading(false);
+    };
+
+    initAuth();
+  }, []);
 
   const login = async (cardId: string): Promise<boolean> => {
     const cleanId = cardId.trim();
@@ -110,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!member || !activeCardId) return;
     const updated: MemberProfile = {
       ...member,
-      ...updates
+      ...updates,
     };
     setMember(updated);
     try {
@@ -119,7 +136,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ activeCardId, member, isLoading, loginError, login, logout, updateMember }}>
+    <AuthContext.Provider
+      value={{
+        activeCardId,
+        member,
+        isLoading,
+        loginError,
+        login,
+        logout,
+        updateMember,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
