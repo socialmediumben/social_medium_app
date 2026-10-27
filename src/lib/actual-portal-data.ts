@@ -5,8 +5,9 @@ export interface PortalMediaRecord {
   file_path: string;
 }
 
-// Actual real data from Portal-Door/media_data.json
+// Actual real data from Portal-Door/media_data.json mapped to real Tap Cards
 export const ACTUAL_PORTAL_MEDIA_RECORDS: PortalMediaRecord[] = [
+  { id: "0037283076", title: "Tron.mp4", type: "video", file_path: "videos/Tron.mp4" },
   { id: "3680669188", title: "Tron.mp4", type: "video", file_path: "videos/Tron.mp4" },
   { id: "1121101828", title: "Big Hero Six.jpg", type: "image", file_path: "images/Big Hero Six.jpg" },
   { id: "3135653124", title: "Venom.mp4", type: "video", file_path: "videos/Venom.mp4" },

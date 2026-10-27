@@ -1,20 +1,19 @@
 import { MemberProfile, TapCardMedia, GameRoomPreset, GameRoomDisplayStatus } from './types';
 
-// Default member profile with clean real baseline (no fake certifications or achievements)
+// Default member profile aligned with Neon One data
 export const DEFAULT_MEMBER: MemberProfile = {
   name: "Ben Braunstein",
   email: "Ben@socialmedium.space",
   phone: "818-648-1314",
   membershipTier: "Board President",
-  tapCard: "3680669188",
+  tapCard: "0037283076",
   certifications: [],
   portalMedia: "videos/Tron.mp4"
 };
 
-// Default personal portal media linked to Ben's physical tap card (3680669188)
-// Exactly matching external_repos/Portal-Door/media_data.json
+// Default personal portal media linked to Ben's physical tap card (0037283076)
 export const DEFAULT_PORTAL_MEDIA: TapCardMedia = {
-  cardId: "3680669188",
+  cardId: "0037283076",
   title: "Tron.mp4",
   type: "video",
   filePath: "videos/Tron.mp4",

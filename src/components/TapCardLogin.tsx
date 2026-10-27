@@ -57,27 +57,24 @@ export function TapCardLogin() {
         </button>
       </form>
 
-      {/* Quick Test Cards */}
+      {/* Quick Test Card for Ben */}
       <div className="mt-8 pt-6 border-t border-stone-100 text-left">
         <div className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-2.5">
-          Quick Test Tap Cards:
+          Quick Access:
         </div>
         <div className="space-y-1.5 text-xs">
           <button
             type="button"
-            onClick={() => login('3680669188')}
-            className="w-full p-2 rounded-xl hover:bg-stone-50 border border-stone-200/80 flex items-center justify-between text-stone-700 transition-colors cursor-pointer"
+            onClick={() => login('0037283076')}
+            className="w-full p-2.5 rounded-xl hover:bg-stone-50 border border-stone-200 flex items-center justify-between text-stone-800 transition-colors cursor-pointer"
           >
-            <span>Ben Braunstein</span>
-            <span className="font-mono text-stone-500 font-semibold">3680669188</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => login('0580656900')}
-            className="w-full p-2 rounded-xl hover:bg-stone-50 border border-stone-200/80 flex items-center justify-between text-stone-700 transition-colors cursor-pointer"
-          >
-            <span>Ilana Jaffe-Lewis</span>
-            <span className="font-mono text-stone-500 font-semibold">0580656900</span>
+            <div>
+              <span className="font-semibold">Ben Braunstein</span>
+              <span className="text-stone-400 text-[11px] ml-1.5">(Board President)</span>
+            </div>
+            <span className="font-mono text-stone-600 font-bold bg-stone-100 px-2 py-0.5 rounded-md">
+              0037283076
+            </span>
           </button>
         </div>
       </div>

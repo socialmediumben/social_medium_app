@@ -21,27 +21,14 @@ const AuthContext = createContext<AuthContextType>({
   updateMember: () => {},
 });
 
+// Known member registry keyed by actual Neon One "Tap Card" numbers
 const KNOWN_MEMBERS: Record<string, Partial<MemberProfile>> = {
-  "3680669188": {
+  "0037283076": {
     name: "Ben Braunstein",
     email: "Ben@socialmedium.space",
     phone: "818-648-1314",
     membershipTier: "Board President",
     portalMedia: "videos/Tron.mp4"
-  },
-  "0580656900": {
-    name: "Ilana Jaffe-Lewis",
-    email: "ilana@socialmedium.space",
-    phone: "747-322-0689",
-    membershipTier: "Manager",
-    portalMedia: "images/Ilana.jpg"
-  },
-  "1121101828": {
-    name: "Social Medium Member",
-    email: "",
-    phone: "",
-    membershipTier: "Active Member",
-    portalMedia: "images/Big Hero Six.jpg"
   }
 };
 
