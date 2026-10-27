@@ -1,24 +1,11 @@
-export interface Certification {
-  id: string;
-  name: string;
-  date?: string;
-}
-
-export interface EmergencyContact {
-  name: string;
-  phone: string;
-  relation: string;
-}
-
 export interface MemberProfile {
-  tapCardId: string;
+  tapCard: string;
   name: string;
   email: string;
   phone: string;
   membershipTier: string;
-  emergencyContact?: EmergencyContact;
-  certifications: Certification[];
-  achievements: Achievement[];
+  certifications: string[]; // List field in Neon One: "Certifications"
+  portalMedia?: string;     // Single-line text field in Neon One: "Portal Media"
 }
 
 export interface TapCardMedia {
@@ -27,13 +14,6 @@ export interface TapCardMedia {
   type: 'video' | 'image';
   filePath: string;
   updatedAt: string;
-}
-
-export interface Achievement {
-  id: string;
-  title: string;
-  description?: string;
-  dateUnlocked?: string;
 }
 
 export interface GameRoomPreset {

@@ -27,18 +27,21 @@ const KNOWN_MEMBERS: Record<string, Partial<MemberProfile>> = {
     email: "Ben@socialmedium.space",
     phone: "818-648-1314",
     membershipTier: "Board President",
+    portalMedia: "videos/Tron.mp4"
   },
   "0580656900": {
     name: "Ilana Jaffe-Lewis",
     email: "ilana@socialmedium.space",
     phone: "747-322-0689",
     membershipTier: "Manager",
+    portalMedia: "images/Ilana.jpg"
   },
   "1121101828": {
     name: "Social Medium Member",
     email: "",
     phone: "",
     membershipTier: "Active Member",
+    portalMedia: "images/Big Hero Six.jpg"
   }
 };
 
@@ -50,7 +53,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Load active card ID from localStorage on mount
   useEffect(() => {
     try {
-      const storedCardId = localStorage.getItem('sm_active_tap_card_id');
+      const storedCardId = localStorage.getItem('sm_active_tap_card');
       if (storedCardId) {
         loadMemberData(storedCardId);
       }
@@ -61,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const loadMemberData = (cardId: string) => {
     setActiveCardId(cardId);
     try {
-      localStorage.setItem('sm_active_tap_card_id', cardId);
+      localStorage.setItem('sm_active_tap_card', cardId);
     } catch (_) {}
 
     // Check if user has updated their profile locally
@@ -76,18 +79,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Known members or clean empty real profile
     const known = KNOWN_MEMBERS[cardId] || {};
     const initialProfile: MemberProfile = {
-      tapCardId: cardId,
+      tapCard: cardId,
       name: known.name || "Member",
       email: known.email || "",
       phone: known.phone || "",
       membershipTier: known.membershipTier || "Active Member",
-      emergencyContact: {
-        name: "",
-        phone: "",
-        relation: ""
-      },
-      certifications: [],
-      achievements: []
+      certifications: known.certifications || [],
+      portalMedia: known.portalMedia || ""
     };
 
     setMember(initialProfile);
@@ -101,7 +99,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = () => {
     try {
-      localStorage.removeItem('sm_active_tap_card_id');
+      localStorage.removeItem('sm_active_tap_card');
     } catch (_) {}
     setActiveCardId(null);
     setMember(null);
@@ -111,11 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!member || !activeCardId) return;
     const updated: MemberProfile = {
       ...member,
-      ...updates,
-      emergencyContact: {
-        ...member.emergencyContact,
-        ...(updates.emergencyContact || { name: "", phone: "", relation: "" })
-      }
+      ...updates
     };
     setMember(updated);
     try {

@@ -2,14 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, DoorOpen, Gamepad2, Award, Home, CreditCard, LogOut } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
   { href: '/portal-media', label: 'Portal Media', icon: DoorOpen, description: 'Personal tap card media' },
   { href: '/game-room', label: 'Game Room', icon: Gamepad2, description: 'Room remote & presets' },
-  { href: '/achievements', label: 'Achievements', icon: Award, description: 'Badges & milestones' },
 ];
 
 export function Navbar() {
@@ -72,14 +71,14 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Tap Card ID Status / Switch Button */}
+        {/* Tap Card Status / Switch Button */}
         <div className="flex items-center gap-2">
           {activeCardId ? (
             <div className="flex items-center gap-1.5">
               <Link
                 href="/profile"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 border border-stone-200 hover:border-[#3bc0cd] text-xs transition-colors"
-                title="Active Card"
+                title="Active Tap Card"
               >
                 <CreditCard className="w-3.5 h-3.5 text-[#f16622]" />
                 <span className="font-mono font-semibold text-stone-800">{activeCardId}</span>
@@ -109,8 +108,8 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-2 py-1 shadow-lg safe-area-pb">
-      <div className="grid grid-cols-5 items-center justify-around">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3 py-1 shadow-lg safe-area-pb">
+      <div className="grid grid-cols-4 items-center justify-around">
         <Link
           href="/"
           className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[10px] font-medium transition-colors ${
@@ -142,7 +141,7 @@ export function BottomNav() {
               >
                 <Icon className="w-5 h-5" />
               </div>
-              <span className="truncate max-w-[62px] text-center">{item.label}</span>
+              <span className="truncate max-w-[70px] text-center">{item.label}</span>
             </Link>
           );
         })}

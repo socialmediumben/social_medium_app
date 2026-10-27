@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { User, DoorOpen, Gamepad2, Award, ChevronRight, CreditCard, Sparkles, MapPin, Wrench } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, ChevronRight, CreditCard, Sparkles, MapPin, Wrench } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 
@@ -20,7 +20,7 @@ export default function HomePage() {
     return <TapCardLogin />;
   }
 
-  const certCount = member.certifications.length;
+  const certCount = member.certifications ? member.certifications.length : 0;
 
   return (
     <div className="space-y-6">
@@ -35,13 +35,13 @@ export default function HomePage() {
             Welcome, {member.name}!
           </h1>
           <p className="text-stone-200 text-sm sm:text-base leading-relaxed mb-6 font-roboto">
-            Your companion for <strong>Social Medium Makerspace</strong>. Manage your member profile, update your physical tap card media, control the Game Room, and view your achievements.
+            Your companion for <strong>Social Medium Makerspace</strong>. Manage your member profile, update your physical tap card media, and control the Game Room.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-stone-300">
             <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
               <CreditCard className="w-3.5 h-3.5 text-[#3bc0cd]" />
-              <span>Tap Card: <strong className="text-white font-mono">{member.tapCardId}</strong></span>
+              <span>Tap Card: <strong className="text-white font-mono">{member.tapCard}</strong></span>
             </div>
             <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
               <Wrench className="w-3.5 h-3.5 text-[#f16622]" />
@@ -59,8 +59,8 @@ export default function HomePage() {
         <div className="absolute right-1/3 -top-12 w-48 h-48 rounded-full bg-[#f16622]/20 blur-3xl pointer-events-none" />
       </div>
 
-      {/* 4 Top-Level Module Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* 3 Top-Level Module Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Module 1: Profile */}
         <Link
           href="/profile"
@@ -71,15 +71,15 @@ export default function HomePage() {
               <div className="w-12 h-12 rounded-xl bg-[#3bc0cd]/10 text-[#3bc0cd] flex items-center justify-center group-hover:scale-105 transition-transform">
                 <User className="w-6 h-6" />
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600">
-                Card #{member.tapCardId}
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600 font-mono">
+                #{member.tapCard}
               </span>
             </div>
             <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-[#344ea2] transition-colors mb-1">
               Member Profile
             </h2>
             <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-              View your contact info, registered tap card, equipment certifications, and emergency contact.
+              View your contact info, registered Tap Card, and tool Certifications.
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-[#344ea2]">
@@ -106,7 +106,7 @@ export default function HomePage() {
               My Portal Media
             </h2>
             <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-              View and edit the custom video or photo bound to your physical tap card for the interactive Portal Door.
+              View and edit the custom video or photo bound to your physical Tap Card for the interactive Portal Door.
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-[#f16622]">
@@ -138,33 +138,6 @@ export default function HomePage() {
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-[#344ea2]">
             <span>Open Room Controller</span>
-            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-          </div>
-        </Link>
-
-        {/* Module 4: Achievements */}
-        <Link
-          href="/achievements"
-          className="group p-5 rounded-2xl bg-white border border-stone-200 hover:border-[#8a9280] hover:shadow-md transition-all flex flex-col justify-between"
-        >
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <div className="w-12 h-12 rounded-xl bg-[#8a9280]/15 text-[#656d5b] flex items-center justify-center group-hover:scale-105 transition-transform">
-                <Award className="w-6 h-6" />
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#8a9280]/15 text-[#4a5142]">
-                Neon One Synced
-              </span>
-            </div>
-            <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-[#8a9280] transition-colors mb-1">
-              Achievements & Badges
-            </h2>
-            <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-              Track your maker milestones, workshop badges, and safety certifications.
-            </p>
-          </div>
-          <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-[#656d5b]">
-            <span>View Badges</span>
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>

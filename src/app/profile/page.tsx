@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench, AlertCircle } from 'lucide-react';
+import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 
@@ -11,9 +11,6 @@ export default function ProfilePage() {
   const [nameInput, setNameInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
-  const [emergencyPhoneInput, setEmergencyPhoneInput] = useState('');
-  const [emergencyNameInput, setEmergencyNameInput] = useState('');
-  const [emergencyRelationInput, setEmergencyRelationInput] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
@@ -21,9 +18,6 @@ export default function ProfilePage() {
       setNameInput(member.name || '');
       setEmailInput(member.email || '');
       setPhoneInput(member.phone || '');
-      setEmergencyNameInput(member.emergencyContact?.name || '');
-      setEmergencyPhoneInput(member.emergencyContact?.phone || '');
-      setEmergencyRelationInput(member.emergencyContact?.relation || '');
     }
   }, [member]);
 
@@ -40,17 +34,14 @@ export default function ProfilePage() {
     updateMember({
       name: nameInput,
       email: emailInput,
-      phone: phoneInput,
-      emergencyContact: {
-        name: emergencyNameInput,
-        phone: emergencyPhoneInput,
-        relation: emergencyRelationInput
-      }
+      phone: phoneInput
     });
     setIsEditingContact(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
   };
+
+  const certifications = member.certifications || [];
 
   return (
     <div className="space-y-6">
@@ -61,7 +52,7 @@ export default function ProfilePage() {
             Member Profile
           </h1>
           <p className="text-stone-600 text-sm">
-            Account details and equipment certifications for Tap Card <strong>{member.tapCardId}</strong>.
+            Account details and authorized tool Certifications for Tap Card <strong>{member.tapCard}</strong>.
           </p>
         </div>
       </div>
@@ -79,7 +70,7 @@ export default function ProfilePage() {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-semibold text-[#3bc0cd]">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Connected Member Pass
+              Connected Member Pass • Neon One Synced
             </div>
             <div>
               <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-white tracking-tight">
@@ -96,14 +87,14 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between text-xs text-stone-300 mb-2">
               <span className="flex items-center gap-1.5 font-medium">
                 <CreditCard className="w-3.5 h-3.5 text-[#f16622]" />
-                Tap Card ID (Neon One)
+                Tap Card
               </span>
               <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                 Active
               </span>
             </div>
             <div className="font-mono text-xl sm:text-2xl font-bold tracking-wider text-white">
-              {member.tapCardId}
+              {member.tapCard}
             </div>
             <div className="text-[11px] text-stone-400 mt-1">
               Synchronized with kiosk check-in and portal door.
@@ -116,30 +107,30 @@ export default function ProfilePage() {
         <div className="absolute right-0 top-0 w-64 h-64 rounded-full bg-[#f16622]/15 blur-3xl pointer-events-none" />
       </div>
 
-      {/* Grid: Equipment Certifications & Contact Details */}
+      {/* Grid: Certifications & Contact Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 Cols): Equipment Certifications */}
+        {/* Left Column (2 Cols): Certifications */}
         <div className="lg:col-span-2 space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-fredoka text-lg font-bold text-stone-900">
-                  Equipment Certifications
+                  Certifications
                 </h2>
                 <p className="text-stone-500 text-xs">
-                  Tools and machinery authorized for independent operation.
+                  Tools and machinery authorized for independent operation (Neon One "Certifications" list).
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
-                {member.certifications.length} Certified
+                {certifications.length} Certified
               </span>
             </div>
 
-            {member.certifications.length === 0 ? (
-              <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center">
-                <Wrench className="w-8 h-8 text-stone-400 mx-auto mb-2" />
-                <h3 className="font-semibold text-stone-800 text-sm mb-1">
-                  No Equipment Certifications Recorded Yet
+            {certifications.length === 0 ? (
+              <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-2">
+                <Wrench className="w-8 h-8 text-stone-400 mx-auto mb-1" />
+                <h3 className="font-semibold text-stone-800 text-sm">
+                  No Tool Certifications Recorded Yet
                 </h3>
                 <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
                   Attend an equipment safety walkthrough at the makerspace to receive certifications on your Neon One account.
@@ -147,11 +138,11 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="divide-y divide-stone-100">
-                {member.certifications.map((cert) => (
-                  <div key={cert.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-semibold text-sm text-stone-800">{cert.name}</div>
-                      {cert.date && <div className="text-xs text-stone-500">Certified: {cert.date}</div>}
+                {certifications.map((certName, idx) => (
+                  <div key={idx} className="py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span className="font-semibold text-sm text-stone-800">{certName}</span>
                     </div>
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
                       Authorized
@@ -163,12 +154,12 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* Right Column (1 Col): Member Information & Emergency Contact */}
+        {/* Right Column (1 Col): Member Information */}
         <div className="space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
             <div className="flex items-center justify-between mb-4">
               <h2 className="font-fredoka text-lg font-bold text-stone-900">
-                Contact & Details
+                Member Information
               </h2>
               {!isEditingContact ? (
                 <button
@@ -217,19 +208,12 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <div className="pt-2 border-t border-stone-100">
-                  <label className="text-stone-500 font-medium block mb-1">Emergency Contact</label>
-                  {member.emergencyContact?.name ? (
-                    <div className="space-y-1 bg-stone-50 p-3 rounded-xl border border-stone-200">
-                      <div className="font-semibold text-stone-800">{member.emergencyContact.name}</div>
-                      <div className="text-stone-500">{member.emergencyContact.relation || "Contact"}</div>
-                      <div className="text-stone-700 font-mono">{member.emergencyContact.phone}</div>
-                    </div>
-                  ) : (
-                    <div className="text-stone-400 italic bg-stone-50 p-2.5 rounded-xl border border-stone-200">
-                      No emergency contact registered yet.
-                    </div>
-                  )}
+                <div>
+                  <label className="text-stone-500 font-medium block mb-1">Tap Card</label>
+                  <div className="flex items-center gap-2 text-stone-800 font-mono font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <CreditCard className="w-3.5 h-3.5 text-stone-400" />
+                    <span>{member.tapCard}</span>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -261,31 +245,6 @@ export default function ProfilePage() {
                     type="text"
                     value={phoneInput}
                     onChange={(e) => setPhoneInput(e.target.value)}
-                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
-                  />
-                </div>
-
-                <div className="pt-2 border-t border-stone-100 space-y-2">
-                  <label className="text-stone-600 font-medium block">Emergency Contact</label>
-                  <input
-                    type="text"
-                    placeholder="Contact Name"
-                    value={emergencyNameInput}
-                    onChange={(e) => setEmergencyNameInput(e.target.value)}
-                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Relationship"
-                    value={emergencyRelationInput}
-                    onChange={(e) => setEmergencyRelationInput(e.target.value)}
-                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Phone"
-                    value={emergencyPhoneInput}
-                    onChange={(e) => setEmergencyPhoneInput(e.target.value)}
                     className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
                   />
                 </div>

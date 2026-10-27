@@ -1,19 +1,14 @@
 import { MemberProfile, TapCardMedia, GameRoomPreset, GameRoomDisplayStatus } from './types';
 
-// Default member profile with clean real baseline (no fake certifications or badges)
+// Default member profile with clean real baseline (no fake certifications or achievements)
 export const DEFAULT_MEMBER: MemberProfile = {
   name: "Ben Braunstein",
   email: "Ben@socialmedium.space",
   phone: "818-648-1314",
   membershipTier: "Board President",
-  tapCardId: "3680669188",
-  emergencyContact: {
-    name: "Ilana Jaffe-Lewis",
-    phone: "747-322-0689",
-    relation: "Makerspace Manager / Colleague"
-  },
+  tapCard: "3680669188",
   certifications: [],
-  achievements: []
+  portalMedia: "videos/Tron.mp4"
 };
 
 // Default personal portal media linked to Ben's physical tap card (3680669188)

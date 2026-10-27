@@ -1,14 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, RefreshCw, AlertCircle } from 'lucide-react';
+import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
-import { ACTUAL_PORTAL_MEDIA_RECORDS, PortalMediaRecord } from '@/lib/actual-portal-data';
+import { ACTUAL_PORTAL_MEDIA_RECORDS } from '@/lib/actual-portal-data';
 import { TapCardMedia } from '@/lib/types';
 
 export default function PortalMediaPage() {
-  const { activeCardId, member, isLoading } = useAuth();
+  const { activeCardId, member, updateMember, isLoading } = useAuth();
   const [media, setMedia] = useState<TapCardMedia | null>(null);
   const [titleInput, setTitleInput] = useState('');
   const [typeInput, setTypeInput] = useState<'video' | 'image'>('video');
@@ -50,17 +50,17 @@ export default function PortalMediaPage() {
       // New card without media yet
       const blank: TapCardMedia = {
         cardId: activeCardId,
-        title: '',
+        title: member?.name ? `${member.name}'s Portal` : 'Portal Media',
         type: 'video',
-        filePath: '',
+        filePath: member?.portalMedia || '',
         updatedAt: 'New Registration'
       };
       setMedia(blank);
-      setTitleInput('');
+      setTitleInput(blank.title);
       setTypeInput('video');
-      setFilePathInput('');
+      setFilePathInput(blank.filePath);
     }
-  }, [activeCardId]);
+  }, [activeCardId, member]);
 
   if (isLoading) {
     return <div className="py-20 text-center text-stone-500 font-mono text-sm">Loading...</div>;
@@ -86,6 +86,9 @@ export default function PortalMediaPage() {
       localStorage.setItem(`sm_portal_media_${activeCardId}`, JSON.stringify(updated));
     } catch (_) {}
 
+    // Also update member's "Portal Media" single-line text field
+    updateMember({ portalMedia: filePathInput.trim() });
+
     setMedia(updated);
     setIsSaving(false);
     setSaveSuccess(true);
@@ -104,7 +107,7 @@ export default function PortalMediaPage() {
           My Portal Media
         </h1>
         <p className="text-stone-600 text-sm">
-          Media bound to your physical Tap Card (<strong>{activeCardId}</strong>). When you tap this card at the physical Portal Door kiosk, this assigned media automatically plays.
+          Media bound to Tap Card <strong>{activeCardId}</strong> (Neon One "Portal Media" field). When you tap this card at the Portal Door kiosk, this assigned media automatically plays.
         </p>
       </div>
 
@@ -112,7 +115,7 @@ export default function PortalMediaPage() {
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm flex items-center gap-2 shadow-xs">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>
-            <strong>Tap Card Media Updated!</strong> Successfully saved to Card <code>{activeCardId}</code>.
+            <strong>Portal Media Updated!</strong> Saved to Tap Card <code>{activeCardId}</code>.
           </div>
         </div>
       )}
@@ -124,7 +127,7 @@ export default function PortalMediaPage() {
             <CreditCard className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-xs text-stone-500 font-medium">Active Physical Tap Card UID</div>
+            <div className="text-xs text-stone-500 font-medium">Active Tap Card</div>
             <div className="font-mono text-lg sm:text-xl font-bold text-stone-900">
               {activeCardId}
             </div>
@@ -191,13 +194,13 @@ export default function PortalMediaPage() {
                   {media?.title || 'Unassigned'}
                 </div>
                 <div className="text-[10px] text-stone-400 font-mono">
-                  Card ID: {activeCardId}
+                  Tap Card: {activeCardId}
                 </div>
               </div>
             </div>
 
             <div className="text-[11px] text-stone-400 text-center mt-2">
-              This triggers on the physical Portal Door when card <strong>{activeCardId}</strong> is tapped.
+              This triggers on the physical Portal Door when Tap Card <strong>{activeCardId}</strong> is scanned.
             </div>
           </div>
         </div>
@@ -206,16 +209,16 @@ export default function PortalMediaPage() {
         <div className="lg:col-span-7 space-y-5">
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
             <h2 className="font-fredoka text-lg font-bold text-stone-900 mb-1">
-              Edit Card Media
+              Edit Portal Media
             </h2>
             <p className="text-stone-500 text-xs mb-4">
-              Enter a title and the direct file URL (video loop or image) you want assigned to your tap card.
+              Enter the file path or URL (video loop or image) to store in your Neon One "Portal Media" field.
             </p>
 
             <form onSubmit={handleSave} className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Title / Name
+                  Title / Character Name
                 </label>
                 <input
                   type="text"
@@ -261,7 +264,7 @@ export default function PortalMediaPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Direct Media URL or File Path
+                  Portal Media URL / Path (Neon One: "Portal Media")
                 </label>
                 <input
                   type="text"
@@ -272,7 +275,7 @@ export default function PortalMediaPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 focus:border-[#f16622] focus:ring-2 focus:ring-[#f16622]/20 text-xs font-mono transition-all"
                 />
                 <p className="text-[11px] text-stone-500 mt-1">
-                  Can be a relative Portal-Door path (e.g. <code>videos/Tron.mp4</code>) or a direct web link (<code>https://...</code>).
+                  Direct web URL (<code>https://...</code>) or Portal Door video file (e.g. <code>videos/Tron.mp4</code>).
                 </p>
               </div>
 
@@ -290,7 +293,7 @@ export default function PortalMediaPage() {
                   ) : (
                     <>
                       <Save className="w-4 h-4" />
-                      Save & Link to Card {activeCardId}
+                      Save Portal Media
                     </>
                   )}
                 </button>

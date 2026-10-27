@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, Sparkles, ArrowRight, ShieldCheck } from 'lucide-react';
+import { CreditCard, Sparkles, ArrowRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 export function TapCardLogin() {
@@ -31,7 +31,7 @@ export function TapCardLogin() {
         Tap Card Login
       </h1>
       <p className="text-stone-600 text-xs sm:text-sm leading-relaxed mb-6 font-roboto">
-        Tap your physical NFC card on your reader, or enter your <strong>Tap Card ID</strong> from Neon One.
+        Tap your physical NFC card on your reader, or enter your <strong>Tap Card</strong> from Neon One.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -42,7 +42,7 @@ export function TapCardLogin() {
             autoFocus
             value={inputCardId}
             onChange={(e) => setInputCardId(e.target.value)}
-            placeholder="Scan NFC or enter Card ID..."
+            placeholder="Scan NFC or enter Tap Card..."
             className="w-full text-center px-4 py-3.5 rounded-2xl border-2 border-stone-200 focus:border-[#3bc0cd] focus:ring-4 focus:ring-[#3bc0cd]/20 font-mono text-lg font-bold tracking-wider text-stone-800 transition-all outline-hidden placeholder:text-stone-400 placeholder:font-normal placeholder:text-sm"
           />
           <CreditCard className="w-5 h-5 text-stone-400 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -60,7 +60,7 @@ export function TapCardLogin() {
       {/* Quick Test Cards */}
       <div className="mt-8 pt-6 border-t border-stone-100 text-left">
         <div className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-2.5">
-          Quick Test Card IDs:
+          Quick Test Tap Cards:
         </div>
         <div className="space-y-1.5 text-xs">
           <button
