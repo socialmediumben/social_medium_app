@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut, Code2, BookOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useDevMode } from '@/context/DevModeContext';
+import { APP_VERSION } from '@/lib/version';
 
 const NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
@@ -14,6 +16,7 @@ const NAV_ITEMS = [
 export function Navbar() {
   const pathname = usePathname();
   const { activeCardId, logout } = useAuth();
+  const { isDevMode, toggleDevMode, openChangelog } = useDevMode();
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
@@ -71,8 +74,41 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Tap Card Status / Switch Button */}
+        {/* Right side: Developer Mode & Tap Card Status */}
         <div className="flex items-center gap-2">
+          {/* Developer Mode pill / version (Only in Dev Mode does version & changelog appear) */}
+          {isDevMode ? (
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={openChangelog}
+                title="View Release Changelog"
+                className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-800 hover:bg-amber-500/25 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span>v{APP_VERSION}</span>
+                <BookOpen className="w-3 h-3 text-amber-700" />
+              </button>
+              <button
+                type="button"
+                onClick={toggleDevMode}
+                title="Disable Developer Mode"
+                className="p-1.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs transition-colors cursor-pointer"
+              >
+                <Code2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleDevMode}
+              title="Enable Developer Mode"
+              className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+            >
+              <Code2 className="w-4 h-4" />
+            </button>
+          )}
+
           {activeCardId ? (
             <div className="flex items-center gap-1.5">
               <Link
@@ -88,7 +124,7 @@ export function Navbar() {
                 type="button"
                 onClick={logout}
                 title="Switch Tap Card"
-                className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors"
+                className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors cursor-pointer"
               >
                 <LogOut className="w-3.5 h-3.5" />
               </button>

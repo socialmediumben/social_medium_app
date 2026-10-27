@@ -125,8 +125,10 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
     const memberProfile: MemberProfile = {
       accountId: String(accountId),
       tapCard: foundTapCard,
-      name: fullName,
+      firstName,
+      lastName,
       preferredName: preferredName || undefined,
+      name: fullName,
       email,
       phone,
       membershipTier,

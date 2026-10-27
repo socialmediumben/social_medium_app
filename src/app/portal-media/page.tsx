@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
-import { TapCardMedia } from '@/lib/types';
+import { TapCardMedia, getGreetingName } from '@/lib/types';
 import { updatePortalMediaInNeon } from '@/lib/neon';
 
 export default function PortalMediaPage() {
@@ -33,10 +33,12 @@ export default function PortalMediaPage() {
       }
     } catch (_) {}
 
+    const greetingName = getGreetingName(member);
+
     // Initial clean record for the Tap Card from Neon One
     const initial: TapCardMedia = {
       cardId: activeCardId,
-      title: member?.portalMedia ? (member.name ? `${member.name}'s Portal` : 'My Portal Media') : '',
+      title: member?.portalMedia ? `${greetingName}'s Portal` : '',
       type: 'video',
       filePath: member?.portalMedia || '',
       updatedAt: member?.portalMedia ? 'Neon One' : ''
@@ -54,6 +56,8 @@ export default function PortalMediaPage() {
   if (!activeCardId || !member) {
     return <TapCardLogin />;
   }
+
+  const greetingName = getGreetingName(member);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +140,7 @@ export default function PortalMediaPage() {
         </div>
         <div className="flex items-center gap-2 text-xs text-stone-600">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>Account: <strong className="text-stone-800">{member.name || `Tap Card #${activeCardId}`}</strong></span>
+          <span>Account: <strong className="text-stone-800">{greetingName}</strong></span>
           {media?.updatedAt && (
             <>
               <span className="text-stone-300">•</span>

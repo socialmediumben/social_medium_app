@@ -1,21 +1,30 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench } from 'lucide-react';
+import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench, Code2, BookOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useDevMode } from '@/context/DevModeContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
+import { getGreetingName } from '@/lib/types';
+import { APP_VERSION } from '@/lib/version';
 
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
+  const { isDevMode, toggleDevMode, openChangelog } = useDevMode();
+
   const [isEditingContact, setIsEditingContact] = useState(false);
-  const [nameInput, setNameInput] = useState('');
+  const [firstNameInput, setFirstNameInput] = useState('');
+  const [lastNameInput, setLastNameInput] = useState('');
+  const [preferredNameInput, setPreferredNameInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
     if (member) {
-      setNameInput(member.name || '');
+      setFirstNameInput(member.firstName || '');
+      setLastNameInput(member.lastName || '');
+      setPreferredNameInput(member.preferredName || '');
       setEmailInput(member.email || '');
       setPhoneInput(member.phone || '');
     }
@@ -31,10 +40,18 @@ export default function ProfilePage() {
 
   const handleSaveContact = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanFirst = firstNameInput.trim();
+    const cleanLast = lastNameInput.trim();
+    const cleanPreferred = preferredNameInput.trim();
+    const fullName = `${cleanFirst} ${cleanLast}`.trim() || 'Member';
+
     updateMember({
-      name: nameInput,
-      email: emailInput,
-      phone: phoneInput
+      firstName: cleanFirst,
+      lastName: cleanLast,
+      preferredName: cleanPreferred || undefined,
+      name: fullName,
+      email: emailInput.trim(),
+      phone: phoneInput.trim(),
     });
     setIsEditingContact(false);
     setSaveSuccess(true);
@@ -42,6 +59,7 @@ export default function ProfilePage() {
   };
 
   const certifications = member.certifications || [];
+  const greetingName = getGreetingName(member);
 
   return (
     <div className="space-y-6">
@@ -60,7 +78,7 @@ export default function ProfilePage() {
       {saveSuccess && (
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Contact information successfully saved!</span>
+          <span>Profile information successfully updated!</span>
         </div>
       )}
 
@@ -74,9 +92,14 @@ export default function ProfilePage() {
             </div>
             <div>
               <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {member.name || "Member"}
+                {greetingName}
               </h2>
-              <p className="text-stone-300 text-sm font-medium">
+              {member.preferredName && (member.firstName || member.lastName) && (
+                <p className="text-stone-300 text-xs font-medium">
+                  Legal Name: {member.firstName} {member.lastName}
+                </p>
+              )}
+              <p className="text-stone-300 text-sm font-medium mt-0.5">
                 {member.membershipTier || "Active Member"}
               </p>
             </div>
@@ -152,9 +175,47 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Developer Mode Box (Only visible in Developer Mode) */}
+          {isDevMode && (
+            <div className="p-6 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-xs space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-amber-200 text-amber-900 font-bold">
+                    <Code2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-fredoka text-base font-bold text-amber-950">
+                      Developer Mode
+                    </h3>
+                    <p className="text-xs text-amber-800 font-mono">
+                      Current App Version: <strong>v{APP_VERSION}</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={openChangelog}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                  >
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span>View Changelog</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleDevMode}
+                    className="px-3 py-1.5 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    Exit Dev Mode
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Column (1 Col): Member Information */}
+        {/* Right Column (1 Col): Member Information with First, Last, Preferred Name matching Neon One */}
         <div className="space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
             <div className="flex items-center justify-between mb-4">
@@ -183,12 +244,28 @@ export default function ProfilePage() {
             </div>
 
             {!isEditingContact ? (
-              <div className="space-y-4 text-xs">
+              <div className="space-y-3.5 text-xs">
                 <div>
-                  <label className="text-stone-500 font-medium block mb-1">Full Name</label>
+                  <label className="text-stone-500 font-medium block mb-1">Preferred Name</label>
+                  <div className="flex items-center gap-2 text-stone-800 font-semibold bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <User className="w-3.5 h-3.5 text-[#f16622]" />
+                    <span>{member.preferredName || "Not set (uses First Name)"}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-stone-500 font-medium block mb-1">First Name</label>
                   <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                     <User className="w-3.5 h-3.5 text-stone-400" />
-                    <span>{member.name || "Not set"}</span>
+                    <span>{member.firstName || "Not set"}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-stone-500 font-medium block mb-1">Last Name</label>
+                  <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <User className="w-3.5 h-3.5 text-stone-400" />
+                    <span>{member.lastName || "Not set"}</span>
                   </div>
                 </div>
 
@@ -219,12 +296,35 @@ export default function ProfilePage() {
             ) : (
               <form onSubmit={handleSaveContact} className="space-y-3 text-xs">
                 <div>
-                  <label className="text-stone-600 font-medium block mb-1">Full Name</label>
+                  <label className="text-stone-600 font-medium block mb-1">Preferred Name</label>
+                  <input
+                    type="text"
+                    value={preferredNameInput}
+                    onChange={(e) => setPreferredNameInput(e.target.value)}
+                    placeholder="e.g. Ben"
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#f16622] focus:outline-hidden text-xs"
+                  />
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">Used to address you across the app.</span>
+                </div>
+
+                <div>
+                  <label className="text-stone-600 font-medium block mb-1">First Name</label>
                   <input
                     type="text"
                     required
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
+                    value={firstNameInput}
+                    onChange={(e) => setFirstNameInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-stone-600 font-medium block mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={lastNameInput}
+                    onChange={(e) => setLastNameInput(e.target.value)}
                     className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
                   />
                 </div>

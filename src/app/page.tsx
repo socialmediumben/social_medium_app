@@ -1,12 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { User, DoorOpen, Gamepad2, ChevronRight, CreditCard, Sparkles, MapPin, Wrench } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, ChevronRight, CreditCard, Sparkles, MapPin, Wrench, Code2, BookOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useDevMode } from '@/context/DevModeContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
+import { getGreetingName } from '@/lib/types';
+import { APP_VERSION } from '@/lib/version';
 
 export default function HomePage() {
   const { activeCardId, member, isLoading } = useAuth();
+  const { isDevMode, openChangelog } = useDevMode();
 
   if (isLoading) {
     return (
@@ -21,9 +25,32 @@ export default function HomePage() {
   }
 
   const certCount = member.certifications ? member.certifications.length : 0;
+  const greetingName = getGreetingName(member);
 
   return (
     <div className="space-y-6">
+      {/* Developer Mode Banner (Only visible in Developer Mode) */}
+      {isDevMode && (
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-between gap-3 text-xs text-amber-900 font-roboto shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-lg bg-amber-500/20 text-amber-800 font-bold">
+              <Code2 className="w-3.5 h-3.5" />
+            </span>
+            <span>
+              <strong>Developer Mode Active</strong> • Version <strong>v{APP_VERSION}</strong>
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={openChangelog}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-900 font-semibold transition-colors cursor-pointer"
+          >
+            <BookOpen className="w-3.5 h-3.5" />
+            <span>View Changelog</span>
+          </button>
+        </div>
+      )}
+
       {/* Welcome Hero Card */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#344ea2] via-[#2a3f85] to-[#1e2e66] text-white p-6 sm:p-8 shadow-md">
         <div className="relative z-10 max-w-2xl">
@@ -32,7 +59,7 @@ export default function HomePage() {
             Official Member Companion
           </div>
           <h1 className="font-fredoka text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">
-            Welcome, {member.name}!
+            Welcome, {greetingName}!
           </h1>
           <p className="text-stone-200 text-sm sm:text-base leading-relaxed mb-6 font-roboto">
             Your companion for <strong>Social Medium Makerspace</strong>. Manage your member profile, update your physical tap card media, and control the Game Room.
