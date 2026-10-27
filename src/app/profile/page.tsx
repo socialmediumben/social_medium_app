@@ -1,20 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { CreditCard, ShieldCheck, Clock, User, Phone, Mail, CheckCircle2, AlertCircle, Edit2, Save, X } from 'lucide-react';
 import { DEFAULT_MEMBER } from '@/lib/member-data';
 import { MemberProfile } from '@/lib/types';
 
+const STORAGE_KEY = 'sm_member_profile';
+
 export default function ProfilePage() {
   const [member, setMember] = useState<MemberProfile>(DEFAULT_MEMBER);
   const [isEditingContact, setIsEditingContact] = useState(false);
-  const [phoneInput, setPhoneInput] = useState(member.phone);
-  const [emergencyPhoneInput, setEmergencyPhoneInput] = useState(member.emergencyContact.phone);
-  const [emergencyNameInput, setEmergencyNameInput] = useState(member.emergencyContact.name);
+  const [phoneInput, setPhoneInput] = useState(DEFAULT_MEMBER.phone);
+  const [emergencyPhoneInput, setEmergencyPhoneInput] = useState(DEFAULT_MEMBER.emergencyContact.phone);
+  const [emergencyNameInput, setEmergencyNameInput] = useState(DEFAULT_MEMBER.emergencyContact.name);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMember(parsed);
+        setPhoneInput(parsed.phone);
+        setEmergencyPhoneInput(parsed.emergencyContact.phone);
+        setEmergencyNameInput(parsed.emergencyContact.name);
+      }
+    } catch (_) {}
+  }, []);
+
   const handleSaveContact = () => {
-    setMember({
+    const updated = {
       ...member,
       phone: phoneInput,
       emergencyContact: {
@@ -22,7 +37,11 @@ export default function ProfilePage() {
         name: emergencyNameInput,
         phone: emergencyPhoneInput
       }
-    });
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (_) {}
+    setMember(updated);
     setIsEditingContact(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);

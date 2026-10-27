@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
-import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, Sparkles, ExternalLink, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, Sparkles, RefreshCw } from 'lucide-react';
 import { DEFAULT_PORTAL_MEDIA, DEFAULT_MEMBER } from '@/lib/member-data';
 import { TapCardMedia } from '@/lib/types';
+
+const STORAGE_KEY = 'sm_personal_portal_media';
 
 // Preset sample media available at the makerspace for quick selection
 const QUICK_MEDIA_PRESETS = [
@@ -31,46 +33,45 @@ const QUICK_MEDIA_PRESETS = [
 
 export default function PortalMediaPage() {
   const [media, setMedia] = useState<TapCardMedia>(DEFAULT_PORTAL_MEDIA);
-  const [titleInput, setTitleInput] = useState(media.title);
-  const [typeInput, setTypeInput] = useState<'video' | 'image'>(media.type);
-  const [filePathInput, setFilePathInput] = useState(media.filePath);
+  const [titleInput, setTitleInput] = useState(DEFAULT_PORTAL_MEDIA.title);
+  const [typeInput, setTypeInput] = useState<'video' | 'image'>(DEFAULT_PORTAL_MEDIA.type);
+  const [filePathInput, setFilePathInput] = useState(DEFAULT_PORTAL_MEDIA.filePath);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleSave = async (e: React.FormEvent) => {
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setMedia(parsed);
+        setTitleInput(parsed.title);
+        setTypeInput(parsed.type);
+        setFilePathInput(parsed.filePath);
+      }
+    } catch (_) {}
+  }, []);
+
+  const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
 
+    const updated: TapCardMedia = {
+      cardId: DEFAULT_MEMBER.tapCardId,
+      title: titleInput,
+      type: typeInput,
+      filePath: filePathInput,
+      updatedAt: new Date().toISOString().split('T')[0]
+    };
+
     try {
-      const res = await fetch('/api/portal-media', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: titleInput,
-          type: typeInput,
-          filePath: filePathInput
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setMedia(data.media);
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3500);
-      }
-    } catch (err) {
-      // Fallback local update
-      setMedia({
-        ...media,
-        title: titleInput,
-        type: typeInput,
-        filePath: filePathInput,
-        updatedAt: new Date().toISOString().split('T')[0]
-      });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3500);
-    } finally {
-      setIsSaving(false);
-    }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    } catch (_) {}
+
+    setMedia(updated);
+    setIsSaving(false);
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3500);
   };
 
   const handleSelectPreset = (preset: typeof QUICK_MEDIA_PRESETS[number]) => {
