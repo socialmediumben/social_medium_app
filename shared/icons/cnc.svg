@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- CNC Spindle & Chuck -->
+  <rect x="8" y="2" width="8" height="6" rx="1"/>
+  <path d="M10 8v4l2 3 2-3V8z"/>
+  <!-- Milling Bit Tip -->
+  <line x1="12" y1="15" x2="12" y2="18"/>
+  <!-- Stock Material with Spiral Milling Chips -->
+  <line x1="4" y1="20" x2="20" y2="20"/>
+  <path d="M7 17q2-2 5 0t5 0"/>
+</svg>

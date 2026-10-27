@@ -1,0 +1,71 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-10-27",
+  "organization": "Social Medium Makerspace",
+  "tools": {
+    "3d-printing": {
+      "id": "3d-printing",
+      "name": "3D Printing",
+      "category": "Digital Fabrication",
+      "color": "#3bc0cd",
+      "icon": "icons/3d-printing.svg",
+      "keywords": ["3d printing", "fdm", "resin", "3d printer", "ender", "bambu", "prusa"]
+    },
+    "laser-cutting": {
+      "id": "laser-cutting",
+      "name": "Laser Cutting",
+      "category": "Digital Fabrication",
+      "color": "#f16622",
+      "icon": "icons/laser-cutting.svg",
+      "keywords": ["laser cutting", "laser cutter", "laser", "glowforge", "omtech"]
+    },
+    "soldering": {
+      "id": "soldering",
+      "name": "Soldering",
+      "category": "Electronics",
+      "color": "#344ea2",
+      "icon": "icons/soldering.svg",
+      "keywords": ["soldering", "solder", "circuit", "pcb"]
+    },
+    "machine-sewing": {
+      "id": "machine-sewing",
+      "name": "Machine Sewing",
+      "category": "Textiles",
+      "color": "#8a9280",
+      "icon": "icons/machine-sewing.svg",
+      "keywords": ["machine sewing", "sewing", "embroidery", "textile", "serger"]
+    },
+    "woodworking": {
+      "id": "woodworking",
+      "name": "Woodworking",
+      "category": "Woodshop",
+      "color": "#f16622",
+      "icon": "icons/woodworking.svg",
+      "keywords": ["woodworking", "woodshop", "saw", "table saw", "miter saw", "jointer", "planer"]
+    },
+    "cnc-routing": {
+      "id": "cnc-routing",
+      "name": "CNC Routing",
+      "category": "Digital Fabrication",
+      "color": "#344ea2",
+      "icon": "icons/cnc.svg",
+      "keywords": ["cnc", "cnc routing", "cnc router", "milling", "shapeoko"]
+    },
+    "vinyl-cutting": {
+      "id": "vinyl-cutting",
+      "name": "Vinyl Cutting",
+      "category": "Digital Fabrication",
+      "color": "#3bc0cd",
+      "icon": "icons/vinyl-cutting.svg",
+      "keywords": ["vinyl", "vinyl cutting", "cricut", "silhouette", "heat press"]
+    },
+    "electronics": {
+      "id": "electronics",
+      "name": "Electronics & Microcontrollers",
+      "category": "Electronics",
+      "color": "#344ea2",
+      "icon": "icons/electronics.svg",
+      "keywords": ["electronics", "arduino", "raspberry pi", "esp32", "breadboard"]
+    }
+  }
+}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Soldering Iron Handle & Barrel -->
+  <path d="M19 5l-7 7M16 2l6 6-2 2-6-6 2-2z"/>
+  <!-- Heated Heating Element & Chisel Tip -->
+  <path d="M12 12l-5 5-3 1 1-3 5-5"/>
+  <!-- Heat Spark / Joint Contact -->
+  <circle cx="4" cy="20" r="1.5" fill="currentColor"/>
+  <path d="M2 17l2 1M7 22l-1-2"/>
+</svg>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Laser Nozzle Head -->
+  <path d="M7 3h10v4l-3 4v2h-4v-2L7 7V3z"/>
+  <!-- Focused Laser Beam -->
+  <line x1="12" y1="13" x2="12" y2="19" stroke-dasharray="1 1"/>
+  <!-- Material Bed with cut spark -->
+  <line x1="3" y1="21" x2="21" y2="21"/>
+  <path d="M10 19l2-2 2 2"/>
+</svg>

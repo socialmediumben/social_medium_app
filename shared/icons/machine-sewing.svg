@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Sewing Machine Arm & Bed -->
+  <path d="M3 21h18M4 21V8a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v13"/>
+  <!-- Needle & Presser Foot -->
+  <path d="M8 8v7M7 15h2"/>
+  <!-- Thread Spool & Balance Wheel -->
+  <circle cx="17" cy="8" r="2"/>
+</svg>
