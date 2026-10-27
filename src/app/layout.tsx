@@ -5,6 +5,7 @@ import { Navbar, BottomNav } from "@/components/Navigation";
 import { AuthProvider } from "@/context/AuthContext";
 import { DevModeProvider } from "@/context/DevModeContext";
 import { ChangelogModal } from "@/components/ChangelogModal";
+import { CertificationManagerModal } from "@/components/CertificationManagerModal";
 
 const fredoka = Fredoka({
   variable: "--font-fredoka",
@@ -49,6 +50,7 @@ export default function RootLayout({
             </main>
             <BottomNav />
             <ChangelogModal />
+            <CertificationManagerModal />
           </AuthProvider>
         </DevModeProvider>
       </body>

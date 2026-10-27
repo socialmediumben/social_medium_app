@@ -8,6 +8,9 @@ interface DevModeContextType {
   isChangelogOpen: boolean;
   openChangelog: () => void;
   closeChangelog: () => void;
+  isIconManagerOpen: boolean;
+  openIconManager: () => void;
+  closeIconManager: () => void;
 }
 
 const DevModeContext = createContext<DevModeContextType>({
@@ -16,11 +19,15 @@ const DevModeContext = createContext<DevModeContextType>({
   isChangelogOpen: false,
   openChangelog: () => {},
   closeChangelog: () => {},
+  isIconManagerOpen: false,
+  openIconManager: () => {},
+  closeIconManager: () => {},
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
   const [isDevMode, setIsDevMode] = useState<boolean>(false);
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
+  const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
@@ -44,6 +51,9 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   const openChangelog = () => setIsChangelogOpen(true);
   const closeChangelog = () => setIsChangelogOpen(false);
 
+  const openIconManager = () => setIsIconManagerOpen(true);
+  const closeIconManager = () => setIsIconManagerOpen(false);
+
   return (
     <DevModeContext.Provider
       value={{
@@ -52,6 +62,9 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
         isChangelogOpen,
         openChangelog,
         closeChangelog,
+        isIconManagerOpen,
+        openIconManager,
+        closeIconManager,
       }}
     >
       {children}

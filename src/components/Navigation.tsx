@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut, Code2, BookOpen } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut, Code2, BookOpen, Sliders } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
 import { APP_VERSION } from '@/lib/version';
@@ -16,7 +16,7 @@ const NAV_ITEMS = [
 export function Navbar() {
   const pathname = usePathname();
   const { activeCardId, logout } = useAuth();
-  const { isDevMode, toggleDevMode, openChangelog } = useDevMode();
+  const { isDevMode, toggleDevMode, openChangelog, openIconManager } = useDevMode();
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
@@ -79,6 +79,15 @@ export function Navbar() {
           {/* Developer Mode Toggle Button - Clear and labeled */}
           {isDevMode ? (
             <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={openIconManager}
+                title="Manage SSOT Certification Icons"
+                className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-900 hover:bg-amber-500/25 font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+              >
+                <Sliders className="w-3.5 h-3.5 text-amber-800" />
+                <span className="hidden sm:inline">Icons</span>
+              </button>
               <button
                 type="button"
                 onClick={openChangelog}

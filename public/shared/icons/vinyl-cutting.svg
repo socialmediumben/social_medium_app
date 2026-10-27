@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Vinyl Roll & Blade Carriage -->
+  <rect x="3" y="4" width="18" height="6" rx="2"/>
+  <circle cx="6" cy="7" r="1.5" fill="currentColor"/>
+  <!-- Drag Knife Blade Carriage -->
+  <path d="M12 10v4l-1 2h2l-1-2"/>
+  <!-- Vinyl Sheet Output with Decal Outline -->
+  <path d="M5 14h14v6H5z"/>
+  <path d="M8 17l2 2 4-4"/>
+</svg>

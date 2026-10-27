@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.5';
+export const APP_VERSION = '1.6';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '1.6',
+    date: '2026-10-27',
+    title: 'SSOT Certification Icons & Developer Mode Icon Manager',
+    changes: [
+      'Created central Single Source of Truth (SSOT) certification registry (sm-certifications.js & certifications.json).',
+      'Implemented Base Icon + "+" badge rule: beginner icon is base, advanced certification adds "+" badge.',
+      'Added interactive Certification & Icon Manager UI in Developer Mode for live mapping and inspection.',
+      'Unified high-contrast thermal printable icons across Check-In Kiosk nametags, Portal Door, and Companion App.',
+    ],
+  },
   {
     version: '1.5',
     date: '2026-10-27',

@@ -1,16 +1,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench, Code2, BookOpen } from 'lucide-react';
+import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench, Code2, BookOpen, Sliders } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 import { getGreetingName } from '@/lib/types';
 import { APP_VERSION } from '@/lib/version';
 
+// Single Source of Truth for tool icons and certification deduplication
+// @ts-ignore
+import SMCertifications from '../../../public/shared/sm-certifications.js';
+
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
-  const { isDevMode, toggleDevMode, openChangelog } = useDevMode();
+  const { isDevMode, toggleDevMode, openChangelog, openIconManager } = useDevMode();
 
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [firstNameInput, setFirstNameInput] = useState('');
@@ -59,6 +63,7 @@ export default function ProfilePage() {
   };
 
   const certifications = member.certifications || [];
+  const deduplicatedCerts = SMCertifications.dedupeAndGroup(certifications);
   const greetingName = getGreetingName(member);
 
   return (
@@ -145,11 +150,11 @@ export default function ProfilePage() {
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
-                {certifications.length} Certified
+                {deduplicatedCerts.length} Certified {deduplicatedCerts.length === 1 ? 'Tool' : 'Tools'}
               </span>
             </div>
 
-            {certifications.length === 0 ? (
+            {deduplicatedCerts.length === 0 ? (
               <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-2">
                 <Wrench className="w-8 h-8 text-stone-400 mx-auto mb-1" />
                 <h3 className="font-semibold text-stone-800 text-sm">
@@ -161,13 +166,48 @@ export default function ProfilePage() {
               </div>
             ) : (
               <div className="divide-y divide-stone-100">
-                {certifications.map((certName, idx) => (
-                  <div key={idx} className="py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      <span className="font-semibold text-sm text-stone-800">{certName}</span>
+                {deduplicatedCerts.map((item: any, idx: number) => (
+                  <div key={idx} className="py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
+                        style={{
+                          backgroundColor: `${item.color}15`,
+                          borderColor: `${item.color}35`,
+                          color: item.color,
+                        }}
+                        dangerouslySetInnerHTML={{
+                          __html: (item.iconSvg || '')
+                            .replace(/stroke="currentColor"/g, `stroke="${item.color}"`)
+                            .replace(/width="24" height="24"/g, 'width="22" height="22"'),
+                        }}
+                      />
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-bold text-sm text-stone-900">{item.name}</span>
+                          {item.isAdvanced && (
+                            <span
+                              className="px-1.5 py-0.2 rounded font-black text-xs text-white leading-none shadow-2xs"
+                              style={{ backgroundColor: item.color }}
+                              title="Advanced Certification (+)"
+                            >
+                              +
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-stone-500 font-medium">
+                          {item.category} • <span className="text-stone-700 font-semibold">{item.level}</span>
+                        </p>
+                      </div>
                     </div>
-                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                    <span
+                      className="text-xs font-semibold px-2.5 py-1 rounded-full border"
+                      style={{
+                        backgroundColor: `${item.color}15`,
+                        color: item.color,
+                        borderColor: `${item.color}30`,
+                      }}
+                    >
                       Authorized
                     </span>
                   </div>
@@ -191,7 +231,7 @@ export default function ProfilePage() {
                     {isDevMode ? (
                       <span className="text-amber-900 font-mono font-semibold">Active • Version v{APP_VERSION}</span>
                     ) : (
-                      'Shows release versioning and full deployment changelog.'
+                      'Shows release versioning, icon manager, and full deployment changelog.'
                     )}
                   </p>
                 </div>
@@ -199,14 +239,24 @@ export default function ProfilePage() {
 
               <div className="flex items-center gap-2">
                 {isDevMode && (
-                  <button
-                    type="button"
-                    onClick={openChangelog}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    <span>View Changelog</span>
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      onClick={openIconManager}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Sliders className="w-3.5 h-3.5" />
+                      <span>Icon Manager</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openChangelog}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>View Changelog</span>
+                    </button>
+                  </>
                 )}
                 <button
                   type="button"
