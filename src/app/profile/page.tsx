@@ -165,51 +165,50 @@ export default function ProfilePage() {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-stone-100">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 pt-2">
                 {deduplicatedCerts.map((item: any, idx: number) => (
-                  <div key={idx} className="py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
+                  <div
+                    key={idx}
+                    className="flex flex-col items-center text-center p-4 rounded-2xl border transition-all hover:scale-105 hover:shadow-md group relative"
+                    style={{
+                      backgroundColor: `${item.color}08`,
+                      borderColor: `${item.color}35`,
+                    }}
+                  >
+                    <div className="relative mb-3">
                       <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border"
+                        className="w-18 h-18 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center border-2 shadow-xs"
                         style={{
                           backgroundColor: `${item.color}15`,
-                          borderColor: `${item.color}35`,
+                          borderColor: `${item.color}60`,
                           color: item.color,
+                          boxShadow: `0 4px 16px ${item.color}25`,
                         }}
                         dangerouslySetInnerHTML={{
                           __html: (item.iconSvg || '')
                             .replace(/stroke="currentColor"/g, `stroke="${item.color}"`)
-                            .replace(/width="24" height="24"/g, 'width="22" height="22"'),
+                            .replace(/width="24" height="24"/g, 'width="44" height="44"'),
                         }}
                       />
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-bold text-sm text-stone-900">{item.name}</span>
-                          {item.isAdvanced && (
-                            <span
-                              className="px-1.5 py-0.2 rounded font-black text-xs text-white leading-none shadow-2xs"
-                              style={{ backgroundColor: item.color }}
-                              title="Advanced Certification (+)"
-                            >
-                              +
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-stone-500 font-medium">
-                          {item.category} • <span className="text-stone-700 font-semibold">{item.level}</span>
-                        </p>
-                      </div>
+                      {item.isAdvanced && (
+                        <span
+                          className="absolute -top-2 -right-2 w-7 h-7 rounded-full font-black text-sm text-white flex items-center justify-center border-2 border-white shadow-sm leading-none"
+                          style={{ backgroundColor: item.color }}
+                          title="Advanced Certification (+)"
+                        >
+                          +
+                        </span>
+                      )}
                     </div>
-                    <span
-                      className="text-xs font-semibold px-2.5 py-1 rounded-full border"
-                      style={{
-                        backgroundColor: `${item.color}15`,
-                        color: item.color,
-                        borderColor: `${item.color}30`,
-                      }}
+                    <div className="font-bold text-xs sm:text-sm text-stone-900 leading-tight">
+                      {item.name}
+                    </div>
+                    <div
+                      className="text-[11px] font-semibold mt-0.5 uppercase tracking-wide"
+                      style={{ color: item.color }}
                     >
-                      Authorized
-                    </span>
+                      {item.level}
+                    </div>
                   </div>
                 ))}
               </div>

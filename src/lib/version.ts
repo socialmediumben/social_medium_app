@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.6';
+export const APP_VERSION = '1.7';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,16 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '1.7',
+    date: '2026-10-27',
+    title: 'Video Game Badges, Textless Thermal Icons & Streamlined UI',
+    changes: [
+      'Redesigned Portal Door & Companion App certifications as large video game achievement badges with glowing icons and captions underneath.',
+      'Streamlined Check-In Kiosk thermal nametag to display pure icons with "+" badges and zero text labels to preserve nametag space.',
+      'Removed redundant "Authorized" status label across all platforms.',
+    ],
+  },
   {
     version: '1.6',
     date: '2026-10-27',
