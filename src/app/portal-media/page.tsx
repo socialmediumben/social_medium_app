@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, RefreshCw } from 'lucide-react';
+import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, RefreshCw, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 import { TapCardMedia } from '@/lib/types';
+import { updatePortalMediaInNeon } from '@/lib/neon';
 
 export default function PortalMediaPage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
@@ -13,6 +14,7 @@ export default function PortalMediaPage() {
   const [typeInput, setTypeInput] = useState<'video' | 'image'>('video');
   const [filePathInput, setFilePathInput] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function PortalMediaPage() {
       }
     } catch (_) {}
 
-    // Initial clean record for the Tap Card
+    // Initial clean record for the Tap Card from Neon One
     const initial: TapCardMedia = {
       cardId: activeCardId,
       title: member?.portalMedia ? (member.name ? `${member.name}'s Portal` : 'My Portal Media') : '',
@@ -53,9 +55,10 @@ export default function PortalMediaPage() {
     return <TapCardLogin />;
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setSaveError(null);
 
     const updated: TapCardMedia = {
       cardId: activeCardId,
@@ -65,11 +68,19 @@ export default function PortalMediaPage() {
       updatedAt: new Date().toISOString().split('T')[0]
     };
 
+    // Save to Neon One if accountId is available
+    if (member?.accountId) {
+      const res = await updatePortalMediaInNeon(member.accountId, filePathInput.trim());
+      if (!res.success) {
+        setSaveError(res.error || 'Failed to save directly to Neon One, saved locally.');
+      }
+    }
+
     try {
       localStorage.setItem(`sm_portal_media_${activeCardId}`, JSON.stringify(updated));
     } catch (_) {}
 
-    // Update member's Portal Media field
+    // Update member's Portal Media field in local AuthContext
     updateMember({ portalMedia: filePathInput.trim() });
 
     setMedia(updated);
@@ -98,8 +109,15 @@ export default function PortalMediaPage() {
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm flex items-center gap-2 shadow-xs">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>
-            <strong>Portal Media Updated!</strong> Saved for Tap Card <code>{activeCardId}</code>.
+            <strong>Portal Media Updated & Synced to Neon One!</strong> Saved for Tap Card <code>{activeCardId}</code>.
           </div>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-sm flex items-center gap-2 shadow-xs">
+          <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+          <div>{saveError}</div>
         </div>
       )}
 
@@ -271,7 +289,7 @@ export default function PortalMediaPage() {
                   {isSaving ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      Saving...
+                      Saving to Neon One...
                     </>
                   ) : (
                     <>

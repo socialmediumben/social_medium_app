@@ -1,11 +1,13 @@
 export interface MemberProfile {
+  accountId?: string;
   tapCard: string;
   name: string;
+  preferredName?: string;
   email: string;
   phone: string;
   membershipTier: string;
-  certifications: string[]; // List field in Neon One: "Certifications"
-  portalMedia?: string;     // Single-line text field in Neon One: "Portal Media"
+  certifications: string[]; // List field in Neon One: "Certifications" (ID 116)
+  portalMedia?: string;     // Single-line text field in Neon One: "Portal Media" (ID 117)
 }
 
 export interface TapCardMedia {
