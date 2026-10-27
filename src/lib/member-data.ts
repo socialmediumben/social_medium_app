@@ -1,26 +1,6 @@
-import { MemberProfile, TapCardMedia, GameRoomPreset, GameRoomDisplayStatus } from './types';
+import { GameRoomPreset, GameRoomDisplayStatus } from './types';
 
-// Default member profile aligned with Neon One data
-export const DEFAULT_MEMBER: MemberProfile = {
-  name: "Ben Braunstein",
-  email: "Ben@socialmedium.space",
-  phone: "818-648-1314",
-  membershipTier: "Board President",
-  tapCard: "0037283076",
-  certifications: [],
-  portalMedia: "videos/Tron.mp4"
-};
-
-// Default personal portal media linked to Ben's physical tap card (0037283076)
-export const DEFAULT_PORTAL_MEDIA: TapCardMedia = {
-  cardId: "0037283076",
-  title: "Tron.mp4",
-  type: "video",
-  filePath: "videos/Tron.mp4",
-  updatedAt: "Synced from Portal Door"
-};
-
-// Presets faithfully modeled after external_repos/home_controller/README.md
+// Presets faithfully modeled after external_repos/home_controller/README.md for Game Room only
 export const GAME_ROOM_PRESETS: GameRoomPreset[] = [
   {
     id: "archmage",

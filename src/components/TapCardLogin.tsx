@@ -16,7 +16,7 @@ export function TapCardLogin() {
   };
 
   return (
-    <div className="max-w-md mx-auto my-8 p-6 sm:p-8 rounded-3xl bg-white border border-stone-200 shadow-lg text-center">
+    <div className="max-w-md mx-auto my-12 p-6 sm:p-8 rounded-3xl bg-white border border-stone-200 shadow-lg text-center">
       {/* Brand Icon */}
       <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white text-2xl font-bold shadow-md">
         SM
@@ -31,7 +31,7 @@ export function TapCardLogin() {
         Tap Card Login
       </h1>
       <p className="text-stone-600 text-xs sm:text-sm leading-relaxed mb-6 font-roboto">
-        Tap your physical NFC card on your reader, or enter your <strong>Tap Card</strong> from Neon One.
+        Scan your physical NFC card on a reader, or enter your 10-digit <strong>Tap Card</strong> from Neon One.
       </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -56,28 +56,6 @@ export function TapCardLogin() {
           <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
         </button>
       </form>
-
-      {/* Quick Test Card for Ben */}
-      <div className="mt-8 pt-6 border-t border-stone-100 text-left">
-        <div className="text-[11px] font-semibold text-stone-500 uppercase tracking-wider mb-2.5">
-          Quick Access:
-        </div>
-        <div className="space-y-1.5 text-xs">
-          <button
-            type="button"
-            onClick={() => login('0037283076')}
-            className="w-full p-2.5 rounded-xl hover:bg-stone-50 border border-stone-200 flex items-center justify-between text-stone-800 transition-colors cursor-pointer"
-          >
-            <div>
-              <span className="font-semibold">Ben Braunstein</span>
-              <span className="text-stone-400 text-[11px] ml-1.5">(Board President)</span>
-            </div>
-            <span className="font-mono text-stone-600 font-bold bg-stone-100 px-2 py-0.5 rounded-md">
-              0037283076
-            </span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

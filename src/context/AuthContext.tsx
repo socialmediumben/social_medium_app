@@ -21,17 +21,6 @@ const AuthContext = createContext<AuthContextType>({
   updateMember: () => {},
 });
 
-// Known member registry keyed by actual Neon One "Tap Card" numbers
-const KNOWN_MEMBERS: Record<string, Partial<MemberProfile>> = {
-  "0037283076": {
-    name: "Ben Braunstein",
-    email: "Ben@socialmedium.space",
-    phone: "818-648-1314",
-    membershipTier: "Board President",
-    portalMedia: "videos/Tron.mp4"
-  }
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [member, setMember] = useState<MemberProfile | null>(null);
@@ -63,16 +52,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (_) {}
 
-    // Known members or clean empty real profile
-    const known = KNOWN_MEMBERS[cardId] || {};
+    // Clean blank profile matching only the real Tap Card entered
     const initialProfile: MemberProfile = {
       tapCard: cardId,
-      name: known.name || "Member",
-      email: known.email || "",
-      phone: known.phone || "",
-      membershipTier: known.membershipTier || "Active Member",
-      certifications: known.certifications || [],
-      portalMedia: known.portalMedia || ""
+      name: "",
+      email: "",
+      phone: "",
+      membershipTier: "Member",
+      certifications: [],
+      portalMedia: ""
     };
 
     setMember(initialProfile);

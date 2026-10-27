@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { DoorOpen, CreditCard, Save, CheckCircle2, Play, Video, Image, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
-import { ACTUAL_PORTAL_MEDIA_RECORDS } from '@/lib/actual-portal-data';
 import { TapCardMedia } from '@/lib/types';
 
 export default function PortalMediaPage() {
@@ -19,7 +18,7 @@ export default function PortalMediaPage() {
   useEffect(() => {
     if (!activeCardId) return;
 
-    // Check localStorage first for any member-saved updates
+    // Check localStorage for saved updates on this specific Tap Card
     try {
       const saved = localStorage.getItem(`sm_portal_media_${activeCardId}`);
       if (saved) {
@@ -32,34 +31,18 @@ export default function PortalMediaPage() {
       }
     } catch (_) {}
 
-    // Otherwise look up actual data from Portal-Door records
-    const actualRecord = ACTUAL_PORTAL_MEDIA_RECORDS.find(r => r.id === activeCardId);
-    if (actualRecord) {
-      const initial: TapCardMedia = {
-        cardId: actualRecord.id,
-        title: actualRecord.title,
-        type: actualRecord.type,
-        filePath: actualRecord.file_path,
-        updatedAt: 'Synced from Portal Door'
-      };
-      setMedia(initial);
-      setTitleInput(initial.title);
-      setTypeInput(initial.type);
-      setFilePathInput(initial.filePath);
-    } else {
-      // New card without media yet
-      const blank: TapCardMedia = {
-        cardId: activeCardId,
-        title: member?.name ? `${member.name}'s Portal` : 'Portal Media',
-        type: 'video',
-        filePath: member?.portalMedia || '',
-        updatedAt: 'New Registration'
-      };
-      setMedia(blank);
-      setTitleInput(blank.title);
-      setTypeInput('video');
-      setFilePathInput(blank.filePath);
-    }
+    // Initial clean record for the Tap Card
+    const initial: TapCardMedia = {
+      cardId: activeCardId,
+      title: member?.portalMedia ? (member.name ? `${member.name}'s Portal` : 'My Portal Media') : '',
+      type: 'video',
+      filePath: member?.portalMedia || '',
+      updatedAt: member?.portalMedia ? 'Neon One' : ''
+    };
+    setMedia(initial);
+    setTitleInput(initial.title);
+    setTypeInput('video');
+    setFilePathInput(initial.filePath);
   }, [activeCardId, member]);
 
   if (isLoading) {
@@ -86,7 +69,7 @@ export default function PortalMediaPage() {
       localStorage.setItem(`sm_portal_media_${activeCardId}`, JSON.stringify(updated));
     } catch (_) {}
 
-    // Also update member's "Portal Media" single-line text field
+    // Update member's Portal Media field
     updateMember({ portalMedia: filePathInput.trim() });
 
     setMedia(updated);
@@ -115,7 +98,7 @@ export default function PortalMediaPage() {
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm flex items-center gap-2 shadow-xs">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>
-            <strong>Portal Media Updated!</strong> Saved to Tap Card <code>{activeCardId}</code>.
+            <strong>Portal Media Updated!</strong> Saved for Tap Card <code>{activeCardId}</code>.
           </div>
         </div>
       )}
@@ -135,7 +118,7 @@ export default function PortalMediaPage() {
         </div>
         <div className="flex items-center gap-2 text-xs text-stone-600">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <span>Member: <strong className="text-stone-800">{member.name}</strong></span>
+          <span>Account: <strong className="text-stone-800">{member.name || `Tap Card #${activeCardId}`}</strong></span>
           {media?.updatedAt && (
             <>
               <span className="text-stone-300">•</span>
@@ -181,7 +164,7 @@ export default function PortalMediaPage() {
               ) : (
                 <div className="p-6 text-center text-stone-500 text-xs">
                   <DoorOpen className="w-10 h-10 mx-auto mb-2 text-stone-600" />
-                  No media link assigned yet. Enter a video or image link to connect to this card!
+                  No media link assigned yet in Neon One. Enter a video or image link to connect to this card!
                 </div>
               )}
 
@@ -225,7 +208,7 @@ export default function PortalMediaPage() {
                   required
                   value={titleInput}
                   onChange={(e) => setTitleInput(e.target.value)}
-                  placeholder="e.g. Tron.mp4, My Custom Portal"
+                  placeholder="e.g. My Portal Loop"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 focus:border-[#f16622] focus:ring-2 focus:ring-[#f16622]/20 text-sm font-medium transition-all"
                 />
               </div>
@@ -271,7 +254,7 @@ export default function PortalMediaPage() {
                   required
                   value={filePathInput}
                   onChange={(e) => setFilePathInput(e.target.value)}
-                  placeholder="e.g. videos/Tron.mp4 or https://..."
+                  placeholder="e.g. https://... or videos/MyVideo.mp4"
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 focus:border-[#f16622] focus:ring-2 focus:ring-[#f16622]/20 text-xs font-mono transition-all"
                 />
                 <p className="text-[11px] text-stone-500 mt-1">
