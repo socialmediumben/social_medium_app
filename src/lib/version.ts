@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.3';
+export const APP_VERSION = '1.4';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '1.4',
+    date: '2026-10-27',
+    title: 'High-Visibility Developer Mode Switch & Discoverability',
+    changes: [
+      'Added high-visibility Developer Mode toggle button in the top navigation bar with clear ON/OFF state.',
+      'Added dedicated Developer Mode switch card in the Member Profile and page footer.',
+      'Added tap-to-toggle developer mode on the Social Medium logo.',
+      'Bumped release version to 1.4 in accordance with continuous commit versioning.',
+    ],
+  },
   {
     version: '1.3',
     date: '2026-10-27',

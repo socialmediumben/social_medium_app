@@ -132,7 +132,7 @@ export default function ProfilePage() {
 
       {/* Grid: Certifications & Contact Details */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column (2 Cols): Certifications */}
+        {/* Left Column (2 Cols): Certifications & Developer Mode */}
         <div className="lg:col-span-2 space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
             <div className="flex items-center justify-between mb-4">
@@ -176,43 +176,52 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Developer Mode Box (Only visible in Developer Mode) */}
-          {isDevMode && (
-            <div className="p-6 rounded-2xl bg-amber-50/70 border border-amber-200 shadow-xs space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 rounded-lg bg-amber-200 text-amber-900 font-bold">
-                    <Code2 className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="font-fredoka text-base font-bold text-amber-950">
-                      Developer Mode
-                    </h3>
-                    <p className="text-xs text-amber-800 font-mono">
-                      Current App Version: <strong>v{APP_VERSION}</strong>
-                    </p>
-                  </div>
+          {/* Developer Mode Card (Always available to toggle ON/OFF) */}
+          <div className={`p-6 rounded-2xl border transition-colors shadow-xs ${isDevMode ? 'bg-amber-50/70 border-amber-200' : 'bg-white border-stone-200'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`p-2.5 rounded-xl ${isDevMode ? 'bg-amber-200 text-amber-900' : 'bg-stone-100 text-stone-600'}`}>
+                  <Code2 className="w-5 h-5" />
                 </div>
-                <div className="flex items-center gap-2">
+                <div>
+                  <h3 className="font-fredoka text-base font-bold text-stone-900">
+                    Developer Mode
+                  </h3>
+                  <p className="text-xs text-stone-500 font-roboto">
+                    {isDevMode ? (
+                      <span className="text-amber-900 font-mono font-semibold">Active • Version v{APP_VERSION}</span>
+                    ) : (
+                      'Shows release versioning and full deployment changelog.'
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {isDevMode && (
                   <button
                     type="button"
                     onClick={openChangelog}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
                   >
                     <BookOpen className="w-3.5 h-3.5" />
                     <span>View Changelog</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={toggleDevMode}
-                    className="px-3 py-1.5 rounded-xl bg-amber-200/80 hover:bg-amber-300 text-amber-900 font-semibold text-xs transition-colors cursor-pointer"
-                  >
-                    Exit Dev Mode
-                  </button>
-                </div>
+                )}
+                <button
+                  type="button"
+                  onClick={toggleDevMode}
+                  className={`px-3.5 py-2 rounded-xl font-semibold text-xs transition-colors cursor-pointer shadow-xs ${
+                    isDevMode
+                      ? 'bg-amber-200 hover:bg-amber-300 text-amber-950'
+                      : 'bg-[#344ea2] hover:bg-[#2a3f85] text-white'
+                  }`}
+                >
+                  {isDevMode ? 'Turn OFF' : 'Turn ON Developer Mode'}
+                </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right Column (1 Col): Member Information with First, Last, Preferred Name matching Neon One */}

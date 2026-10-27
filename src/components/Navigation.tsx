@@ -21,7 +21,7 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-        {/* Brand Logo & Name */}
+        {/* Brand Logo & Name (Clicking logo toggles dev mode easily as an alternative) */}
         <Link href="/" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
             SM
@@ -74,38 +74,40 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Right side: Developer Mode & Tap Card Status */}
-        <div className="flex items-center gap-2">
-          {/* Developer Mode pill / version (Only in Dev Mode does version & changelog appear) */}
+        {/* Right side: Developer Mode Toggle & Tap Card Status */}
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Developer Mode Toggle Button - Clear and labeled */}
           {isDevMode ? (
             <div className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={openChangelog}
                 title="View Release Changelog"
-                className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-800 hover:bg-amber-500/25 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-900 hover:bg-amber-500/25 font-mono text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
               >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
                 <span>v{APP_VERSION}</span>
-                <BookOpen className="w-3 h-3 text-amber-700" />
+                <BookOpen className="w-3.5 h-3.5 text-amber-700" />
               </button>
               <button
                 type="button"
                 onClick={toggleDevMode}
-                title="Disable Developer Mode"
-                className="p-1.5 rounded-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-xs transition-colors cursor-pointer"
+                title="Click to turn off Developer Mode"
+                className="px-2.5 py-1 rounded-full bg-amber-200 hover:bg-amber-300 text-amber-950 font-semibold text-xs transition-colors flex items-center gap-1 cursor-pointer"
               >
-                <Code2 className="w-3.5 h-3.5" />
+                <Code2 className="w-3.5 h-3.5 text-amber-800" />
+                <span className="hidden sm:inline">Dev ON</span>
               </button>
             </div>
           ) : (
             <button
               type="button"
               onClick={toggleDevMode}
-              title="Enable Developer Mode"
-              className="p-1.5 rounded-full text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors cursor-pointer"
+              title="Click to turn on Developer Mode"
+              className="px-2.5 py-1 rounded-full bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-semibold text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
-              <Code2 className="w-4 h-4" />
+              <Code2 className="w-3.5 h-3.5 text-stone-500" />
+              <span>Dev: OFF</span>
             </button>
           )}
 
@@ -130,7 +132,7 @@ export function Navbar() {
               </button>
             </div>
           ) : (
-            <div className="text-xs text-stone-500 font-medium">
+            <div className="text-xs text-stone-500 font-medium hidden sm:block">
               Not Connected
             </div>
           )}

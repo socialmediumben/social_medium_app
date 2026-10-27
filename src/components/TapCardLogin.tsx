@@ -1,13 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { CreditCard, Sparkles, ArrowRight, RefreshCw, AlertCircle } from 'lucide-react';
+import { CreditCard, Sparkles, ArrowRight, RefreshCw, AlertCircle, Code2, BookOpen } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { useDevMode } from '@/context/DevModeContext';
+import { APP_VERSION } from '@/lib/version';
 
 export function TapCardLogin() {
   const [inputCardId, setInputCardId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login, loginError } = useAuth();
+  const { isDevMode, toggleDevMode, openChangelog } = useDevMode();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,6 +83,41 @@ export function TapCardLogin() {
           )}
         </button>
       </form>
+
+      {/* Developer Mode Card inside login */}
+      <div className="mt-8 pt-6 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
+        <div className="flex items-center gap-1.5 font-medium">
+          <Code2 className="w-3.5 h-3.5 text-stone-400" />
+          <span>Developer Mode</span>
+        </div>
+        {isDevMode ? (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openChangelog}
+              className="px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-800 font-mono font-bold text-xs flex items-center gap-1 cursor-pointer"
+            >
+              <span>v{APP_VERSION}</span>
+              <BookOpen className="w-3 h-3 text-amber-700" />
+            </button>
+            <button
+              type="button"
+              onClick={toggleDevMode}
+              className="text-[#344ea2] hover:underline font-semibold cursor-pointer"
+            >
+              Turn OFF
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={toggleDevMode}
+            className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold cursor-pointer transition-colors"
+          >
+            Turn ON
+          </button>
+        )}
+      </div>
     </div>
   );
 }
