@@ -2,12 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MemberProfile } from '@/lib/types';
+import { searchMemberByTapCard } from '@/lib/neon';
 
 interface AuthContextType {
   activeCardId: string | null;
   member: MemberProfile | null;
   isLoading: boolean;
-  login: (cardId: string) => void;
+  loginError: string | null;
+  login: (cardId: string) => Promise<boolean>;
   logout: () => void;
   updateMember: (updates: Partial<MemberProfile>) => void;
 }
@@ -16,7 +18,8 @@ const AuthContext = createContext<AuthContextType>({
   activeCardId: null,
   member: null,
   isLoading: true,
-  login: () => {},
+  loginError: null,
+  login: async () => false,
   logout: () => {},
   updateMember: () => {},
 });
@@ -25,51 +28,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [member, setMember] = useState<MemberProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // Load active card ID from localStorage on mount
   useEffect(() => {
     try {
       const storedCardId = localStorage.getItem('sm_active_tap_card');
       if (storedCardId) {
-        loadMemberData(storedCardId);
+        // Load cached member profile first for instant UI
+        const savedProfile = localStorage.getItem(`sm_profile_${storedCardId}`);
+        if (savedProfile) {
+          setMember(JSON.parse(savedProfile));
+          setActiveCardId(storedCardId);
+        }
+        // Then refresh from Neon One in background
+        refreshFromNeon(storedCardId);
       }
     } catch (_) {}
     setIsLoading(false);
   }, []);
 
-  const loadMemberData = (cardId: string) => {
-    setActiveCardId(cardId);
-    try {
-      localStorage.setItem('sm_active_tap_card', cardId);
-    } catch (_) {}
-
-    // Check if user has updated their profile locally
-    try {
-      const savedProfile = localStorage.getItem(`sm_profile_${cardId}`);
-      if (savedProfile) {
-        setMember(JSON.parse(savedProfile));
-        return;
-      }
-    } catch (_) {}
-
-    // Clean blank profile matching only the real Tap Card entered
-    const initialProfile: MemberProfile = {
-      tapCard: cardId,
-      name: "",
-      email: "",
-      phone: "",
-      membershipTier: "Member",
-      certifications: [],
-      portalMedia: ""
-    };
-
-    setMember(initialProfile);
+  const refreshFromNeon = async (cardId: string) => {
+    const res = await searchMemberByTapCard(cardId);
+    if (res.success && res.member) {
+      setMember(res.member);
+      setActiveCardId(cardId);
+      try {
+        localStorage.setItem(`sm_profile_${cardId}`, JSON.stringify(res.member));
+      } catch (_) {}
+    }
   };
 
-  const login = (cardId: string) => {
+  const login = async (cardId: string): Promise<boolean> => {
     const cleanId = cardId.trim();
-    if (!cleanId) return;
-    loadMemberData(cleanId);
+    if (!cleanId) return false;
+    setLoginError(null);
+    setIsLoading(true);
+
+    // Call live Neon One proxy
+    const res = await searchMemberByTapCard(cleanId);
+
+    if (res.success && res.member) {
+      setActiveCardId(cleanId);
+      setMember(res.member);
+      try {
+        localStorage.setItem('sm_active_tap_card', cleanId);
+        localStorage.setItem(`sm_profile_${cleanId}`, JSON.stringify(res.member));
+      } catch (_) {}
+      setIsLoading(false);
+      return true;
+    } else {
+      // If error or not found, also check if there is a local cached profile
+      try {
+        const savedProfile = localStorage.getItem(`sm_profile_${cleanId}`);
+        if (savedProfile) {
+          const parsed = JSON.parse(savedProfile);
+          setActiveCardId(cleanId);
+          setMember(parsed);
+          localStorage.setItem('sm_active_tap_card', cleanId);
+          setIsLoading(false);
+          return true;
+        }
+      } catch (_) {}
+
+      setLoginError(res.error || 'Failed to find account in Neon One.');
+      setIsLoading(false);
+      return false;
+    }
   };
 
   const logout = () => {
@@ -78,6 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
     setActiveCardId(null);
     setMember(null);
+    setLoginError(null);
   };
 
   const updateMember = (updates: Partial<MemberProfile>) => {
@@ -93,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ activeCardId, member, isLoading, login, logout, updateMember }}>
+    <AuthContext.Provider value={{ activeCardId, member, isLoading, loginError, login, logout, updateMember }}>
       {children}
     </AuthContext.Provider>
   );
