@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, DoorOpen, Gamepad2, Award, Home, CreditCard } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, Award, Home, CreditCard, LogOut } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 const NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
@@ -13,6 +14,7 @@ const NAV_ITEMS = [
 
 export function Navbar() {
   const pathname = usePathname();
+  const { activeCardId, logout } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200 shadow-xs">
@@ -70,18 +72,33 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Quick Tap Card Status Pill */}
+        {/* Tap Card ID Status / Switch Button */}
         <div className="flex items-center gap-2">
-          <Link
-            href="/portal-media"
-            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 border border-stone-200 hover:border-[#3bc0cd] text-xs transition-colors"
-            title="View personal tap card media"
-          >
-            <CreditCard className="w-3.5 h-3.5 text-[#f16622]" />
-            <span className="hidden sm:inline text-stone-600 font-mono">Card:</span>
-            <span className="font-mono font-semibold text-stone-800">3680...9188</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          </Link>
+          {activeCardId ? (
+            <div className="flex items-center gap-1.5">
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 border border-stone-200 hover:border-[#3bc0cd] text-xs transition-colors"
+                title="Active Card"
+              >
+                <CreditCard className="w-3.5 h-3.5 text-[#f16622]" />
+                <span className="font-mono font-semibold text-stone-800">{activeCardId}</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              </Link>
+              <button
+                type="button"
+                onClick={logout}
+                title="Switch Tap Card"
+                className="p-1.5 rounded-full hover:bg-stone-100 text-stone-400 hover:text-stone-700 transition-colors"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-stone-500 font-medium">
+              Not Connected
+            </div>
+          )}
         </div>
       </div>
     </header>

@@ -1,47 +1,52 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, ShieldCheck, Clock, User, Phone, Mail, CheckCircle2, AlertCircle, Edit2, Save, X } from 'lucide-react';
-import { DEFAULT_MEMBER } from '@/lib/member-data';
-import { MemberProfile } from '@/lib/types';
-
-const STORAGE_KEY = 'sm_member_profile';
+import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
+import { TapCardLogin } from '@/components/TapCardLogin';
 
 export default function ProfilePage() {
-  const [member, setMember] = useState<MemberProfile>(DEFAULT_MEMBER);
+  const { activeCardId, member, updateMember, isLoading } = useAuth();
   const [isEditingContact, setIsEditingContact] = useState(false);
-  const [phoneInput, setPhoneInput] = useState(DEFAULT_MEMBER.phone);
-  const [emergencyPhoneInput, setEmergencyPhoneInput] = useState(DEFAULT_MEMBER.emergencyContact.phone);
-  const [emergencyNameInput, setEmergencyNameInput] = useState(DEFAULT_MEMBER.emergencyContact.name);
+  const [nameInput, setNameInput] = useState('');
+  const [emailInput, setEmailInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [emergencyPhoneInput, setEmergencyPhoneInput] = useState('');
+  const [emergencyNameInput, setEmergencyNameInput] = useState('');
+  const [emergencyRelationInput, setEmergencyRelationInput] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setMember(parsed);
-        setPhoneInput(parsed.phone);
-        setEmergencyPhoneInput(parsed.emergencyContact.phone);
-        setEmergencyNameInput(parsed.emergencyContact.name);
-      }
-    } catch (_) {}
-  }, []);
+    if (member) {
+      setNameInput(member.name || '');
+      setEmailInput(member.email || '');
+      setPhoneInput(member.phone || '');
+      setEmergencyNameInput(member.emergencyContact?.name || '');
+      setEmergencyPhoneInput(member.emergencyContact?.phone || '');
+      setEmergencyRelationInput(member.emergencyContact?.relation || '');
+    }
+  }, [member]);
 
-  const handleSaveContact = () => {
-    const updated = {
-      ...member,
+  if (isLoading) {
+    return <div className="py-20 text-center text-stone-500 font-mono text-sm">Loading...</div>;
+  }
+
+  if (!activeCardId || !member) {
+    return <TapCardLogin />;
+  }
+
+  const handleSaveContact = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateMember({
+      name: nameInput,
+      email: emailInput,
       phone: phoneInput,
       emergencyContact: {
-        ...member.emergencyContact,
         name: emergencyNameInput,
-        phone: emergencyPhoneInput
+        phone: emergencyPhoneInput,
+        relation: emergencyRelationInput
       }
-    };
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-    } catch (_) {}
-    setMember(updated);
+    });
     setIsEditingContact(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -50,19 +55,21 @@ export default function ProfilePage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-stone-900">
-          Member Profile
-        </h1>
-        <p className="text-stone-600 text-sm">
-          Your official membership details, registered physical tap card, and equipment certifications.
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-stone-900">
+            Member Profile
+          </h1>
+          <p className="text-stone-600 text-sm">
+            Account details and equipment certifications for Tap Card <strong>{member.tapCardId}</strong>.
+          </p>
+        </div>
       </div>
 
       {saveSuccess && (
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-          <span>Contact information successfully updated and synced!</span>
+          <span>Contact information successfully saved!</span>
         </div>
       )}
 
@@ -72,14 +79,14 @@ export default function ProfilePage() {
           <div className="space-y-3">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-semibold text-[#3bc0cd]">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Active Member Pass • Neon One Synced
+              Connected Member Pass
             </div>
             <div>
               <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {member.name}
+                {member.name || "Member"}
               </h2>
               <p className="text-stone-300 text-sm font-medium">
-                {member.membershipTier} • Member since {member.joinedDate}
+                {member.membershipTier || "Active Member"}
               </p>
             </div>
           </div>
@@ -89,17 +96,17 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between text-xs text-stone-300 mb-2">
               <span className="flex items-center gap-1.5 font-medium">
                 <CreditCard className="w-3.5 h-3.5 text-[#f16622]" />
-                Physical Tap Card (NFC)
+                Tap Card ID (Neon One)
               </span>
               <span className="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                Linked
+                Active
               </span>
             </div>
             <div className="font-mono text-xl sm:text-2xl font-bold tracking-wider text-white">
               {member.tapCardId}
             </div>
             <div className="text-[11px] text-stone-400 mt-1">
-              Used at Check-in Kiosk and Portal Door.
+              Synchronized with kiosk check-in and portal door.
             </div>
           </div>
         </div>
@@ -123,54 +130,36 @@ export default function ProfilePage() {
                   Tools and machinery authorized for independent operation.
                 </p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#3bc0cd]/15 text-[#344ea2]">
-                {member.certifications.filter(c => c.active).length} / {member.certifications.length} Certified
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
+                {member.certifications.length} Certified
               </span>
             </div>
 
-            <div className="divide-y divide-stone-100">
-              {member.certifications.map((cert) => (
-                <div key={cert.id} className="py-3.5 flex items-center justify-between gap-4">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`p-2 rounded-xl mt-0.5 ${
-                        cert.active
-                          ? 'bg-emerald-50 text-emerald-600'
-                          : 'bg-stone-100 text-stone-400'
-                      }`}
-                    >
-                      {cert.active ? (
-                        <CheckCircle2 className="w-4 h-4" />
-                      ) : (
-                        <Clock className="w-4 h-4" />
-                      )}
-                    </div>
+            {member.certifications.length === 0 ? (
+              <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center">
+                <Wrench className="w-8 h-8 text-stone-400 mx-auto mb-2" />
+                <h3 className="font-semibold text-stone-800 text-sm mb-1">
+                  No Equipment Certifications Recorded Yet
+                </h3>
+                <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
+                  Attend an equipment safety walkthrough at the makerspace to receive certifications on your Neon One account.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-stone-100">
+                {member.certifications.map((cert) => (
+                  <div key={cert.id} className="py-3 flex items-center justify-between">
                     <div>
-                      <h3 className="text-sm font-semibold text-stone-800">
-                        {cert.name}
-                      </h3>
-                      <div className="flex items-center gap-2 text-xs text-stone-500 mt-0.5">
-                        <span className="px-1.5 py-0.5 rounded-md bg-stone-100 text-stone-600 font-medium text-[11px]">
-                          {cert.category}
-                        </span>
-                        <span>•</span>
-                        <span>{cert.active ? `Certified: ${cert.certifiedDate}` : 'Pending training walkthrough'}</span>
-                      </div>
+                      <div className="font-semibold text-sm text-stone-800">{cert.name}</div>
+                      {cert.date && <div className="text-xs text-stone-500">Certified: {cert.date}</div>}
                     </div>
+                    <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                      Authorized
+                    </span>
                   </div>
-
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                      cert.active
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {cert.active ? 'Authorized' : 'Pending'}
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -183,16 +172,18 @@ export default function ProfilePage() {
               </h2>
               {!isEditingContact ? (
                 <button
+                  type="button"
                   onClick={() => setIsEditingContact(true)}
-                  className="text-xs font-medium text-[#344ea2] hover:text-[#f16622] flex items-center gap-1 transition-colors"
+                  className="text-xs font-medium text-[#344ea2] hover:text-[#f16622] flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
                   Edit
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => setIsEditingContact(false)}
-                  className="text-xs font-medium text-stone-500 hover:text-stone-700 flex items-center gap-1"
+                  className="text-xs font-medium text-stone-500 hover:text-stone-700 flex items-center gap-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                   Cancel
@@ -200,70 +191,114 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div className="space-y-4 text-xs">
-              <div>
-                <label className="text-stone-500 font-medium block mb-1">Email Address</label>
-                <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
-                  <Mail className="w-3.5 h-3.5 text-stone-400" />
-                  <span className="truncate">{member.email}</span>
+            {!isEditingContact ? (
+              <div className="space-y-4 text-xs">
+                <div>
+                  <label className="text-stone-500 font-medium block mb-1">Full Name</label>
+                  <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <User className="w-3.5 h-3.5 text-stone-400" />
+                    <span>{member.name || "Not set"}</span>
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="text-stone-500 font-medium block mb-1">Phone Number</label>
-                {!isEditingContact ? (
+                <div>
+                  <label className="text-stone-500 font-medium block mb-1">Email Address</label>
+                  <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <Mail className="w-3.5 h-3.5 text-stone-400" />
+                    <span className="truncate">{member.email || "Not set"}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-stone-500 font-medium block mb-1">Phone Number</label>
                   <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                     <Phone className="w-3.5 h-3.5 text-stone-400" />
-                    <span>{member.phone}</span>
+                    <span>{member.phone || "Not set"}</span>
                   </div>
-                ) : (
+                </div>
+
+                <div className="pt-2 border-t border-stone-100">
+                  <label className="text-stone-500 font-medium block mb-1">Emergency Contact</label>
+                  {member.emergencyContact?.name ? (
+                    <div className="space-y-1 bg-stone-50 p-3 rounded-xl border border-stone-200">
+                      <div className="font-semibold text-stone-800">{member.emergencyContact.name}</div>
+                      <div className="text-stone-500">{member.emergencyContact.relation || "Contact"}</div>
+                      <div className="text-stone-700 font-mono">{member.emergencyContact.phone}</div>
+                    </div>
+                  ) : (
+                    <div className="text-stone-400 italic bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                      No emergency contact registered yet.
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleSaveContact} className="space-y-3 text-xs">
+                <div>
+                  <label className="text-stone-600 font-medium block mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-stone-600 font-medium block mb-1">Email</label>
+                  <input
+                    type="email"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-stone-600 font-medium block mb-1">Phone</label>
                   <input
                     type="text"
                     value={phoneInput}
                     onChange={(e) => setPhoneInput(e.target.value)}
                     className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
                   />
-                )}
-              </div>
+                </div>
 
-              <div className="pt-2 border-t border-stone-100">
-                <label className="text-stone-500 font-medium block mb-1">Emergency Contact</label>
-                {!isEditingContact ? (
-                  <div className="space-y-1 bg-stone-50 p-3 rounded-xl border border-stone-200">
-                    <div className="font-semibold text-stone-800">{member.emergencyContact.name}</div>
-                    <div className="text-stone-500">{member.emergencyContact.relation}</div>
-                    <div className="text-stone-700 font-mono">{member.emergencyContact.phone}</div>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="Contact Name"
-                      value={emergencyNameInput}
-                      onChange={(e) => setEmergencyNameInput(e.target.value)}
-                      className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Contact Phone"
-                      value={emergencyPhoneInput}
-                      onChange={(e) => setEmergencyPhoneInput(e.target.value)}
-                      className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
-                    />
-                  </div>
-                )}
-              </div>
+                <div className="pt-2 border-t border-stone-100 space-y-2">
+                  <label className="text-stone-600 font-medium block">Emergency Contact</label>
+                  <input
+                    type="text"
+                    placeholder="Contact Name"
+                    value={emergencyNameInput}
+                    onChange={(e) => setEmergencyNameInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Relationship"
+                    value={emergencyRelationInput}
+                    onChange={(e) => setEmergencyRelationInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Phone"
+                    value={emergencyPhoneInput}
+                    onChange={(e) => setEmergencyPhoneInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs"
+                  />
+                </div>
 
-              {isEditingContact && (
                 <button
-                  onClick={handleSaveContact}
-                  className="w-full mt-2 py-2.5 px-4 rounded-xl bg-[#3bc0cd] hover:bg-[#344ea2] text-white font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs"
+                  type="submit"
+                  className="w-full mt-3 py-2.5 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                 >
                   <Save className="w-4 h-4" />
-                  Save Changes
+                  Save Details
                 </button>
-              )}
-            </div>
+              </form>
+            )}
           </div>
         </div>
       </div>

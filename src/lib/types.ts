@@ -1,9 +1,7 @@
 export interface Certification {
   id: string;
   name: string;
-  category: string;
-  certifiedDate: string;
-  active: boolean;
+  date?: string;
 }
 
 export interface EmergencyContact {
@@ -13,15 +11,14 @@ export interface EmergencyContact {
 }
 
 export interface MemberProfile {
-  id: string;
+  tapCardId: string;
   name: string;
   email: string;
   phone: string;
   membershipTier: string;
-  tapCardId: string;
-  joinedDate: string;
-  emergencyContact: EmergencyContact;
+  emergencyContact?: EmergencyContact;
   certifications: Certification[];
+  achievements: Achievement[];
 }
 
 export interface TapCardMedia {
@@ -35,11 +32,8 @@ export interface TapCardMedia {
 export interface Achievement {
   id: string;
   title: string;
-  category: 'Skill' | 'Safety' | 'Community' | 'Milestone';
-  description: string;
-  unlocked: boolean;
+  description?: string;
   dateUnlocked?: string;
-  icon: string;
 }
 
 export interface GameRoomPreset {

@@ -1,9 +1,26 @@
+'use client';
+
 import Link from 'next/link';
 import { User, DoorOpen, Gamepad2, Award, ChevronRight, CreditCard, Sparkles, MapPin, Wrench } from 'lucide-react';
-import { DEFAULT_MEMBER } from '@/lib/member-data';
+import { useAuth } from '@/context/AuthContext';
+import { TapCardLogin } from '@/components/TapCardLogin';
 
 export default function HomePage() {
-  const activeCerts = DEFAULT_MEMBER.certifications.filter(c => c.active).length;
+  const { activeCardId, member, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="py-20 text-center text-stone-500 font-mono text-sm">
+        Loading Social Medium account...
+      </div>
+    );
+  }
+
+  if (!activeCardId || !member) {
+    return <TapCardLogin />;
+  }
+
+  const certCount = member.certifications.length;
 
   return (
     <div className="space-y-6">
@@ -15,20 +32,20 @@ export default function HomePage() {
             Official Member Companion
           </div>
           <h1 className="font-fredoka text-3xl sm:text-4xl font-bold tracking-tight text-white mb-2">
-            Welcome back, {DEFAULT_MEMBER.name.split(' ')[0]}!
+            Welcome, {member.name}!
           </h1>
           <p className="text-stone-200 text-sm sm:text-base leading-relaxed mb-6 font-roboto">
-            Your personal companion for <strong>Social Medium Makerspace</strong>. Manage your member profile, update your physical tap card media, control the Game Room, and view your maker achievements.
+            Your companion for <strong>Social Medium Makerspace</strong>. Manage your member profile, update your physical tap card media, control the Game Room, and view your achievements.
           </p>
 
           <div className="flex flex-wrap items-center gap-3 text-xs text-stone-300">
             <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
               <CreditCard className="w-3.5 h-3.5 text-[#3bc0cd]" />
-              <span>Tap Card: <strong className="text-white font-mono">{DEFAULT_MEMBER.tapCardId}</strong></span>
+              <span>Tap Card: <strong className="text-white font-mono">{member.tapCardId}</strong></span>
             </div>
             <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
               <Wrench className="w-3.5 h-3.5 text-[#f16622]" />
-              <span>Certifications: <strong className="text-white">{activeCerts} Active</strong></span>
+              <span>Certifications: <strong className="text-white">{certCount} Recorded</strong></span>
             </div>
             <div className="flex items-center gap-1.5 bg-black/20 px-3 py-1.5 rounded-lg border border-white/10">
               <MapPin className="w-3.5 h-3.5 text-[#8a9280]" />
@@ -55,14 +72,14 @@ export default function HomePage() {
                 <User className="w-6 h-6" />
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-600">
-                Neon One Synced
+                Card #{member.tapCardId}
               </span>
             </div>
             <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-[#344ea2] transition-colors mb-1">
               Member Profile
             </h2>
             <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-              View your member ID, tier, equipment certifications (Laser, 3D Print, Wood Shop), and emergency contact.
+              View your contact info, registered tap card, equipment certifications, and emergency contact.
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-[#344ea2]">
@@ -136,14 +153,14 @@ export default function HomePage() {
                 <Award className="w-6 h-6" />
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#8a9280]/15 text-[#4a5142]">
-                5 Unlocked
+                Neon One Synced
               </span>
             </div>
             <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-[#8a9280] transition-colors mb-1">
               Achievements & Badges
             </h2>
             <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-              Track your maker milestones, workshop badges, and safety certifications synced with Neon One.
+              Track your maker milestones, workshop badges, and safety certifications.
             </p>
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-[#656d5b]">

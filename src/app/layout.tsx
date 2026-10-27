@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Fredoka, Roboto } from "next/font/google";
 import "./globals.css";
 import { Navbar, BottomNav } from "@/components/Navigation";
+import { AuthProvider } from "@/context/AuthContext";
 
 const fredoka = Fredoka({
   variable: "--font-fredoka",
@@ -38,11 +39,13 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fredoka.variable} ${roboto.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-[#f4f4f4] text-stone-800 font-roboto pb-20 md:pb-8">
-        <Navbar />
-        <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">
-          {children}
-        </main>
-        <BottomNav />
+        <AuthProvider>
+          <Navbar />
+          <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            {children}
+          </main>
+          <BottomNav />
+        </AuthProvider>
       </body>
     </html>
   );
