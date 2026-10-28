@@ -16,6 +16,7 @@ import {
   Calendar,
   Shield,
   BarChart3,
+  ClipboardList,
   Megaphone,
   Edit2,
   Save,
@@ -159,16 +160,25 @@ export default function HomePage() {
               <Shield className="w-3.5 h-3.5" />
             </span>
             <span>
-              <strong>Staff Mode Active</strong> • Neon CRM Activities Intelligence Center Available
+              <strong>Staff Mode Active</strong> • CRM Activity Logger & Intelligence Center Available
             </span>
           </div>
-          <Link
-            href="/neon-dashboard"
-            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors cursor-pointer"
-          >
-            <BarChart3 className="w-3.5 h-3.5" />
-            <span>Open Dashboard</span>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/new-activity"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-colors cursor-pointer"
+            >
+              <ClipboardList className="w-3.5 h-3.5" />
+              <span>Log Activity</span>
+            </Link>
+            <Link
+              href="/neon-dashboard"
+              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors cursor-pointer"
+            >
+              <BarChart3 className="w-3.5 h-3.5" />
+              <span>Dashboard</span>
+            </Link>
+          </div>
         </div>
       )}
 
@@ -360,8 +370,8 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Top-Level Module Cards (4 for Members, 5 for Staff/Dev) */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isStaffMode ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
+      {/* Top-Level Module Cards (4 for Members, 6 for Staff/Dev) */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isStaffMode ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
         {/* Module 1: Profile */}
         <Link
           href="/profile"
@@ -497,6 +507,36 @@ export default function HomePage() {
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
             <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-cyan-500/15 blur-xl pointer-events-none" />
+          </Link>
+        )}
+
+        {/* Module 6: Log Activity (Staff & Dev Mode Only) */}
+        {isStaffMode && (
+          <Link
+            href="/new-activity"
+            className="group p-5 rounded-2xl bg-gradient-to-b from-stone-900 via-stone-900 to-[#160a24] text-white border border-purple-500/30 hover:border-purple-400 hover:shadow-lg hover:shadow-purple-500/10 transition-all flex flex-col justify-between relative overflow-hidden"
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                  <ClipboardList className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/30 border border-purple-500/50 text-purple-200">
+                  Staff Only
+                </span>
+              </div>
+              <h2 className="font-fredoka text-xl font-bold text-white group-hover:text-purple-300 transition-colors mb-1">
+                Log Activity
+              </h2>
+              <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
+                Create new activity records in Neon CRM for tool certifications, safety walkthroughs, or staff notes.
+              </p>
+            </div>
+            <div className="relative z-10 mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs font-semibold text-purple-400">
+              <span>Create CRM Activity</span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+            <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-purple-500/15 blur-xl pointer-events-none" />
           </Link>
         )}
       </div>

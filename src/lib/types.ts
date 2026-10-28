@@ -68,3 +68,30 @@ export interface GameRoomDisplayStatus {
   pictureFrame: { online: boolean; currentScene: string };
   tableProjector: { online: boolean; currentScene: string };
 }
+
+export interface NeonPropertyItem {
+  id: string;
+  name: string;
+  status?: string;
+}
+
+export interface NeonSystemUser {
+  id: string;
+  name: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface CreateActivityInput {
+  subject: string;
+  statusId?: string;
+  priority?: 'High' | 'Normal' | 'Low';
+  startDate?: string;
+  startTime?: string;
+  endDate?: string;
+  endTime?: string;
+  typeId?: string;
+  systemUserId?: string;
+  accountId?: string;
+  note?: string;
+}

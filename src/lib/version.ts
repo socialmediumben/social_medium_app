@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.5';
+export const APP_VERSION = '2.6';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.6',
+    date: '2026-10-28',
+    title: 'Staff Mode Activity Logger & CRM Activity Creation',
+    changes: [
+      'Added "Log Activity" module (/new-activity) to Staff and Developer modes.',
+      'Enables staff to create real-time Neon CRM activities with subject presets, type, status, priority, and date/time.',
+      'Added live Neon One constituent account search to link activities directly to member profiles.',
+      'Synchronizes assigned staff members from active Neon CRM system users.',
+      'Added quick navigation shortcuts on desktop/mobile navbars and Staff Mode home screen launcher.',
+    ],
+  },
   {
     version: '2.5',
     date: '2026-10-28',

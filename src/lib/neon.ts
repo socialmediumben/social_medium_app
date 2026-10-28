@@ -1,4 +1,10 @@
-import { MemberProfile, CommunityAnnouncement } from './types';
+import {
+  MemberProfile,
+  CommunityAnnouncement,
+  CreateActivityInput,
+  NeonPropertyItem,
+  NeonSystemUser,
+} from './types';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
 
@@ -48,9 +54,9 @@ export interface NeonInterestOption {
 }
 
 // System Users Cache
-let cachedSystemUsers: { firstName: string; lastName: string }[] | null = null;
+let cachedSystemUsers: NeonSystemUser[] | null = null;
 
-export async function fetchNeonSystemUsers(): Promise<{ firstName: string; lastName: string }[]> {
+export async function fetchNeonSystemUsers(): Promise<NeonSystemUser[]> {
   if (cachedSystemUsers) return cachedSystemUsers;
   try {
     const res = await fetch(`${NEON_PROXY_URL}/api/v2/properties/systemUsers`);
@@ -60,8 +66,10 @@ export async function fetchNeonSystemUsers(): Promise<{ firstName: string; lastN
         cachedSystemUsers = data
           .filter((u: any) => !u.lastName?.includes('(Deactivated User)'))
           .map((u: any) => ({
-            firstName: (u.firstName || '').trim().toLowerCase(),
-            lastName: (u.lastName || '').trim().toLowerCase(),
+            id: String(u.id || ''),
+            name: `${u.firstName || ''} ${u.lastName || ''}`.trim(),
+            firstName: (u.firstName || '').trim(),
+            lastName: (u.lastName || '').trim(),
           }));
         return cachedSystemUsers;
       }
@@ -70,12 +78,12 @@ export async function fetchNeonSystemUsers(): Promise<{ firstName: string; lastN
 
   // Fallback to active makerspace system users if network unavailable
   return [
-    { firstName: 'ben', lastName: 'braunstein' },
-    { firstName: 'chelsea', lastName: 'union' },
-    { firstName: 'dj', lastName: 'harrigan' },
-    { firstName: 'ilana', lastName: 'jaffe-lewis' },
-    { firstName: 'max', lastName: 'ben-dror' },
-    { firstName: 'starline', lastName: 'hodge' },
+    { id: '3', name: 'Ben Braunstein', firstName: 'Ben', lastName: 'Braunstein' },
+    { id: '3585', name: 'Chelsea Union', firstName: 'Chelsea', lastName: 'Union' },
+    { id: '3508', name: 'DJ Harrigan', firstName: 'DJ', lastName: 'Harrigan' },
+    { id: '3643', name: 'Ilana Jaffe-Lewis', firstName: 'Ilana', lastName: 'Jaffe-Lewis' },
+    { id: '3644', name: 'Max Ben-Dror', firstName: 'Max', lastName: 'Ben-Dror' },
+    { id: '3645', name: 'Starline Hodge', firstName: 'Starline', lastName: 'Hodge' },
   ];
 }
 
@@ -241,8 +249,8 @@ export async function fetchMemberProfileByAccountId(
 
     let isSystemUser = systemUsers.some(
       (u) =>
-        u.lastName === checkLast &&
-        (u.firstName === checkFirst || (checkPref && u.firstName === checkPref))
+        u.lastName.toLowerCase() === checkLast &&
+        (u.firstName.toLowerCase() === checkFirst || (checkPref && u.firstName.toLowerCase() === checkPref))
     );
 
     if (isAppDeveloper) {
@@ -629,5 +637,158 @@ export async function updateCommunityAnnouncement(announcement: {
     return { success: true, announcement: data.announcement };
   } catch (err: any) {
     return { success: false, error: err.message || 'Error updating announcement.' };
+  }
+}
+
+/**
+ * Fetches available Neon One activity types (e.g. Invitation, Ask, Stewardship, Discovery, Other).
+ */
+export async function fetchActivityTypes(): Promise<NeonPropertyItem[]> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/properties/activityTypes`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [
+      { id: '1', name: 'Invitation' },
+      { id: '2', name: 'Ask / Solicitation' },
+      { id: '3', name: 'Thank You / Stewardship' },
+      { id: '4', name: 'Discovery' },
+      { id: '5', name: 'Other' },
+    ];
+  }
+}
+
+/**
+ * Fetches available Neon One activity statuses (e.g. Not Started, In Progress, Completed, Deferred).
+ */
+export async function fetchActivityStatuses(): Promise<NeonPropertyItem[]> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/properties/activityStatuses`);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [
+      { id: '2', name: 'Not Started' },
+      { id: '3', name: 'In Progress' },
+      { id: '4', name: 'Completed' },
+      { id: '5', name: 'Waiting For Others' },
+      { id: '6', name: 'Deferred' },
+      { id: '7', name: 'Other' },
+    ];
+  }
+}
+
+/**
+ * Searches Neon CRM constituent accounts by name or account ID.
+ */
+export async function searchNeonAccounts(
+  query: string
+): Promise<Array<{ accountId: string; name: string; email?: string }>> {
+  const clean = (query || '').trim();
+  if (!clean) return [];
+
+  try {
+    // If query is a pure number, search by Account ID, otherwise by First Name or Last Name
+    const isNum = /^\d+$/.test(clean);
+    const searchFields = isNum
+      ? [{ field: 'Account ID', operator: 'EQUAL', value: clean }]
+      : [{ field: 'First Name', operator: 'CONTAIN', value: clean }];
+
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        searchFields,
+        outputFields: ['Account ID', 'First Name', 'Last Name', 'Email 1'],
+        pagination: { currentPage: 0, pageSize: 8 },
+      }),
+    });
+
+    if (!res.ok) return [];
+    const data = await res.json();
+    const results = data.searchResults || [];
+
+    return results.map((item: any) => {
+      const accountId = String(item['Account ID'] || item.accountId || '');
+      const first = item['First Name'] || '';
+      const last = item['Last Name'] || '';
+      const email = item['Email 1'] || item.email || '';
+      const name = `${first} ${last}`.trim() || `Account #${accountId}`;
+      return { accountId, name, email };
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Creates a new Activity record in Neon CRM.
+ */
+export async function createNeonActivity(
+  input: CreateActivityInput
+): Promise<{ success: boolean; activityId?: string; error?: string }> {
+  if (!input.subject || !input.subject.trim()) {
+    return { success: false, error: 'Activity subject is required.' };
+  }
+
+  try {
+    const todayStr = new Date().toISOString().split('T')[0];
+    const payload: any = {
+      subject: input.subject.trim(),
+      status: { id: input.statusId || '4' }, // Default to "Completed"
+      priority: input.priority || 'Normal',
+      activityDates: {
+        startDate: input.startDate || todayStr,
+        startTime: input.startTime ? `${input.startTime}:00` : null,
+        endDate: input.endDate || null,
+        endTime: input.endTime ? `${input.endTime}:00` : null,
+        timeZone: {
+          id: '82', // (GMT-07:00) Pacific Time - Los Angeles
+        },
+      },
+    };
+
+    if (input.typeId) {
+      payload.activityType = { id: input.typeId };
+    }
+
+    if (input.systemUserId) {
+      payload.systemUserId = [input.systemUserId];
+    }
+
+    if (input.accountId) {
+      payload.clientAccount = [{ accountId: input.accountId }];
+    }
+
+    if (input.note && input.note.trim()) {
+      payload.note = input.note.trim();
+    }
+
+    const response = await fetch(`${NEON_PROXY_URL}/api/v2/activities`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      let errMsg = 'Failed to create activity in Neon One.';
+      if (Array.isArray(data) && data[0]?.message) {
+        errMsg = data.map((d: any) => d.message).join(' ');
+      } else if (data?.message) {
+        errMsg = data.message;
+      }
+      return { success: false, error: errMsg };
+    }
+
+    return { success: true, activityId: String(data.id || '') };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error creating Neon CRM activity.' };
   }
 }

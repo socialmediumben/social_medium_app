@@ -16,6 +16,7 @@ import {
   Calendar,
   Shield,
   BarChart3,
+  ClipboardList,
   ChevronDown,
   Check,
   Lock,
@@ -55,6 +56,12 @@ export function Navbar() {
             label: 'Dashboard',
             icon: BarChart3,
             description: 'Neon CRM Activities & Analytics',
+          },
+          {
+            href: '/new-activity',
+            label: 'New Activity',
+            icon: ClipboardList,
+            description: 'Log Staff Activity in CRM',
           },
         ]
       : []),
