@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.4';
+export const APP_VERSION = '2.5';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.5',
+    date: '2026-10-28',
+    title: 'Pronouns CRM Synchronization & Developer-Editable Announcements',
+    changes: [
+      'Added "Pronouns" to the Member Information Card, mapped directly from the Neon One CRM "Gender" field.',
+      'Provided in-app Pronouns selection and real-time synchronization with Neon One via PATCH /api/v2/accounts/{id}.',
+      'Added Community Announcements noticeboard card to the home screen for all members.',
+      'Enabled live announcement editing for Developers: update announcement title, body, and author with backend synchronization to neon_kiosk.',
+      'Cached community announcements in localStorage for instant offline access and responsive UI.',
+    ],
+  },
   {
     version: '2.4',
     date: '2026-10-28',

@@ -1,4 +1,4 @@
-import { MemberProfile } from './types';
+import { MemberProfile, CommunityAnnouncement } from './types';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
 
@@ -99,6 +99,21 @@ export const NEON_INTEREST_OPTIONS: NeonInterestOption[] = [
   { id: '29', name: 'Family Programs' },
 ];
 
+export interface NeonGenderOption {
+  code: string;
+  name: string;
+}
+
+export const NEON_GENDER_OPTIONS: NeonGenderOption[] = [
+  { code: 'HH', name: 'He/Him' },
+  { code: 'HT', name: 'He/Them' },
+  { code: 'SH', name: 'She//Her' },
+  { code: 'ST', name: 'She/Them' },
+  { code: 'TT', name: 'They/Them' },
+  { code: 'ANY', name: 'Any' },
+  { code: 'OTHER', name: 'Other' },
+];
+
 /**
  * Fetches an individual member profile and custom fields directly by Neon Account ID.
  */
@@ -134,6 +149,12 @@ export async function fetchMemberProfileByAccountId(
       ? `${ind.accountCurrentMembershipStatus} Member`
       : 'Active Member';
 
+    // Parse Neon One Primary Contact Gender / Pronouns
+    const genderObj = contact.gender || {};
+    const rawGenderCode = genderObj.code || '';
+    const rawGenderName = genderObj.name || genderObj.description || '';
+    let legacyPronouns = '';
+
     // Parse custom fields:
     // Field 116 = Certifications (list / optionValues)
     // Field 117 = Portal Media (string value)
@@ -141,6 +162,7 @@ export async function fetchMemberProfileByAccountId(
     // Field 81  = Interests (list / optionValues)
     // Field 83  = Custom Interests (string value)
     // Field 118 = App Developer (checkbox option "TRUE")
+    // Field 82  = Pronouns (Legacy)
     let certsList: string[] = [];
     let portalMediaUrl = '';
     let foundTapCard = fallbackTapCard || '';
@@ -152,6 +174,15 @@ export async function fetchMemberProfileByAccountId(
     for (const field of customFields) {
       const fieldId = String(field.id);
       const fieldName = (field.name || '').toLowerCase();
+
+      // Pronouns (Legacy Field 82)
+      if (fieldId === '82' || fieldName.includes('pronoun')) {
+        if (Array.isArray(field.optionValues) && field.optionValues[0]) {
+          legacyPronouns = field.optionValues[0].name || String(field.optionValues[0]);
+        } else if (field.value) {
+          legacyPronouns = String(field.value);
+        }
+      }
 
       // Certifications
       if (fieldId === '116' || fieldName === 'certifications') {
@@ -218,12 +249,20 @@ export async function fetchMemberProfileByAccountId(
       isSystemUser = true; // All developers automatically have staff access
     }
 
+    const mappedGenderName = rawGenderCode
+      ? NEON_GENDER_OPTIONS.find((g) => g.code.toUpperCase() === rawGenderCode.toUpperCase())?.name
+      : undefined;
+    const resolvedPronouns = rawGenderName || mappedGenderName || legacyPronouns || '';
+
     const memberProfile: MemberProfile = {
       accountId: String(accountId),
       tapCard: foundTapCard,
       firstName,
       lastName,
       preferredName: preferredName || undefined,
+      gender: rawGenderName || resolvedPronouns || undefined,
+      genderCode: rawGenderCode || undefined,
+      pronouns: resolvedPronouns || undefined,
       name: fullName,
       email,
       phone,
@@ -492,5 +531,103 @@ export async function updateMemberInterestsInNeon(
       success: false,
       error: err.message || 'Error updating interests in Neon One.',
     };
+  }
+}
+
+/**
+ * Updates primary contact details (first name, last name, preferred name, pronouns/gender, email, phone) in Neon One.
+ */
+export async function updateMemberContactInNeon(
+  accountId: string,
+  fields: {
+    firstName?: string;
+    lastName?: string;
+    preferredName?: string;
+    genderCode?: string;
+    email?: string;
+    phone?: string;
+  }
+): Promise<NeonUpdateResult> {
+  if (!accountId) {
+    return { success: false, error: 'Account ID is required.' };
+  }
+
+  try {
+    const contactPayload: any = {};
+    if (fields.firstName !== undefined) contactPayload.firstName = fields.firstName;
+    if (fields.lastName !== undefined) contactPayload.lastName = fields.lastName;
+    if (fields.preferredName !== undefined) contactPayload.preferredName = fields.preferredName;
+    if (fields.genderCode !== undefined) {
+      contactPayload.gender = fields.genderCode ? { code: fields.genderCode } : null;
+    }
+    if (fields.email !== undefined) contactPayload.email1 = fields.email;
+
+    const accountPayload: any = {
+      primaryContact: contactPayload,
+    };
+    if (fields.phone !== undefined) {
+      accountPayload.smsNumber = fields.phone.replace(/[^0-9]/g, '');
+    }
+
+    const response = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ individualAccount: accountPayload }),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null);
+      const msg =
+        errData?.message ||
+        errData?.[0]?.message ||
+        'Failed to update member contact in Neon One.';
+      return { success: false, error: msg };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Error updating member contact in Neon One.',
+    };
+  }
+}
+
+/**
+ * Fetches the active community announcement from the backend proxy.
+ */
+export async function fetchCommunityAnnouncement(): Promise<CommunityAnnouncement | null> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/announcement`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.announcement || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Updates the community announcement via the backend proxy.
+ */
+export async function updateCommunityAnnouncement(announcement: {
+  title: string;
+  message: string;
+  author?: string;
+  active?: boolean;
+}): Promise<{ success: boolean; announcement?: CommunityAnnouncement; error?: string }> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/announcement`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(announcement),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Failed to update announcement.' };
+    }
+    return { success: true, announcement: data.announcement };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error updating announcement.' };
   }
 }

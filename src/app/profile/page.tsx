@@ -20,7 +20,12 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 import { getGreetingName } from '@/lib/types';
-import { updateMemberInterestsInNeon, NEON_INTEREST_OPTIONS } from '@/lib/neon';
+import {
+  updateMemberInterestsInNeon,
+  updateMemberContactInNeon,
+  NEON_INTEREST_OPTIONS,
+  NEON_GENDER_OPTIONS,
+} from '@/lib/neon';
 
 // Single Source of Truth for tool icons and certification deduplication
 // @ts-ignore
@@ -33,8 +38,11 @@ export default function ProfilePage() {
   const [firstNameInput, setFirstNameInput] = useState('');
   const [lastNameInput, setLastNameInput] = useState('');
   const [preferredNameInput, setPreferredNameInput] = useState('');
+  const [genderCodeInput, setGenderCodeInput] = useState('');
   const [emailInput, setEmailInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Editable Interests state
@@ -50,6 +58,13 @@ export default function ProfilePage() {
       setFirstNameInput(member.firstName || '');
       setLastNameInput(member.lastName || '');
       setPreferredNameInput(member.preferredName || '');
+      const code =
+        member.genderCode ||
+        NEON_GENDER_OPTIONS.find(
+          (g) => g.name.toLowerCase() === (member.pronouns || member.gender || '').toLowerCase()
+        )?.code ||
+        '';
+      setGenderCodeInput(code);
       setEmailInput(member.email || '');
       setPhoneInput(member.phone || '');
       setSelectedInterests(member.interests || []);
@@ -65,21 +80,46 @@ export default function ProfilePage() {
     return <TapCardLogin />;
   }
 
-  const handleSaveContact = (e: React.FormEvent) => {
+  const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanFirst = firstNameInput.trim();
     const cleanLast = lastNameInput.trim();
     const cleanPreferred = preferredNameInput.trim();
     const fullName = `${cleanFirst} ${cleanLast}`.trim() || 'Member';
+    const chosenGender = NEON_GENDER_OPTIONS.find((g) => g.code === genderCodeInput);
+    const resolvedPronouns = chosenGender?.name || member.pronouns || '';
+
+    setIsSavingContact(true);
+    setContactError(null);
+
+    // Sync changes to Neon One CRM if accountId is available
+    if (member?.accountId) {
+      const res = await updateMemberContactInNeon(member.accountId, {
+        firstName: cleanFirst,
+        lastName: cleanLast,
+        preferredName: cleanPreferred || undefined,
+        genderCode: genderCodeInput || undefined,
+        email: emailInput.trim(),
+        phone: phoneInput.trim(),
+      });
+      if (!res.success) {
+        setContactError(res.error || 'Failed to sync contact with Neon One.');
+      }
+    }
 
     updateMember({
       firstName: cleanFirst,
       lastName: cleanLast,
       preferredName: cleanPreferred || undefined,
+      gender: chosenGender?.name || undefined,
+      genderCode: genderCodeInput || undefined,
+      pronouns: resolvedPronouns || undefined,
       name: fullName,
       email: emailInput.trim(),
       phone: phoneInput.trim(),
     });
+
+    setIsSavingContact(false);
     setIsEditingContact(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
@@ -530,6 +570,14 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
+                  <label className="text-stone-500 font-medium block mb-1">Pronouns</label>
+                  <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    <span>{member.pronouns || member.gender || "Not set"}</span>
+                  </div>
+                </div>
+
+                <div>
                   <label className="text-stone-500 font-medium block mb-1">Email Address</label>
                   <div className="flex items-center gap-2 text-stone-800 font-medium bg-stone-50 p-2.5 rounded-xl border border-stone-200">
                     <Mail className="w-3.5 h-3.5 text-stone-400" />
@@ -590,6 +638,25 @@ export default function ProfilePage() {
                 </div>
 
                 <div>
+                  <label className="text-stone-600 font-medium block mb-1">Pronouns</label>
+                  <select
+                    value={genderCodeInput}
+                    onChange={(e) => setGenderCodeInput(e.target.value)}
+                    className="w-full text-stone-800 font-medium bg-white p-2.5 rounded-xl border border-[#3bc0cd] focus:outline-hidden text-xs cursor-pointer"
+                  >
+                    <option value="">Not specified</option>
+                    {NEON_GENDER_OPTIONS.map((opt) => (
+                      <option key={opt.code} value={opt.code}>
+                        {opt.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-[10px] text-stone-400 mt-0.5 block">
+                    Synchronized with your Neon One CRM account &quot;Gender&quot; field.
+                  </span>
+                </div>
+
+                <div>
                   <label className="text-stone-600 font-medium block mb-1">Email</label>
                   <input
                     type="email"
@@ -609,12 +676,29 @@ export default function ProfilePage() {
                   />
                 </div>
 
+                {contactError && (
+                  <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                    <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    <span>{contactError}</span>
+                  </div>
+                )}
+
                 <button
                   type="submit"
-                  className="w-full mt-3 py-2.5 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                  disabled={isSavingContact}
+                  className="w-full mt-3 py-2.5 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] disabled:opacity-50 text-white font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
                 >
-                  <Save className="w-4 h-4" />
-                  Save Details
+                  {isSavingContact ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Saving to Neon One...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save Details</span>
+                    </>
+                  )}
                 </button>
               </form>
             )}

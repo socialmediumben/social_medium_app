@@ -4,6 +4,9 @@ export interface MemberProfile {
   firstName: string;
   lastName: string;
   preferredName?: string;
+  gender?: string;          // Neon One Primary Contact Gender description (e.g. "He/Him")
+  genderCode?: string;      // Neon One Primary Contact Gender code (e.g. "HH")
+  pronouns?: string;        // Display label for Pronouns (mapped from Gender)
   name: string;             // Full name: e.g. "Benyomin Braunstein"
   email: string;
   phone: string;
@@ -15,6 +18,15 @@ export interface MemberProfile {
   customInterests?: string; // Single-line text field in Neon One: "Custom Interests" (ID 83)
   isSystemUser?: boolean;   // Active Neon One CRM System User (Staff access)
   isAppDeveloper?: boolean; // Neon One "App Developer" Custom Field 118 (Dev access)
+}
+
+export interface CommunityAnnouncement {
+  id: string;
+  title: string;
+  message: string;
+  author?: string;
+  updatedAt: string;
+  active?: boolean;
 }
 
 /**
