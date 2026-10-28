@@ -1,12 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { CreditCard, User, Phone, Mail, CheckCircle2, Edit2, Save, X, Wrench, Code2, BookOpen, Sliders } from 'lucide-react';
+import {
+  CreditCard,
+  User,
+  Phone,
+  Mail,
+  CheckCircle2,
+  Edit2,
+  Save,
+  X,
+  Wrench,
+  RefreshCw,
+  AlertCircle,
+  Plus,
+  Check,
+  Sparkles,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useDevMode } from '@/context/DevModeContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 import { getGreetingName } from '@/lib/types';
-import { APP_VERSION } from '@/lib/version';
+import { updateMemberInterestsInNeon, NEON_INTEREST_OPTIONS } from '@/lib/neon';
 
 // Single Source of Truth for tool icons and certification deduplication
 // @ts-ignore
@@ -14,7 +28,6 @@ import SMCertifications from '../../../public/shared/sm-certifications.js';
 
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
-  const { isDevMode, toggleDevMode, openChangelog, openIconManager } = useDevMode();
 
   const [isEditingContact, setIsEditingContact] = useState(false);
   const [firstNameInput, setFirstNameInput] = useState('');
@@ -24,6 +37,14 @@ export default function ProfilePage() {
   const [phoneInput, setPhoneInput] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  // Editable Interests state
+  const [isEditingInterests, setIsEditingInterests] = useState(false);
+  const [selectedInterests, setSelectedInterests] = useState<string[]>([]);
+  const [customInterestsInput, setCustomInterestsInput] = useState('');
+  const [isSavingInterests, setIsSavingInterests] = useState(false);
+  const [interestsError, setInterestsError] = useState<string | null>(null);
+  const [interestsSuccess, setInterestsSuccess] = useState(false);
+
   useEffect(() => {
     if (member) {
       setFirstNameInput(member.firstName || '');
@@ -31,6 +52,8 @@ export default function ProfilePage() {
       setPreferredNameInput(member.preferredName || '');
       setEmailInput(member.email || '');
       setPhoneInput(member.phone || '');
+      setSelectedInterests(member.interests || []);
+      setCustomInterestsInput(member.customInterests || '');
     }
   }, [member]);
 
@@ -60,6 +83,52 @@ export default function ProfilePage() {
     setIsEditingContact(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const toggleInterest = (interestName: string) => {
+    setSelectedInterests((prev) => {
+      const exists = prev.some((i) => i.toLowerCase() === interestName.toLowerCase());
+      if (exists) {
+        return prev.filter((i) => i.toLowerCase() !== interestName.toLowerCase());
+      } else {
+        return [...prev, interestName];
+      }
+    });
+  };
+
+  const handleSaveInterests = async () => {
+    if (!member?.accountId) return;
+    setIsSavingInterests(true);
+    setInterestsError(null);
+
+    const res = await updateMemberInterestsInNeon(
+      member.accountId,
+      selectedInterests,
+      customInterestsInput
+    );
+
+    setIsSavingInterests(false);
+
+    if (res.success) {
+      updateMember({
+        interests: selectedInterests,
+        customInterests: customInterestsInput.trim(),
+      });
+      setIsEditingInterests(false);
+      setInterestsSuccess(true);
+      setTimeout(() => setInterestsSuccess(false), 4000);
+    } else {
+      setInterestsError(res.error || 'Failed to save interests to Neon One.');
+    }
+  };
+
+  const handleCancelInterests = () => {
+    if (member) {
+      setSelectedInterests(member.interests || []);
+      setCustomInterestsInput(member.customInterests || '');
+    }
+    setInterestsError(null);
+    setIsEditingInterests(false);
   };
 
   const certifications = member.certifications || [];
@@ -215,115 +284,182 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Interests & Custom Interests Card (Neon One Fields 81 & 83) */}
-          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
-            <div className="flex items-center justify-between mb-3">
+          {/* Interests & Passions Card (Neon One Fields 81 & 83 - Editable) */}
+          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
               <div>
-                <h2 className="font-fredoka text-lg font-bold text-stone-900">
-                  Interests & Passions
+                <h2 className="font-fredoka text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <span>Interests & Passions</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f16622]/10 text-[#f16622] uppercase tracking-wider">
+                    Neon One Synced
+                  </span>
                 </h2>
-                <p className="text-stone-500 text-xs">
+                <p className="text-stone-500 text-xs mt-0.5">
                   Printed on your Check-In Kiosk nametag under &quot;I&apos;m Nerdy for...&quot;
                 </p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#f16622]/10 text-[#f16622]">
-                Neon One Synced
-              </span>
-            </div>
 
-            <div className="space-y-4 pt-1">
-              {/* Field 81: Interests */}
-              <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-2">
-                  Interests (Field 81)
-                </label>
-                {member.interests && member.interests.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {member.interests.map((interest, idx) => (
-                      <span
-                        key={idx}
-                        className="px-3 py-1.5 rounded-xl bg-[#3bc0cd]/15 text-[#24818a] border border-[#3bc0cd]/30 text-xs font-bold"
-                      >
-                        {interest}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-xs text-stone-400 italic">No general interests selected yet.</div>
-                )}
-              </div>
-
-              {/* Field 83: Custom Interests */}
-              <div className="pt-2 border-t border-stone-100">
-                <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-1.5">
-                  Custom Interests (Field 83)
-                </label>
-                {member.customInterests ? (
-                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold text-stone-800">
-                    {member.customInterests}
-                  </div>
-                ) : (
-                  <div className="text-xs text-stone-400 italic">No custom interests specified.</div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Developer Mode Card (Always available to toggle ON/OFF) */}
-          <div className={`p-6 rounded-2xl border transition-colors shadow-xs ${isDevMode ? 'bg-amber-50/70 border-amber-200' : 'bg-white border-stone-200'}`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className={`p-2.5 rounded-xl ${isDevMode ? 'bg-amber-200 text-amber-900' : 'bg-stone-100 text-stone-600'}`}>
-                  <Code2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="font-fredoka text-base font-bold text-stone-900">
-                    Developer Mode
-                  </h3>
-                  <p className="text-xs text-stone-500 font-roboto">
-                    {isDevMode ? (
-                      <span className="text-amber-900 font-mono font-semibold">Active • Version v{APP_VERSION}</span>
-                    ) : (
-                      'Shows release versioning, icon manager, and full deployment changelog.'
-                    )}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {isDevMode && (
-                  <>
-                    <button
-                      type="button"
-                      onClick={openIconManager}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      <span>Icon Manager</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openChangelog}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
-                    >
-                      <BookOpen className="w-3.5 h-3.5" />
-                      <span>View Changelog</span>
-                    </button>
-                  </>
-                )}
+              {!isEditingInterests ? (
                 <button
                   type="button"
-                  onClick={toggleDevMode}
-                  className={`px-3.5 py-2 rounded-xl font-semibold text-xs transition-colors cursor-pointer shadow-xs ${
-                    isDevMode
-                      ? 'bg-amber-200 hover:bg-amber-300 text-amber-950'
-                      : 'bg-[#344ea2] hover:bg-[#2a3f85] text-white'
-                  }`}
+                  onClick={() => setIsEditingInterests(true)}
+                  className="text-xs font-semibold text-[#344ea2] hover:text-[#f16622] flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-stone-50 transition-colors cursor-pointer border border-stone-200"
                 >
-                  {isDevMode ? 'Turn OFF' : 'Turn ON Developer Mode'}
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>Edit Interests</span>
                 </button>
-              </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCancelInterests}
+                    disabled={isSavingInterests}
+                    className="text-xs font-semibold text-stone-500 hover:text-stone-800 px-3 py-1.5 rounded-xl hover:bg-stone-100 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveInterests}
+                    disabled={isSavingInterests}
+                    className="text-xs font-bold text-white bg-[#344ea2] hover:bg-[#2a3f85] disabled:opacity-50 flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl transition-colors cursor-pointer shadow-xs"
+                  >
+                    {isSavingInterests ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Saving...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-3.5 h-3.5" />
+                        <span>Save Changes</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
+
+            {/* Notification Alerts */}
+            {interestsSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>Interests successfully updated and synced with Neon One!</span>
+              </div>
+            )}
+
+            {interestsError && (
+              <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                <span>{interestsError}</span>
+              </div>
+            )}
+
+            {/* VIEW MODE */}
+            {!isEditingInterests ? (
+              <div className="space-y-4 pt-1">
+                {/* Field 81: General Interests */}
+                <div>
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-2">
+                    Interests (Field 81)
+                  </label>
+                  {member.interests && member.interests.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {member.interests.map((interest, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1.5 rounded-xl bg-[#3bc0cd]/15 text-[#24818a] border border-[#3bc0cd]/30 text-xs font-bold flex items-center gap-1.5"
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#3bc0cd]" />
+                          {interest}
+                        </span>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-xs text-stone-400 italic">
+                      No general interests selected yet. Click &quot;Edit Interests&quot; above to choose your passions!
+                    </div>
+                  )}
+                </div>
+
+                {/* Field 83: Custom Interests */}
+                <div className="pt-2 border-t border-stone-100">
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-1.5">
+                    Custom Interests (Field 83)
+                  </label>
+                  {member.customInterests ? (
+                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold text-stone-800">
+                      {member.customInterests}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-stone-400 italic">No custom interests specified.</div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* EDIT MODE */
+              <div className="space-y-5 pt-1">
+                {/* Field 81 Selection Grid */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-bold uppercase tracking-wider text-stone-700 block">
+                      Choose Interests (Field 81)
+                    </label>
+                    <span className="text-[11px] text-stone-500 font-medium">
+                      {selectedInterests.length} selected
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 mb-3">
+                    Click each passion to toggle it on or off for your profile and check-in nametag:
+                  </p>
+
+                  <div className="flex flex-wrap gap-2">
+                    {NEON_INTEREST_OPTIONS.map((opt) => {
+                      const isSelected = selectedInterests.some(
+                        (i) => i.toLowerCase() === opt.name.toLowerCase() || i === opt.id
+                      );
+
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => toggleInterest(opt.name)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                            isSelected
+                              ? 'bg-[#3bc0cd] text-white border-[#2fb0bd] shadow-xs'
+                              : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
+                          }`}
+                        >
+                          {isSelected ? (
+                            <Check className="w-3.5 h-3.5 shrink-0 stroke-[3]" />
+                          ) : (
+                            <Plus className="w-3.5 h-3.5 shrink-0 text-stone-400" />
+                          )}
+                          <span>{opt.name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Field 83 Custom Interests Input */}
+                <div className="pt-3 border-t border-stone-100 space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-stone-700 block">
+                    Custom Interests (Field 83)
+                  </label>
+                  <p className="text-xs text-stone-500">
+                    Have a specific niche passion or unique craft? Enter it here to appear alongside your interests:
+                  </p>
+                  <input
+                    type="text"
+                    value={customInterestsInput}
+                    onChange={(e) => setCustomInterestsInput(e.target.value)}
+                    placeholder="e.g. Animatronics, Wooden Automata, Prop Making..."
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-[#3bc0cd] text-xs font-medium outline-none transition-all placeholder:text-stone-400"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

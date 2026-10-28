@@ -250,104 +250,7 @@ export default function EventsPage() {
         </div>
       )}
 
-      {/* CARD 1: Events I've RSVP'd To */}
-      <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-stone-100 pb-4">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
-              <BookmarkCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h2 className="font-fredoka text-lg font-bold text-stone-900">
-                Events I&apos;ve RSVP&apos;d To
-              </h2>
-              <p className="text-stone-500 text-xs">
-                Your confirmed event registrations synchronized with Neon One CRM.
-              </p>
-            </div>
-          </div>
-          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-            {registeredEvents.length} Confirmed
-          </span>
-        </div>
-
-        {isLoading ? (
-          <div className="py-8 text-center text-stone-400 text-xs flex items-center justify-center gap-2">
-            <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
-            <span>Checking registrations...</span>
-          </div>
-        ) : registeredEvents.length === 0 ? (
-          <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-2">
-            <Calendar className="w-8 h-8 text-stone-300 mx-auto mb-1" />
-            <h3 className="font-semibold text-stone-700 text-sm">
-              You haven&apos;t RSVP&apos;d for any upcoming events yet
-            </h3>
-            <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
-              Browse available community events and workshops below to reserve your spot!
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-            {registeredEvents.map((event) => {
-              const isWorkshop = isWorkshopEvent(event);
-              const regUrl = getEventRegistrationUrl(event);
-
-              return (
-                <div
-                  key={event.id}
-                  className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow"
-                >
-                  <div>
-                    <div className="flex items-start justify-between gap-3 mb-2.5">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                        RSVP Confirmed
-                      </span>
-                      <span className="text-xs font-bold text-stone-800 bg-white px-2 py-0.5 rounded-md border border-stone-200">
-                        {formatEventDate(event.startDate)}
-                      </span>
-                    </div>
-
-                    <h3 className="font-fredoka text-base font-bold text-stone-900 mb-1 leading-snug">
-                      {event.name}
-                    </h3>
-
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 mb-2">
-                      {event.startTime && (
-                        <span className="flex items-center gap-1 font-medium">
-                          <Clock className="w-3 h-3 text-stone-400" />
-                          {formatEventTime(event.startTime)}
-                        </span>
-                      )}
-                      <span className="flex items-center gap-1 font-medium">
-                        <MapPin className="w-3 h-3 text-stone-400" />
-                        {event.addressLine1 || 'Social Medium West Hills'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs mt-2">
-                    <span className="text-[11px] font-semibold text-emerald-800">
-                      Admission Reserved
-                    </span>
-                    <a
-                      href={event.detailsUrl || regUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs font-semibold text-[#344ea2] hover:text-[#f16622] inline-flex items-center gap-1 transition-colors"
-                    >
-                      <span>Event Details</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* CARD 2: Upcoming Events (Available to Register) */}
+      {/* CARD 1: Upcoming Events (Available to Register) */}
       <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
           <div className="flex items-center gap-2.5">
@@ -560,6 +463,102 @@ export default function EventsPage() {
                         </a>
                       )}
                     </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* CARD 2: Events I've RSVP'd To */}
+      <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-emerald-50 text-emerald-700">
+              <BookmarkCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="font-fredoka text-lg font-bold text-stone-900">
+                Events I&apos;ve RSVP&apos;d To
+              </h2>
+              <p className="text-stone-500 text-xs">
+                Your confirmed event registrations synchronized with Neon One CRM.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+            {registeredEvents.length} Confirmed
+          </span>
+        </div>
+
+        {isLoading ? (
+          <div className="py-8 text-center text-stone-400 text-xs flex items-center justify-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin text-emerald-600" />
+            <span>Checking registrations...</span>
+          </div>
+        ) : registeredEvents.length === 0 ? (
+          <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-2">
+            <Calendar className="w-8 h-8 text-stone-300 mx-auto mb-1" />
+            <h3 className="font-semibold text-stone-700 text-sm">
+              You haven&apos;t RSVP&apos;d for any upcoming events yet
+            </h3>
+            <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
+              Browse available community events and workshops above to reserve your spot!
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
+            {registeredEvents.map((event) => {
+              const regUrl = getEventRegistrationUrl(event);
+
+              return (
+                <div
+                  key={event.id}
+                  className="p-4 rounded-xl border border-emerald-200 bg-emerald-50/20 flex flex-col justify-between shadow-2xs hover:shadow-xs transition-shadow"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-3 mb-2.5">
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                        <CheckCircle2 className="w-3 h-3 text-emerald-700" />
+                        RSVP Confirmed
+                      </span>
+                      <span className="text-xs font-bold text-stone-800 bg-white px-2 py-0.5 rounded-md border border-stone-200">
+                        {formatEventDate(event.startDate)}
+                      </span>
+                    </div>
+
+                    <h3 className="font-fredoka text-base font-bold text-stone-900 mb-1 leading-snug">
+                      {event.name}
+                    </h3>
+
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500 mb-2">
+                      {event.startTime && (
+                        <span className="flex items-center gap-1 font-medium">
+                          <Clock className="w-3 h-3 text-stone-400" />
+                          {formatEventTime(event.startTime)}
+                        </span>
+                      )}
+                      <span className="flex items-center gap-1 font-medium">
+                        <MapPin className="w-3 h-3 text-stone-400" />
+                        {event.addressLine1 || 'Social Medium West Hills'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2.5 border-t border-emerald-100/80 flex items-center justify-between text-xs mt-2">
+                    <span className="text-[11px] font-semibold text-emerald-800">
+                      Admission Reserved
+                    </span>
+                    <a
+                      href={event.detailsUrl || regUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-semibold text-[#344ea2] hover:text-[#f16622] inline-flex items-center gap-1 transition-colors"
+                    >
+                      <span>Event Details</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
                   </div>
                 </div>
               );

@@ -13,6 +13,31 @@ export interface NeonUpdateResult {
   error?: string;
 }
 
+export interface NeonInterestOption {
+  id: string;
+  name: string;
+}
+
+/**
+ * Standard Interest options configured in Neon One Custom Field 81 ("Interests").
+ */
+export const NEON_INTEREST_OPTIONS: NeonInterestOption[] = [
+  { id: '12', name: 'Cosplay' },
+  { id: '13', name: 'Electronics' },
+  { id: '11', name: 'Games' },
+  { id: '3', name: 'Process Art' },
+  { id: '1', name: 'Film' },
+  { id: '2', name: 'Fine Arts' },
+  { id: '6', name: 'Miniatures/Model Making' },
+  { id: '7', name: 'Puppets' },
+  { id: '10', name: 'Digital Fab.' },
+  { id: '30', name: 'Fiber Arts' },
+  { id: '8', name: 'Show & Tell' },
+  { id: '9', name: 'Maker Melee' },
+  { id: '4', name: 'Education' },
+  { id: '29', name: 'Family Programs' },
+];
+
 /**
  * Searches Neon One for a member by their exact "Tap Card" custom field,
  * then retrieves their complete account profile and custom fields.
@@ -208,6 +233,70 @@ export async function updatePortalMediaInNeon(
     return {
       success: false,
       error: err.message || 'Error updating Portal Media in Neon One.',
+    };
+  }
+}
+
+/**
+ * Updates the member's Interests (Field 81) and Custom Interests (Field 83) directly in Neon One.
+ */
+export async function updateMemberInterestsInNeon(
+  accountId: string,
+  selectedOptionNames: string[],
+  customInterests: string
+): Promise<NeonUpdateResult> {
+  if (!accountId) {
+    return { success: false, error: 'No account ID provided for update.' };
+  }
+
+  try {
+    // Map selected names or IDs to option value objects
+    const optionValues = selectedOptionNames
+      .map((item) => {
+        const found = NEON_INTEREST_OPTIONS.find(
+          (opt) => opt.name.toLowerCase() === item.toLowerCase() || opt.id === item
+        );
+        return found ? { id: found.id, name: found.name } : null;
+      })
+      .filter(Boolean);
+
+    const payload = {
+      individualAccount: {
+        accountCustomFields: [
+          {
+            id: '81',
+            optionValues: optionValues,
+          },
+          {
+            id: '83',
+            value: (customInterests || '').trim(),
+          },
+        ],
+      },
+    };
+
+    const response = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null);
+      const msg =
+        errData?.message ||
+        errData?.[0]?.message ||
+        'Failed to update interests in Neon One.';
+      return { success: false, error: msg };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Error updating interests in Neon One.',
     };
   }
 }

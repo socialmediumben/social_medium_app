@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.0';
+export const APP_VERSION = '2.1';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,16 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.1',
+    date: '2026-10-27',
+    title: 'Editable Member Interests, Card Reordering & Profile Streamlining',
+    changes: [
+      'Made Interests & Passions fully editable on Member Profile: members can toggle Field 81 interests and update Field 83 custom interests with instant Neon One CRM synchronization.',
+      'Removed Developer Mode card from the Member Profile module, keeping the developer toggle clean in the header navigation.',
+      'Reordered Events module cards so "Upcoming Events (Available to Register)" is on top and "Events I\'ve RSVP\'d To" is below.',
+    ],
+  },
   {
     version: '2.0',
     date: '2026-10-27',
