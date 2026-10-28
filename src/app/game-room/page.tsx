@@ -148,9 +148,10 @@ export default function GameRoomPage() {
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string | null>(null);
   const [activeEmbedTitle, setActiveEmbedTitle] = useState<string>('');
 
-  // WebSocket Reference
+  // WebSocket Reference & Reconnect Backoff
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
+  const wsRetryCountRef = useRef<number>(0);
 
   // Load configured server URL from localStorage
   useEffect(() => {
@@ -164,13 +165,31 @@ export default function GameRoomPage() {
     }
   }, []);
 
-  // WebSocket Connection & Event Handler
+  // Safe WebSocket Connection - ONLY initiates when HTTP probe confirms connection
   useEffect(() => {
     let isMounted = true;
 
+    // Do NOT connect WebSocket if offline, unverified, or cert not yet trusted
+    if (connectionStatus !== 'connected') {
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch (_) {}
+        wsRef.current = null;
+      }
+      return;
+    }
+
     const connectWs = () => {
       const wsUrl = getWebSocketUrl(serverUrl);
-      if (!wsUrl) return;
+      if (!wsUrl || !isMounted) return;
+
+      // Bound reconnect attempts to prevent Chromium ERR_TOO_MANY_RETRIES (-375)
+      if (wsRetryCountRef.current >= 3) {
+        console.warn('[Game Room] Max WS reconnect attempts (3) reached. Halting automatic retries.');
+        setConnectionStatus('offline');
+        return;
+      }
 
       try {
         const ws = new WebSocket(wsUrl);
@@ -178,6 +197,7 @@ export default function GameRoomPage() {
 
         ws.onopen = () => {
           if (!isMounted) return;
+          wsRetryCountRef.current = 0; // Reset retry counter on clean open
           setConnectionStatus('connected');
 
           // Send Grimoire Handshake
@@ -260,14 +280,20 @@ export default function GameRoomPage() {
         ws.onclose = () => {
           if (!isMounted) return;
           wsRef.current = null;
-          // Try reconnect after 3.5s
-          reconnectTimeoutRef.current = setTimeout(() => {
-            if (isMounted) connectWs();
-          }, 3500);
+          wsRetryCountRef.current++;
+
+          if (wsRetryCountRef.current < 3) {
+            const backoffMs = 2500 * wsRetryCountRef.current;
+            reconnectTimeoutRef.current = setTimeout(() => {
+              if (isMounted) connectWs();
+            }, backoffMs);
+          } else {
+            console.warn('[Game Room] WS disconnected. Pausing retries until user manually retests.');
+          }
         };
 
         ws.onerror = () => {
-          // Handled via onclose
+          // Handled gracefully in onclose
         };
       } catch (_) {}
     };
@@ -293,11 +319,13 @@ export default function GameRoomPage() {
         wsRef.current = null;
       }
     };
-  }, [serverUrl]);
+  }, [serverUrl, connectionStatus]);
 
   // Ping Game Room Server to check Wi-Fi connection
   const checkServerConnection = async (targetUrl = serverUrl) => {
     setIsCheckingConnection(true);
+    setLastCheckError(null);
+    wsRetryCountRef.current = 0; // Reset WS retry budget on manual probe
     setLastCheckError(null);
 
     const cleanUrl = sanitizeGameRoomUrl(targetUrl);
@@ -679,24 +707,47 @@ export default function GameRoomPage() {
 
             {/* Offline Helper Notice */}
             {connectionStatus !== 'connected' && (
-              <div className="mt-4 p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
-                <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <strong className="block font-semibold">Running in Offline Simulator Mode:</strong>
-                  <p className="text-amber-800 leading-relaxed">
-                    To control the physical room displays and Hubspace ceiling lights, your device must be connected to the <strong>Social Medium Makerspace Wi-Fi</strong>.
-                  </p>
-                  <p className="text-amber-800 text-[11px]">
-                    <em>Tip:</em> If on the makerspace Wi-Fi, click{' '}
-                    <a
-                      href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline font-bold text-amber-900 hover:text-black"
-                    >
-                      Open Spellbook
-                    </a>{' '}
-                    once to trust the local self-signed certificate, which allows your browser to send commands directly to room displays.
+              <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <strong className="block font-semibold text-sm text-amber-950">
+                      Running in Offline Simulator Mode
+                    </strong>
+                    <p className="text-amber-800 leading-relaxed">
+                      To control the physical room displays and Hubspace ceiling lights, your device must be connected to the <strong>Social Medium Makerspace Wi-Fi</strong>.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Step-by-Step Certificate Trust for Phones */}
+                <div className="p-3.5 rounded-xl bg-white/80 border border-amber-300/60 space-y-2">
+                  <div className="font-bold text-xs text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
+                    <span>📱</span>
+                    <span>First Time Connecting a New Phone or Laptop?</span>
+                  </div>
+                  <ol className="list-decimal pl-5 space-y-1.5 text-amber-900 leading-relaxed">
+                    <li>
+                      Confirm this device is connected to the <strong>Makerspace Wi-Fi</strong> (not mobile 5G/cellular data).
+                    </li>
+                    <li>
+                      Tap{' '}
+                      <a
+                        href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 font-bold underline text-[#344ea2] hover:text-[#2b4085]"
+                      >
+                        <span>Trust Local Security Certificate ↗</span>
+                      </a>
+                      . When the warning appears, tap <strong>Advanced</strong> &rarr; <strong>Proceed to 192.168.12.108 (unsafe)</strong>.
+                    </li>
+                    <li>
+                      Return to this tab and tap <strong>Test Connection</strong> above.
+                    </li>
+                  </ol>
+                  <p className="text-[11px] text-amber-700 italic pt-1">
+                    Note: If a device skips step 2, mobile Chrome blocks untrusted local SSL connections and reports <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-amber-900">ERR_TOO_MANY_RETRIES</code>.
                   </p>
                 </div>
               </div>
