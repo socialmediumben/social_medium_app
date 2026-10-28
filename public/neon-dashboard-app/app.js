@@ -6,7 +6,7 @@ const NEON_API_BASE = (function() {
       return '';
     }
   }
-  return 'https://neon-dashboard.onrender.com';
+  return 'https://neon-kiosk.onrender.com';
 })();
 
 // Application State
