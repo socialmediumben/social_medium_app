@@ -28,15 +28,10 @@ export function Navbar() {
             SM
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2]">
-                SOCIAL MEDIUM
-              </span>
-              <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-full bg-[#f16622]/10 text-[#f16622] border border-[#f16622]/20">
-                App
-              </span>
-            </div>
-            <p className="text-[11px] text-stone-500 -mt-1 hidden sm:block font-roboto">
+            <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block">
+              SOCIAL MEDIUM
+            </span>
+            <p className="text-[11px] text-stone-500 -mt-0.5 hidden sm:block font-roboto">
               A Social Makerspace • West Hills, CA
             </p>
           </div>

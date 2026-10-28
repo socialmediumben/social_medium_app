@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.8';
+export const APP_VERSION = '1.9';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,16 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '1.9',
+    date: '2026-10-27',
+    title: 'Direct API Member RSVP Fix & Header Cleanup',
+    changes: [
+      'Resolved Neon One registration API payload by formatting registrationDateTime to match Neon One specifications without milliseconds.',
+      'Active members now RSVP directly via the API with 1 click without opening external signup tabs.',
+      'Removed the "App" pill from the top navigation header for a clean, minimal brand logo layout.',
+    ],
+  },
   {
     version: '1.8',
     date: '2026-10-27',

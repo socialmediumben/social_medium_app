@@ -82,32 +82,41 @@ export default function EventsPage() {
   // Handle Free Member RSVP
   const handleRsvp = async (event: NeonEvent) => {
     if (!member?.accountId) {
-      window.open(getEventRegistrationUrl(event), '_blank', 'noopener,noreferrer');
+      setStatusMessage({
+        type: 'error',
+        text: 'Please connect your Tap Card on the Profile page to enable one-click member RSVP.',
+      });
       return;
     }
 
     setRsvpLoadingId(event.id);
     setStatusMessage(null);
 
-    const result = await rsvpForEvent(event, member.accountId);
-    setRsvpLoadingId(null);
+    try {
+      const result = await rsvpForEvent(event, member.accountId);
+      setRsvpLoadingId(null);
 
-    if (result.success) {
-      setRegisteredIds((prev) => [...prev, String(event.id)]);
-      setStatusMessage({
-        type: 'success',
-        text: `You have successfully RSVP'd for "${event.name}"!`,
-      });
-      setTimeout(() => setStatusMessage(null), 5000);
-    } else {
-      if (result.fallbackUrl) {
-        window.open(result.fallbackUrl, '_blank', 'noopener,noreferrer');
+      if (result.success) {
+        setRegisteredIds((prev) => [...prev, String(event.id)]);
+        setStatusMessage({
+          type: 'success',
+          text: `You have successfully RSVP'd for "${event.name}"!`,
+        });
+        setTimeout(() => setStatusMessage(null), 6000);
+      } else {
+        setStatusMessage({
+          type: 'error',
+          text: result.error || 'Registration could not be completed via API.',
+        });
+        setTimeout(() => setStatusMessage(null), 6000);
       }
+    } catch (err: any) {
+      setRsvpLoadingId(null);
       setStatusMessage({
-        type: 'info',
-        text: result.error || 'Opening event registration page on Neon One...',
+        type: 'error',
+        text: err?.message || 'Unexpected network error submitting RSVP.',
       });
-      setTimeout(() => setStatusMessage(null), 5000);
+      setTimeout(() => setStatusMessage(null), 6000);
     }
   };
 
