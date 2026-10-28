@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.9';
+export const APP_VERSION = '2.0';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.0',
+    date: '2026-10-27',
+    title: 'Portal Door Simulation, Dual-Card Events & Profile Interests',
+    changes: [
+      'Interactive Portal Door simulation with YouTube embed playback, Google Drive support, and animated sliding doors.',
+      'Split Events module into two dedicated cards: "Events I\'ve RSVP\'d To" and "Upcoming Events (Available to Register)".',
+      'Added Neon One "Interests" (Field 81) and "Custom Interests" (Field 83) to the Member Profile.',
+      'Streamlined header branding by removing the location subtitle under the logo.',
+    ],
+  },
   {
     version: '1.9',
     date: '2026-10-27',

@@ -11,6 +11,8 @@ export interface MemberProfile {
   membershipStatus?: string;// e.g. "Active", "Inactive", "None"
   certifications: string[]; // List field in Neon One: "Certifications" (ID 116)
   portalMedia?: string;     // Single-line text field in Neon One: "Portal Media" (ID 117)
+  interests?: string[];     // Multi-select field in Neon One: "Interests" (ID 81)
+  customInterests?: string; // Single-line text field in Neon One: "Custom Interests" (ID 83)
 }
 
 /**

@@ -31,9 +31,6 @@ export function Navbar() {
             <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block">
               SOCIAL MEDIUM
             </span>
-            <p className="text-[11px] text-stone-500 -mt-0.5 hidden sm:block font-roboto">
-              A Social Makerspace • West Hills, CA
-            </p>
           </div>
         </Link>
 

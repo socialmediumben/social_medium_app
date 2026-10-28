@@ -91,9 +91,13 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
     // Field 116 = Certifications (list / optionValues)
     // Field 117 = Portal Media (string value)
     // Field 114 = Tap Card (string value)
+    // Field 81  = Interests (list / optionValues)
+    // Field 83  = Custom Interests (string value)
     let certsList: string[] = [];
     let portalMediaUrl = '';
     let foundTapCard = cleanCard;
+    let interestsList: string[] = [];
+    let customInterestsStr = '';
 
     const customFields: any[] = ind.accountCustomFields || [];
     for (const field of customFields) {
@@ -120,6 +124,20 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
           foundTapCard = field.value;
         }
       }
+
+      // Interests (Field 81)
+      if (fieldId === '81' || fieldName === 'interests') {
+        if (Array.isArray(field.optionValues)) {
+          interestsList = field.optionValues.map((opt: any) => opt.name || String(opt));
+        } else if (field.value) {
+          interestsList = [String(field.value)];
+        }
+      }
+
+      // Custom Interests (Field 83)
+      if (fieldId === '83' || fieldName === 'custom interests') {
+        customInterestsStr = field.value || '';
+      }
     }
 
     const memberProfile: MemberProfile = {
@@ -135,6 +153,8 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
       membershipStatus: ind.accountCurrentMembershipStatus || 'Active',
       certifications: certsList,
       portalMedia: portalMediaUrl,
+      interests: interestsList,
+      customInterests: customInterestsStr,
     };
 
     return { success: true, member: memberProfile };

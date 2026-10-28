@@ -215,6 +215,60 @@ export default function ProfilePage() {
             )}
           </div>
 
+          {/* Interests & Custom Interests Card (Neon One Fields 81 & 83) */}
+          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="font-fredoka text-lg font-bold text-stone-900">
+                  Interests & Passions
+                </h2>
+                <p className="text-stone-500 text-xs">
+                  Printed on your Check-In Kiosk nametag under &quot;I&apos;m Nerdy for...&quot;
+                </p>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#f16622]/10 text-[#f16622]">
+                Neon One Synced
+              </span>
+            </div>
+
+            <div className="space-y-4 pt-1">
+              {/* Field 81: Interests */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-2">
+                  Interests (Field 81)
+                </label>
+                {member.interests && member.interests.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {member.interests.map((interest, idx) => (
+                      <span
+                        key={idx}
+                        className="px-3 py-1.5 rounded-xl bg-[#3bc0cd]/15 text-[#24818a] border border-[#3bc0cd]/30 text-xs font-bold"
+                      >
+                        {interest}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-xs text-stone-400 italic">No general interests selected yet.</div>
+                )}
+              </div>
+
+              {/* Field 83: Custom Interests */}
+              <div className="pt-2 border-t border-stone-100">
+                <label className="text-xs font-bold uppercase tracking-wider text-stone-500 block mb-1.5">
+                  Custom Interests (Field 83)
+                </label>
+                {member.customInterests ? (
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 text-xs font-semibold text-stone-800">
+                    {member.customInterests}
+                  </div>
+                ) : (
+                  <div className="text-xs text-stone-400 italic">No custom interests specified.</div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Developer Mode Card (Always available to toggle ON/OFF) */}
           <div className={`p-6 rounded-2xl border transition-colors shadow-xs ${isDevMode ? 'bg-amber-50/70 border-amber-200' : 'bg-white border-stone-200'}`}>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
