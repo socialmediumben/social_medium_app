@@ -47,6 +47,38 @@ export interface NeonInterestOption {
   name: string;
 }
 
+// System Users Cache
+let cachedSystemUsers: { firstName: string; lastName: string }[] | null = null;
+
+export async function fetchNeonSystemUsers(): Promise<{ firstName: string; lastName: string }[]> {
+  if (cachedSystemUsers) return cachedSystemUsers;
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/properties/systemUsers`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        cachedSystemUsers = data
+          .filter((u: any) => !u.lastName?.includes('(Deactivated User)'))
+          .map((u: any) => ({
+            firstName: (u.firstName || '').trim().toLowerCase(),
+            lastName: (u.lastName || '').trim().toLowerCase(),
+          }));
+        return cachedSystemUsers;
+      }
+    }
+  } catch (_) {}
+
+  // Fallback to active makerspace system users if network unavailable
+  return [
+    { firstName: 'ben', lastName: 'braunstein' },
+    { firstName: 'chelsea', lastName: 'union' },
+    { firstName: 'dj', lastName: 'harrigan' },
+    { firstName: 'ilana', lastName: 'jaffe-lewis' },
+    { firstName: 'max', lastName: 'ben-dror' },
+    { firstName: 'starline', lastName: 'hodge' },
+  ];
+}
+
 /**
  * Standard Interest options configured in Neon One Custom Field 81 ("Interests").
  */
@@ -108,11 +140,13 @@ export async function fetchMemberProfileByAccountId(
     // Field 114 = Tap Card (string value)
     // Field 81  = Interests (list / optionValues)
     // Field 83  = Custom Interests (string value)
+    // Field 118 = App Developer (checkbox option "TRUE")
     let certsList: string[] = [];
     let portalMediaUrl = '';
     let foundTapCard = fallbackTapCard || '';
     let interestsList: string[] = [];
     let customInterestsStr = '';
+    let isAppDeveloper = false;
 
     const customFields: any[] = ind.accountCustomFields || [];
     for (const field of customFields) {
@@ -153,6 +187,35 @@ export async function fetchMemberProfileByAccountId(
       if (fieldId === '83' || fieldName === 'custom interests') {
         customInterestsStr = field.value || '';
       }
+
+      // App Developer (Field 118)
+      if (fieldId === '118' || fieldName === 'app developer') {
+        if (Array.isArray(field.optionValues) && field.optionValues.length > 0) {
+          isAppDeveloper = field.optionValues.some((opt: any) => {
+            const val = (opt.name || opt.value || String(opt)).toUpperCase();
+            return val === 'TRUE' || val === 'YES' || val === '1';
+          });
+        } else if (field.value) {
+          const val = String(field.value).toUpperCase();
+          isAppDeveloper = val === 'TRUE' || val === 'YES' || val === '1';
+        }
+      }
+    }
+
+    // Determine if constituent is a Neon One System User (Staff access)
+    const systemUsers = await fetchNeonSystemUsers();
+    const checkFirst = (firstName || '').trim().toLowerCase();
+    const checkPref = (preferredName || '').trim().toLowerCase();
+    const checkLast = (lastName || '').trim().toLowerCase();
+
+    let isSystemUser = systemUsers.some(
+      (u) =>
+        u.lastName === checkLast &&
+        (u.firstName === checkFirst || (checkPref && u.firstName === checkPref))
+    );
+
+    if (isAppDeveloper) {
+      isSystemUser = true; // All developers automatically have staff access
     }
 
     const memberProfile: MemberProfile = {
@@ -170,6 +233,8 @@ export async function fetchMemberProfileByAccountId(
       portalMedia: portalMediaUrl,
       interests: interestsList,
       customInterests: customInterestsStr,
+      isSystemUser,
+      isAppDeveloper,
     };
 
     return { success: true, member: memberProfile };

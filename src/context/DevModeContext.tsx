@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from '@/context/AuthContext';
 
 export type AppMode = 'user' | 'staff' | 'developer';
 
@@ -10,6 +11,8 @@ export interface DevModeContextType {
   cycleMode: () => void;
   isDevMode: boolean;
   isStaffMode: boolean;
+  canAccessStaff: boolean;
+  canAccessDev: boolean;
   toggleDevMode: () => void;
   isChangelogOpen: boolean;
   openChangelog: () => void;
@@ -25,6 +28,8 @@ const DevModeContext = createContext<DevModeContextType>({
   cycleMode: () => {},
   isDevMode: false,
   isStaffMode: false,
+  canAccessStaff: false,
+  canAccessDev: false,
   toggleDevMode: () => {},
   isChangelogOpen: false,
   openChangelog: () => {},
@@ -35,9 +40,16 @@ const DevModeContext = createContext<DevModeContextType>({
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
+  const { member } = useAuth();
   const [mode, setModeState] = useState<AppMode>('user');
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
+
+  // Neon One CRM Role Permissions:
+  // - canAccessDev: Checked custom field 118 ("App Developer" = TRUE)
+  // - canAccessStaff: Neon One CRM System User OR App Developer
+  const canAccessDev = member?.isAppDeveloper === true;
+  const canAccessStaff = member?.isSystemUser === true || member?.isAppDeveloper === true;
 
   useEffect(() => {
     try {
@@ -53,7 +65,32 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   }, []);
 
+  // Enforce permissions when member profile loads/updates
+  useEffect(() => {
+    if (!member) return;
+
+    if (mode === 'developer' && !canAccessDev) {
+      if (canAccessStaff) {
+        setMode('staff');
+      } else {
+        setMode('user');
+      }
+    } else if (mode === 'staff' && !canAccessStaff) {
+      setMode('user');
+    }
+  }, [member, canAccessDev, canAccessStaff, mode]);
+
   const setMode = (newMode: AppMode) => {
+    // Prevent unauthorized mode escalation if member is loaded
+    if (member) {
+      if (newMode === 'developer' && !canAccessDev) {
+        return;
+      }
+      if (newMode === 'staff' && !canAccessStaff) {
+        return;
+      }
+    }
+
     setModeState(newMode);
     try {
       localStorage.setItem('sm_app_mode', newMode);
@@ -62,17 +99,28 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const cycleMode = () => {
-    if (mode === 'user') setMode('staff');
-    else if (mode === 'staff') setMode('developer');
-    else setMode('user');
+    if (canAccessDev) {
+      // Full 3-mode cycle for Developers
+      if (mode === 'user') setMode('staff');
+      else if (mode === 'staff') setMode('developer');
+      else setMode('user');
+    } else if (canAccessStaff) {
+      // 2-mode toggle for Staff
+      if (mode === 'user') setMode('staff');
+      else setMode('user');
+    } else {
+      setMode('user');
+    }
   };
 
   const toggleDevMode = () => {
-    setMode(mode === 'developer' ? 'user' : 'developer');
+    if (canAccessDev) {
+      setMode(mode === 'developer' ? 'user' : 'developer');
+    }
   };
 
-  const isDevMode = mode === 'developer';
-  const isStaffMode = mode === 'staff' || mode === 'developer';
+  const isDevMode = mode === 'developer' && (!member || canAccessDev);
+  const isStaffMode = (mode === 'staff' || mode === 'developer') && (!member || canAccessStaff);
 
   const openChangelog = () => setIsChangelogOpen(true);
   const closeChangelog = () => setIsChangelogOpen(false);
@@ -88,6 +136,8 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
         cycleMode,
         isDevMode,
         isStaffMode,
+        canAccessStaff,
+        canAccessDev,
         toggleDevMode,
         isChangelogOpen,
         openChangelog,

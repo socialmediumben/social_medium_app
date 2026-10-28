@@ -11,13 +11,14 @@ export const CHANGELOG: ChangelogRelease[] = [
   {
     version: '2.4',
     date: '2026-10-28',
-    title: 'Staff Mode & Neon CRM Activities Dashboard Module',
+    title: 'Staff Mode, Neon CRM Dashboard & Role Permissions',
     changes: [
       'Introduced 3-way App Mode system: User (Member), Staff, and Developer with quick header switcher and persistent state.',
+      'Automated role-based access: Neon One System Users unlock Staff Mode; accounts with custom field 118 ("App Developer") unlock Developer Mode.',
+      'Regular constituents are strictly protected to User (Member) Mode with locked options.',
       'Added "Neon Dashboard" Activities Intelligence Center module exclusively available when in Staff or Developer mode.',
       'Replicated the full Neon CRM Activities Dashboard with Event Attendance, Check-In Trends, Staff Activity Tracking, and Activity Ledger.',
-      'Integrated live Render API connection with automatic CORS support, relative time presets, and interactive 3-state breakdown cards.',
-      'Added embedded and fullscreen viewing modes with direct standalone access and Print/CSV export tools.',
+      'Migrated backend routes into active neon_kiosk proxy on Render with CORS support, relative time presets, and interactive 3-state breakdown cards.',
     ],
   },
   {

@@ -13,6 +13,8 @@ export interface MemberProfile {
   portalMedia?: string;     // Single-line text field in Neon One: "Portal Media" (ID 117)
   interests?: string[];     // Multi-select field in Neon One: "Interests" (ID 81)
   customInterests?: string; // Single-line text field in Neon One: "Custom Interests" (ID 83)
+  isSystemUser?: boolean;   // Active Neon One CRM System User (Staff access)
+  isAppDeveloper?: boolean; // Neon One "App Developer" Custom Field 118 (Dev access)
 }
 
 /**

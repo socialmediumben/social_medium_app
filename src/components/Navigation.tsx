@@ -18,6 +18,7 @@ import {
   BarChart3,
   ChevronDown,
   Check,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -33,7 +34,16 @@ const BASE_NAV_ITEMS = [
 export function Navbar() {
   const pathname = usePathname();
   const { activeCardId, logout } = useAuth();
-  const { mode, setMode, isDevMode, isStaffMode, openChangelog, openIconManager } = useDevMode();
+  const {
+    mode,
+    setMode,
+    isDevMode,
+    isStaffMode,
+    canAccessStaff,
+    canAccessDev,
+    openChangelog,
+    openIconManager,
+  } = useDevMode();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
 
   const navItems = [
@@ -193,36 +203,66 @@ export function Navbar() {
                     </div>
                     {mode === 'user' && <Check className="w-3.5 h-3.5 text-stone-700" />}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMode('staff')}
-                    className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
-                      mode === 'staff'
-                        ? 'bg-indigo-50 font-bold text-indigo-900'
-                        : 'text-stone-600 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Shield className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>Staff Mode</span>
+
+                  {/* Staff Mode Option */}
+                  {canAccessStaff ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMode('staff')}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                        mode === 'staff'
+                          ? 'bg-indigo-50 font-bold text-indigo-900'
+                          : 'text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>Staff Mode</span>
+                      </div>
+                      {mode === 'staff' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
+                    </button>
+                  ) : (
+                    <div
+                      title="Requires Neon One System User access"
+                      className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between text-stone-400 opacity-60 cursor-not-allowed bg-stone-50/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Shield className="w-3.5 h-3.5 text-stone-400" />
+                        <span>Staff Mode</span>
+                      </div>
+                      <Lock className="w-3 h-3 text-stone-400" />
                     </div>
-                    {mode === 'staff' && <Check className="w-3.5 h-3.5 text-indigo-600" />}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSelectMode('developer')}
-                    className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
-                      mode === 'developer'
-                        ? 'bg-amber-50 font-bold text-amber-900'
-                        : 'text-stone-600 hover:bg-stone-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <Code2 className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Developer Mode</span>
+                  )}
+
+                  {/* Developer Mode Option */}
+                  {canAccessDev ? (
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMode('developer')}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between transition-colors cursor-pointer ${
+                        mode === 'developer'
+                          ? 'bg-amber-50 font-bold text-amber-900'
+                          : 'text-stone-600 hover:bg-stone-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Code2 className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Developer Mode</span>
+                      </div>
+                      {mode === 'developer' && <Check className="w-3.5 h-3.5 text-amber-600" />}
+                    </button>
+                  ) : (
+                    <div
+                      title="Requires 'App Developer' checked in Neon One"
+                      className="w-full text-left px-2.5 py-2 rounded-xl flex items-center justify-between text-stone-400 opacity-60 cursor-not-allowed bg-stone-50/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Code2 className="w-3.5 h-3.5 text-stone-400" />
+                        <span>Developer Mode</span>
+                      </div>
+                      <Lock className="w-3 h-3 text-stone-400" />
                     </div>
-                    {mode === 'developer' && <Check className="w-3.5 h-3.5 text-amber-600" />}
-                  </button>
+                  )}
                 </div>
               </>
             )}

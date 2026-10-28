@@ -14,11 +14,11 @@ import {
 } from 'lucide-react';
 
 export default function NeonDashboardPage() {
-  const { setMode, isStaffMode } = useDevMode();
+  const { setMode, isStaffMode, canAccessStaff } = useDevMode();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [iframeKey, setIframeKey] = useState(0);
 
-  // If user is in "User" mode, prompt to switch to Staff mode
+  // If user is in "User" mode or not authorized, prompt appropriately
   if (!isStaffMode) {
     return (
       <div className="max-w-2xl mx-auto py-12 px-4 text-center">
@@ -29,17 +29,27 @@ export default function NeonDashboardPage() {
           Staff Mode Required
         </h1>
         <p className="text-stone-600 text-sm sm:text-base leading-relaxed mb-6 font-roboto max-w-lg mx-auto">
-          The <strong>Neon CRM Activities Dashboard</strong> is reserved for staff members and system administrators. Switch to <strong>Staff Mode</strong> to view live event attendance, check-in trends, and the constituent activity ledger.
+          {canAccessStaff ? (
+            <>
+              You have authorized staff permissions. Switch to <strong>Staff Mode</strong> to view live event attendance, check-in trends, and the constituent activity ledger.
+            </>
+          ) : (
+            <>
+              The <strong>Neon CRM Activities Dashboard</strong> is reserved for staff members and system administrators. Your account must be an active Neon One System User or have the <strong>App Developer</strong> role checked in Neon One.
+            </>
+          )}
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <button
-            type="button"
-            onClick={() => setMode('staff')}
-            className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Shield className="w-4 h-4" />
-            <span>Enable Staff Mode</span>
-          </button>
+          {canAccessStaff && (
+            <button
+              type="button"
+              onClick={() => setMode('staff')}
+              className="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-sm transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Shield className="w-4 h-4" />
+              <span>Enable Staff Mode</span>
+            </button>
+          )}
           <Link
             href="/"
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-sm transition-colors flex items-center justify-center gap-2"

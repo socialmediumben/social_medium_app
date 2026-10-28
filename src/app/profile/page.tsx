@@ -160,9 +160,21 @@ export default function ProfilePage() {
       <div className="rounded-2xl bg-gradient-to-br from-[#344ea2] via-[#2a3f85] to-[#1e2e66] text-white p-6 sm:p-8 shadow-md relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-semibold text-[#3bc0cd]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Connected Member Pass • Neon One Synced
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-semibold text-[#3bc0cd]">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                Connected Member Pass • Neon One Synced
+              </div>
+              {member.isAppDeveloper && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-200 text-xs font-bold">
+                  <span>💻 App Developer</span>
+                </div>
+              )}
+              {member.isSystemUser && !member.isAppDeveloper && (
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/25 border border-indigo-400/50 text-indigo-200 text-xs font-bold">
+                  <span>🛡️ Staff User</span>
+                </div>
+              )}
             </div>
             <div>
               <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-white tracking-tight">
