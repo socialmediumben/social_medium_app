@@ -4,7 +4,7 @@ export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
 
 // Neon One Constituent OAuth 2.0 Credentials & Endpoints
 export const NEON_OAUTH_CLIENT_ID =
-  'QBY_hNyRYp1-aVKwOmQ8ELY6tCd6vW2KJ00k57X3hWCY1wsiz87dFfD7IT7hVgqiyjsBkw8VUPJoOuBy0xVnfg==';
+  'QBY_hNyRYp1-aVKwOmQ8ELY6tCd6vW2KJ00k57X3hWCY1wsiz87dFfD7lT7hVgqiyjsBkw8VUPJoOuBy0xVnfg==';
 export const NEON_OAUTH_AUTH_URL =
   'https://socialmedium.app.neoncrm.com/nx/auth/oauth/auth';
 
