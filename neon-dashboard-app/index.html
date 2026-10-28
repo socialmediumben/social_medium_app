@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Stunning neon-themed CRM activities dashboard and automated email scheduler for Neon One CRM.">
+  <title>Neon CRM Activities Dashboard</title>
+  <!-- Google Fonts: Outfit and Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Local Styles -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Background Glow FX -->
+  <div class="glow-bg-1"></div>
+  <div class="glow-bg-2"></div>
+
+  <div class="app-container">
+    
+    <!-- Top Header -->
+    <header class="app-header">
+      <div class="header-branding">
+        <h1 class="logo-text">NEON<span>CRM</span></h1>
+        <p class="tagline">Activities Intelligence Center</p>
+      </div>
+
+      <div class="header-controls">
+        <!-- Report Action Buttons (Print, Save Config, Load Config, App Home) -->
+        <div class="header-action-btns">
+          <a href="/" target="_parent" class="btn btn-secondary btn-header-action" title="Return to Social Medium App Home" style="text-decoration:none; display:inline-flex; align-items:center; gap:0.35rem;">
+            <span>🏠</span> App Home
+          </a>
+          <button id="printReportBtn" class="btn btn-secondary btn-header-action" title="Print or save PDF report">
+            <span>🖨️</span> Print
+          </button>
+          <button id="saveConfigBtn" class="btn btn-secondary btn-header-action" title="Export report config JSON file to share with coworkers">
+            <span>💾</span> Save Config
+          </button>
+          <button id="loadConfigBtn" class="btn btn-secondary btn-header-action" title="Load report config JSON file">
+            <span>📂</span> Load Config
+          </button>
+          <input type="file" id="configFileInput" accept=".json" style="display:none;">
+        </div>
+
+        <!-- Light Mode Toggle -->
+        <div class="control-group">
+          <label class="switch-label" for="themeToggle">Light Mode</label>
+          <label class="switch">
+            <input type="checkbox" id="themeToggle">
+            <span class="slider round"></span>
+          </label>
+        </div>
+
+        <!-- Connection Status -->
+        <div id="connectionStatus" class="connection-status status-loading">
+          <span class="status-dot"></span>
+          <span class="status-text">Checking API...</span>
+        </div>
+
+        <!-- System Info & Version Icon -->
+        <button id="infoBtn" class="info-icon-btn" title="System Info & Settings" aria-label="System Info & Settings">
+          ⓘ
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-Header Toolbar for Global Date Controls -->
+    <div class="sub-header-toolbar card-glow">
+      <div class="global-date-filters">
+        <span class="global-filter-label">🌐 Global Date Range:</span>
+        <select id="globalPreset" class="filter-select date-preset-select" aria-label="Global Relative Time Preset">
+          <option value="custom">Custom Range</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="tomorrow">Tomorrow</option>
+          <option value="this_week">This Week</option>
+          <option value="last_week">Last Week</option>
+          <option value="next_week">Next Week</option>
+          <option value="this_month">This Month</option>
+          <option value="this_month_to_date">This Month (To Date)</option>
+          <option value="last_month">Last Month</option>
+          <option value="next_month">Next Month</option>
+          <option value="this_quarter">This Quarter</option>
+          <option value="last_quarter">Last Quarter</option>
+          <option value="next_quarter">Next Quarter</option>
+          <option value="this_year">This Year</option>
+          <option value="this_year_to_date">This Year (To Date)</option>
+          <option value="last_year">Last Year</option>
+          <option value="next_year">Next Year</option>
+        </select>
+        <label for="globalAfter">From</label>
+        <input type="date" id="globalAfter" class="date-input" aria-label="Global From Date">
+        <label for="globalBefore">To</label>
+        <input type="date" id="globalBefore" class="date-input" aria-label="Global To Date">
+        <button id="applyGlobalFilter" class="btn btn-filter" title="Apply date range to all 4 charts">Apply All</button>
+        <button id="clearGlobalFilter" class="btn btn-filter-clear" title="Reset date range for all charts">All Time</button>
+        <button id="refreshDataBtn" class="btn btn-action" title="Fetch fresh API data without reloading page">🔄 Refresh Data</button>
+      </div>
+    </div>
+
+    <!-- Analytics Charts Section -->
+    <section class="charts-grid" aria-label="Analytics Dashboards">
+
+      <!-- Chart 1: Event Attendance Bar Chart -->
+      <div class="chart-panel card-glow">
+        <div class="chart-panel-header">
+          <h3 class="panel-title">🎟️ Event Attendance <button class="section-help-btn" data-section="events" title="View report details & data source">ⓘ</button></h3>
+          <div class="chart-date-filters">
+            <select id="eventsPreset" class="filter-select date-preset-select" aria-label="Relative Time Preset">
+              <option value="custom">Custom Range</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="tomorrow">Tomorrow</option>
+              <option value="this_week">This Week</option>
+              <option value="last_week">Last Week</option>
+              <option value="next_week">Next Week</option>
+              <option value="this_month">This Month</option>
+              <option value="this_month_to_date">This Month (To Date)</option>
+              <option value="last_month">Last Month</option>
+              <option value="next_month">Next Month</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="last_quarter">Last Quarter</option>
+              <option value="next_quarter">Next Quarter</option>
+              <option value="this_year">This Year</option>
+              <option value="this_year_to_date">This Year (To Date)</option>
+              <option value="last_year">Last Year</option>
+              <option value="next_year">Next Year</option>
+            </select>
+            <label for="eventsAfter">From</label>
+            <input type="date" id="eventsAfter" class="date-input">
+            <label for="eventsBefore">To</label>
+            <input type="date" id="eventsBefore" class="date-input">
+            <button id="applyEventsFilter" class="btn btn-filter">Apply</button>
+            <button id="clearEventsFilter" class="btn btn-filter-clear">All Time</button>
+          </div>
+        </div>
+        <div class="chart-container-tall">
+          <canvas id="eventsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 2: Check-Ins Over Time Line Chart -->
+      <div class="chart-panel card-glow">
+        <div class="chart-panel-header">
+          <h3 class="panel-title">📍 Check-Ins Over Time <button class="section-help-btn" data-section="checkins" title="View report details & data source">ⓘ</button></h3>
+          <div class="chart-date-filters">
+            <select id="checkinsPreset" class="filter-select date-preset-select" aria-label="Relative Time Preset">
+              <option value="custom">Custom Range</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="tomorrow">Tomorrow</option>
+              <option value="this_week">This Week</option>
+              <option value="last_week">Last Week</option>
+              <option value="next_week">Next Week</option>
+              <option value="this_month">This Month</option>
+              <option value="this_month_to_date">This Month (To Date)</option>
+              <option value="last_month">Last Month</option>
+              <option value="next_month">Next Month</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="last_quarter">Last Quarter</option>
+              <option value="next_quarter">Next Quarter</option>
+              <option value="this_year">This Year</option>
+              <option value="this_year_to_date">This Year (To Date)</option>
+              <option value="last_year">Last Year</option>
+              <option value="next_year">Next Year</option>
+            </select>
+            <label for="checkinsAfter">From</label>
+            <input type="date" id="checkinsAfter" class="date-input">
+            <label for="checkinsBefore">To</label>
+            <input type="date" id="checkinsBefore" class="date-input">
+            <button id="applyCheckinsFilter" class="btn btn-filter">Apply</button>
+            <button id="clearCheckinsFilter" class="btn btn-filter-clear">All Time</button>
+          </div>
+        </div>
+        <!-- Check-Ins Breakdown Sub-panel (above chart) -->
+        <div class="subpanel-container" style="margin-bottom:1rem;">
+          <h4 class="subpanel-title">📅 Check-Ins Breakdown</h4>
+          <div id="checkinsDowGrid" class="dow-grid"></div>
+        </div>
+        <div class="chart-container-tall">
+          <canvas id="checkinsChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 3: Activities by Staff Bar Chart -->
+      <div class="chart-panel card-glow">
+        <div class="chart-panel-header">
+          <h3 class="panel-title">👥 Activities by Staff Member <button class="section-help-btn" data-section="staff" title="View report details & data source">ⓘ</button></h3>
+          <div class="chart-date-filters">
+            <select id="staffPreset" class="filter-select date-preset-select" aria-label="Relative Time Preset">
+              <option value="custom">Custom Range</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="tomorrow">Tomorrow</option>
+              <option value="this_week">This Week</option>
+              <option value="last_week">Last Week</option>
+              <option value="next_week">Next Week</option>
+              <option value="this_month">This Month</option>
+              <option value="this_month_to_date">This Month (To Date)</option>
+              <option value="last_month">Last Month</option>
+              <option value="next_month">Next Month</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="last_quarter">Last Quarter</option>
+              <option value="next_quarter">Next Quarter</option>
+              <option value="this_year">This Year</option>
+              <option value="this_year_to_date">This Year (To Date)</option>
+              <option value="last_year">Last Year</option>
+              <option value="next_year">Next Year</option>
+            </select>
+            <label for="staffAfter">From</label>
+            <input type="date" id="staffAfter" class="date-input">
+            <label for="staffBefore">To</label>
+            <input type="date" id="staffBefore" class="date-input">
+            <button id="applyStaffFilter" class="btn btn-filter">Apply</button>
+            <button id="clearStaffFilter" class="btn btn-filter-clear">All Time</button>
+          </div>
+        </div>
+        <!-- Per-Staff 3-State Metric Cards -->
+        <div class="subpanel-container" style="margin-top:0; padding-top:0; border-top:none; margin-bottom:1rem;">
+          <h4 class="subpanel-title">👥 Staff Breakdown</h4>
+          <div id="staffCardGrid" class="dow-grid"></div>
+        </div>
+        <div class="chart-container-tall">
+          <canvas id="staffChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Chart 4: Club Check-Ins Bar Chart -->
+      <div class="chart-panel card-glow">
+        <div class="chart-panel-header">
+          <h3 class="panel-title">♣️ Club Check-Ins by Club <button class="section-help-btn" data-section="clubCheckins" title="View report details & data source">ⓘ</button></h3>
+          <div class="chart-date-filters">
+            <select id="clubCheckinsPreset" class="filter-select date-preset-select" aria-label="Relative Time Preset">
+              <option value="custom">Custom Range</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+              <option value="tomorrow">Tomorrow</option>
+              <option value="this_week">This Week</option>
+              <option value="last_week">Last Week</option>
+              <option value="next_week">Next Week</option>
+              <option value="this_month">This Month</option>
+              <option value="this_month_to_date">This Month (To Date)</option>
+              <option value="last_month">Last Month</option>
+              <option value="next_month">Next Month</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="last_quarter">Last Quarter</option>
+              <option value="next_quarter">Next Quarter</option>
+              <option value="this_year">This Year</option>
+              <option value="this_year_to_date">This Year (To Date)</option>
+              <option value="last_year">Last Year</option>
+              <option value="next_year">Next Year</option>
+            </select>
+            <label for="clubCheckinsAfter">From</label>
+            <input type="date" id="clubCheckinsAfter" class="date-input">
+            <label for="clubCheckinsBefore">To</label>
+            <input type="date" id="clubCheckinsBefore" class="date-input">
+            <button id="applyClubCheckinsFilter" class="btn btn-filter">Apply</button>
+            <button id="clearClubCheckinsFilter" class="btn btn-filter-clear">All Time</button>
+          </div>
+        </div>
+        <!-- Per-Club 3-State Metric Cards -->
+        <div class="subpanel-container" style="margin-top:0; padding-top:0; border-top:none; margin-bottom:1rem;">
+          <h4 class="subpanel-title">♣️ Clubs Breakdown</h4>
+          <div id="clubCardGrid" class="dow-grid"></div>
+        </div>
+        <div class="chart-container-tall">
+          <canvas id="clubCheckinsChart"></canvas>
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- Activity Data Explorer -->
+    <section class="data-section card-glow" aria-label="Activity Data Explorer">
+      <div class="panel-header-actions">
+        <h3 class="panel-title">Activity Ledger <button class="section-help-btn" data-section="ledger" title="View report details & data source">ⓘ</button></h3>
+        <!-- Ledger Date Filters -->
+        <div class="chart-date-filters">
+          <select id="ledgerPreset" class="filter-select date-preset-select" aria-label="Relative Time Preset">
+            <option value="custom">Custom Range</option>
+            <option value="today">Today</option>
+            <option value="yesterday">Yesterday</option>
+            <option value="tomorrow">Tomorrow</option>
+            <option value="this_week">This Week</option>
+            <option value="last_week">Last Week</option>
+            <option value="next_week">Next Week</option>
+            <option value="this_month">This Month</option>
+            <option value="this_month_to_date">This Month (To Date)</option>
+            <option value="last_month">Last Month</option>
+            <option value="next_month">Next Month</option>
+            <option value="this_quarter">This Quarter</option>
+            <option value="last_quarter">Last Quarter</option>
+            <option value="next_quarter">Next Quarter</option>
+            <option value="this_year">This Year</option>
+            <option value="this_year_to_date">This Year (To Date)</option>
+            <option value="last_year">Last Year</option>
+            <option value="next_year">Next Year</option>
+          </select>
+          <label for="ledgerAfter">From</label>
+          <input type="date" id="ledgerAfter" class="date-input" aria-label="Ledger From Date">
+          <label for="ledgerBefore">To</label>
+          <input type="date" id="ledgerBefore" class="date-input" aria-label="Ledger To Date">
+          <button id="applyLedgerFilter" class="btn btn-filter">Apply</button>
+          <button id="clearLedgerFilter" class="btn btn-filter-clear">All Time</button>
+        </div>
+      </div>
+      <div class="actions-group">
+        <!-- Search -->
+        <div class="search-box">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="tableSearch" placeholder="Search subject or notes...">
+        </div>
+        <!-- Exclusion Filter -->
+        <div class="search-box exclude-box">
+          <span class="search-icon">🚫</span>
+          <input type="text" id="tableExclude" placeholder="Exclude phrase..." value="Check-In" title="Exclude activities matching this phrase">
+        </div>
+        <!-- Export Button -->
+        <button id="exportCsvBtn" class="btn btn-secondary">
+          <span>📥</span> Export CSV
+        </button>
+      </div>
+
+      <!-- Table Container -->
+      <div class="table-scroll-container">
+        <table id="activitiesTable" class="interactive-table">
+          <thead>
+            <tr>
+              <th scope="col" class="th-sortable" data-sort="Activity Date">
+                <div class="th-header-box">
+                  <span>Date</span>
+                  <span class="sort-icon">↕</span>
+                </div>
+              </th>
+              <th scope="col" class="th-sortable" data-sort="Activity Subject">
+                <div class="th-header-box">
+                  <span>Subject</span>
+                  <span class="sort-icon">↕</span>
+                </div>
+              </th>
+              <th scope="col">
+                <div class="th-header-box">
+                  <span class="th-sortable" data-sort="Activity Type">Type <span class="sort-icon">↕</span></span>
+                  <select id="filterType" class="th-filter-select" aria-label="Filter by Type">
+                    <option value="">All Types</option>
+                  </select>
+                </div>
+              </th>
+              <th scope="col">
+                <div class="th-header-box">
+                  <span class="th-sortable" data-sort="Account ID">Member ID <span class="sort-icon">↕</span></span>
+                  <select id="filterMemberId" class="th-filter-select" aria-label="Filter by Member ID">
+                    <option value="">All Members</option>
+                  </select>
+                </div>
+              </th>
+              <th scope="col">
+                <div class="th-header-box">
+                  <span class="th-sortable" data-sort="Created By">Assigned To <span class="sort-icon">↕</span></span>
+                  <select id="filterAssignedTo" class="th-filter-select" aria-label="Filter by Assigned To">
+                    <option value="">All Staff</option>
+                  </select>
+                </div>
+              </th>
+              <th scope="col">
+                <div class="th-header-box">
+                  <span class="th-sortable" data-sort="Status">Status <span class="sort-icon">↕</span></span>
+                  <select id="filterStatus" class="th-filter-select" aria-label="Filter by Status">
+                    <option value="">All Statuses</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Completed">Completed</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Deferred">Deferred</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </th>
+              <th scope="col">
+                <div class="th-header-box">
+                  <span class="th-sortable" data-sort="Priority">Priority <span class="sort-icon">↕</span></span>
+                  <select id="filterPriority" class="th-filter-select" aria-label="Filter by Priority">
+                    <option value="">All Priorities</option>
+                    <option value="High">High</option>
+                    <option value="Normal">Normal</option>
+                    <option value="Low">Low</option>
+                  </select>
+                </div>
+              </th>
+              <th scope="col">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody">
+            <!-- Dynamically populated rows -->
+            <tr>
+              <td colspan="8" class="empty-table-state">Loading activities ledger...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="table-pagination">
+        <span class="pagination-info" id="paginationInfo">Showing 0-0 of 0 entries</span>
+        <div class="pagination-controls">
+          <button id="prevPageBtn" class="btn btn-nav" disabled>◀ Prev</button>
+          <span class="pagination-active-page" id="currentPageNum">1</span>
+          <button id="nextPageBtn" class="btn btn-nav" disabled>Next ▶</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- End Activity Data Explorer -->
+  </div>
+
+  <!-- Detail Modal -->
+  <div id="activityModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h4 id="modalSubject">Activity Subject</h4>
+        <button id="closeModalBtn" class="modal-close-btn" aria-label="Close modal">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-grid">
+          <div class="modal-info-item">
+            <span class="modal-info-label">Activity Date</span>
+            <span id="modalDate" class="modal-info-val">-</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-info-label">Activity ID</span>
+            <span id="modalId" class="modal-info-val">-</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-info-label">Activity Type</span>
+            <span id="modalType" class="modal-info-val">-</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-info-label">Member ID</span>
+            <span id="modalMemberId" class="modal-info-val">-</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-info-label">Assigned Staff</span>
+            <span id="modalStaff" class="modal-info-val">-</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-info-label">Priority</span>
+            <span id="modalPriority" class="modal-info-val">-</span>
+          </div>
+          <div class="modal-info-item">
+            <span class="modal-info-label">Status</span>
+            <span id="modalStatus" class="modal-info-val">-</span>
+          </div>
+        </div>
+        <div class="modal-notes-area">
+          <span class="modal-info-label">Activity Notes</span>
+          <p id="modalNotes" class="modal-notes-content">No notes entered for this activity.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- System Info, Settings & Changelog Modal -->
+  <div id="infoModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card info-modal-card">
+      <div class="modal-header">
+        <div class="info-header-title">
+          <h4>Neon CRM Intelligence</h4>
+          <span class="version-badge">v1.9.0</span>
+        </div>
+        <button id="closeInfoModalBtn" class="modal-close-btn" aria-label="Close info modal">×</button>
+      </div>
+
+      <!-- Modal Tabs Header -->
+      <div class="tabs-header modal-tabs-header">
+        <button class="tab-btn active" data-tab="infoOverviewTab">ℹ️ Info & Changelog</button>
+        <button class="tab-btn" data-tab="neonConfigTab">🔑 API Config</button>
+        <button class="tab-btn" data-tab="emailConfigTab">📧 Email Digest</button>
+      </div>
+
+      <div class="modal-body info-modal-body tabs-content">
+        <!-- Tab 1: Overview & Changelog -->
+        <div id="infoOverviewTab" class="tab-pane active">
+          <div class="info-summary-box">
+            <p><strong>Organization:</strong> socialmedium</p>
+            <p><strong>API Engine:</strong> Neon CRM API v2.11</p>
+            <p><strong>Live URL:</strong> <a href="https://neon-dashboard.onrender.com" target="_blank" class="info-link">neon-dashboard.onrender.com</a></p>
+          </div>
+
+          <div class="changelog-section">
+            <h5 class="changelog-title">📋 Version History & Changelog</h5>
+
+            <div class="changelog-item">
+              <div class="changelog-version">
+                <span class="version-tag">v1.9.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>📅 Added <b>date picker</b> to the Activity Ledger with full preset support (This Month, This Year To Date, etc.).</li>
+                <li>🌐 Global Date Picker now also applies to the Activity Ledger — one click filters all charts and the ledger simultaneously.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.8.2</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🔍 Check-Ins Over Time now uses <b>exact match</b> for "Check-In" — excludes activities like "Club Check-In" that only contain it as part of the name.</li>
+                <li>📈 Staff Overall Average line is now <b>cumulative</b> — averages the running totals of each staff member per day, so it never goes down.</li>
+                <li>📐 Renamed "Check-Ins by Day of Week" to <b>Check-Ins Breakdown</b> and moved it above the chart to match the other sections.</li>
+                <li>🟢 Added <b>colored dots</b> to Staff and Club breakdown cards matching their chart line color. Chart legends hidden since breakdown serves as the legend.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.8.1</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>📅 Added <b>This Month (To Date)</b> and <b>This Year (To Date)</b> to all Relative Time preset dropdowns — sets the end date to today instead of end of month/year.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.8.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>📈 Added dynamic <b>Overall Average</b> line to <b>Activities by Staff Member</b> — tracks the per-day mean across all included and avg-only staff members.</li>
+                <li>🎛️ Refined <b>Club Avg Only</b> behavior: avg-only clubs now contribute to the Overall Average line without rendering their individual dashed line.</li>
+                <li>🔽 Moved Status and Priority filters <b>into column headers</b> of the Activity Ledger, with new inline filter dropdowns for <b>Type</b>, <b>Member ID</b>, and <b>Assigned To</b>.</li>
+                <li>🔃 All Activity Ledger columns now sortable via column header click.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.7.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🎛️ Added Interactive 3-State Toggle Cards across Check-Ins (Mon-Sun), Activities by Staff Member, and Club Check-Ins by Club.</li>
+                <li>🔄 Card States: 🟢 <b>Chart + Avg</b> (line + average), 🟡 <b>Avg Only</b> (average calculation only), and 🔴 <b>Ignored</b> (excluded from chart & average).</li>
+                <li>💾 Integrated 3-state toggle persistence into Browser Storage and App Presets.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.7</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🛠️ Fixed <code>loadEventsChart</code> ReferenceError on configuration restore.</li>
+                <li>🏷️ Added Multiple Named App Presets (save, load, and delete custom named dashboard presets in browser storage).</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.6</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🛠️ Fixed Save Config and Load Config button DOM element listener bindings.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.5</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🔄 Added 🔄 Refresh Data button to sub-header toolbar for on-demand live API data refetching.</li>
+                <li>📌 📄 Added Dual Save & Load configuration modal (App Browser Storage vs. Shared JSON File Export/Import).</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.4</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>📊 Updated Club Check-Ins "Overall Average" calculation to compute the exact mean average of all selected clubs' averages.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.3</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🛡️ Added robust HTTP error handling and content-type verification to prevent JSON SyntaxErrors on server timeouts.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.2</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>📅 Check-Ins by Day of Week breakdown grid (Mon-Sun total & daily average statistics).</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.1</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🛠️ Fixed duplicate state variable declaration causing initialization SyntaxError.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.6.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>♣️ Per-Club dashed average lines matching club colors.</li>
+                <li>📊 Overall Average Line (Black/White) for combined weekly mean check-ins.</li>
+                <li>☑️ Interactive per-club filter checkboxes with local storage persistence.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.5.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🚫 Added typed exclusion filter to Activity Ledger (defaults to excluding "Check-In").</li>
+                <li>💾 📂 JSON Report Configuration Export & Import to share exact report view settings with coworkers.</li>
+                <li>🌐 Positioned Global Date Range in a dedicated sub-toolbar below header bar.</li>
+                <li>📈 Added dashed Average Line dataset to "Check-Ins Over Time" line chart.</li>
+                <li>ⓘ Interactive ⓘ section help pop-up windows detailing data sources, metrics, and filtering rules.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.4.1</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🛠️ Fixed initialization listener for header control updates.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.4.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🗂️ Moved API & Email Configuration forms inside Information Window.</li>
+                <li>🚫 Filtered out "Club Check-In" activities from Activity Ledger table.</li>
+                <li>🌐 Added Global Date Range filter bar in header for single-click updates across all charts.</li>
+                <li>🧹 Cleaned up top header navigation bar.</li>
+                <li>🖨️ 📧 💾 Added Print, Email, and Save report action buttons with print layout optimization.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.3.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>📈 Converted Club Check-Ins into a multi-line weekly trend graph.</li>
+                <li>📊 Converted Activities by Staff Member into a cumulative daily multi-line chart for tracking relative progress over time.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.2.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>♣️ Added Club Check-Ins by Club bar chart section (grouped by exact club name).</li>
+                <li>📅 Enabled relative time and date range filtering for Club Check-Ins.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.1.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🗓️ Added relative time date selectors (Today, Week, Month, Quarter, Year presets).</li>
+                <li>👥 Multi-staff attribution splitting for activities with multiple assigned members.</li>
+                <li>☑️ Interactive per-staff member inclusion/exclusion checkboxes with local storage persistence.</li>
+              </ul>
+            </div>
+
+            <div class="changelog-item" style="margin-top: 1.25rem;">
+              <div class="changelog-version">
+                <span class="version-tag">v1.0.0</span>
+                <span class="release-date">July 2026</span>
+              </div>
+              <ul class="changelog-list">
+                <li>🚀 Initial Version 1.0 Release deployed live on Render!</li>
+                <li>📊 Recreated Staff Activity Report with automatic Check-In exclusions.</li>
+                <li>🔄 Chronological descending sorting (showing most recent activities first).</li>
+                <li>🌓 Light Mode and Dark Mode visual theme switcher with saved preferences.</li>
+                <li>📧 Scheduled HTML email report digests via SMTP background cron worker.</li>
+                <li>🔍 Instant activity search, status/priority filtering, pagination, and CSV export.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Neon API Config -->
+        <div id="neonConfigTab" class="tab-pane">
+          <form id="neonConfigForm" class="config-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="neonOrgId">Organization ID</label>
+                <input type="text" id="neonOrgId" name="neonOrgId" placeholder="Enter Neon Org ID" required>
+                <span class="form-hint">Your numeric ID found in your Neon CRM account settings.</span>
+              </div>
+              <div class="form-group">
+                <label for="neonApiKey">API Key</label>
+                <input type="password" id="neonApiKey" name="neonApiKey" placeholder="••••••••••••••••••••">
+                <span class="form-hint">API user key generated within Neon CRM settings. Leave blank to retain existing key.</span>
+              </div>
+              <div class="form-group full-width">
+                <label for="neonApiUrl">API Base URL</label>
+                <input type="url" id="neonApiUrl" name="neonApiUrl" value="https://api.neoncrm.com/v2" required>
+                <span class="form-hint">Change only if using a sandbox or test environment.</span>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" id="saveNeonBtn" class="btn btn-primary">Save & Connect Account</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Tab 3: Email Reports Config -->
+        <div id="emailConfigTab" class="tab-pane">
+          <form id="emailConfigForm" class="config-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label for="smtpHost">SMTP Host Server</label>
+                <input type="text" id="smtpHost" name="smtpHost" placeholder="smtp.gmail.com" required>
+              </div>
+              <div class="form-group">
+                <label for="smtpPort">SMTP Port</label>
+                <input type="number" id="smtpPort" name="smtpPort" value="587" required>
+              </div>
+              <div class="form-group">
+                <label class="checkbox-container" for="smtpSecure">
+                  <input type="checkbox" id="smtpSecure" name="smtpSecure">
+                  <span class="checkbox-checkmark"></span>
+                  Use SSL (Port 465)
+                </label>
+                <span class="form-hint">Check if using SSL; uncheck if using TLS (Port 587).</span>
+              </div>
+              <div class="form-group">
+                <label for="smtpUser">SMTP Username</label>
+                <input type="text" id="smtpUser" name="smtpUser" placeholder="username@gmail.com" required>
+              </div>
+              <div class="form-group">
+                <label for="smtpPass">SMTP Password</label>
+                <input type="password" id="smtpPass" name="smtpPass" placeholder="••••••••••••••••">
+                <span class="form-hint">Enter your email password or App-Specific Password.</span>
+              </div>
+              <div class="form-group">
+                <label for="emailFrom">Sender Name & Address</label>
+                <input type="text" id="emailFrom" name="emailFrom" placeholder='"Neon CRM Dashboard" <noreply@yourdomain.com>' required>
+              </div>
+              <div class="form-group">
+                <label for="emailRecipient">Recipient Email Address</label>
+                <input type="email" id="emailRecipient" name="emailRecipient" placeholder="yourbox@domain.com" required>
+                <span class="form-hint">Address where dashboard summaries should be emailed.</span>
+              </div>
+              <div class="form-group">
+                <label for="emailSchedule">Cron Schedule Expression</label>
+                <input type="text" id="emailSchedule" name="emailSchedule" value="0 8 * * *" required>
+                <span class="form-hint">Default <code>0 8 * * *</code> is daily at 8:00 AM. <code>0 8 * * 1</code> is weekly on Mondays.</span>
+              </div>
+              <div class="form-group">
+                <label class="checkbox-container" for="emailEnabled">
+                  <input type="checkbox" id="emailEnabled" name="emailEnabled">
+                  <span class="checkbox-checkmark"></span>
+                  Enable Scheduled Reports
+                </label>
+                <span class="form-hint">Enable automatic background emails matching schedule.</span>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" id="saveEmailBtn" class="btn btn-primary">Save Email Settings</button>
+              <button type="button" id="sendTestEmailBtn" class="btn btn-secondary">⚡ Send Test Email Now</button>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal for Dual Save/Load Choice -->
+  <div id="configChoiceModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card config-choice-card">
+      <div class="modal-header">
+        <h4 id="configChoiceModalTitle">⚙️ Configuration Options</h4>
+        <button id="closeConfigChoiceModalBtn" class="modal-close-btn" aria-label="Close config choice modal">×</button>
+      </div>
+      <div class="modal-body config-choice-body">
+        <!-- Save Options Mode -->
+        <div id="configChoiceSaveOptions" class="config-choice-group hidden">
+          <div class="preset-input-box">
+            <label for="configPresetNameInput" style="color:var(--neon-cyan); font-weight:700; font-size:0.85rem;">Preset Name:</label>
+            <input type="text" id="configPresetNameInput" class="date-input" placeholder="e.g. Q3 Staff Report" style="width:100%; margin-top:0.35rem;">
+          </div>
+          <button id="saveConfigToAppBtn" class="btn btn-modal-action">📌 Save Preset to App</button>
+          <div class="modal-divider"><span>OR</span></div>
+          <button id="exportConfigJsonBtn" class="btn btn-modal-action">📄 Export as Shared JSON File</button>
+        </div>
+
+        <!-- Load Options Mode -->
+        <div id="configChoiceLoadOptions" class="config-choice-group hidden">
+          <div id="appPresetSelectBox" class="preset-input-box">
+            <label for="configPresetSelect" style="color:var(--neon-cyan); font-weight:700; font-size:0.85rem;">Saved App Presets:</label>
+            <select id="configPresetSelect" class="filter-select" style="width:100%; margin-top:0.35rem;"></select>
+            <div style="display:flex; gap:0.5rem; margin-top:0.6rem;">
+              <button id="loadConfigFromAppBtn" class="btn btn-modal-action" style="flex:1; justify-content:center;">📌 Load Selected Preset</button>
+              <button id="deleteConfigFromAppBtn" class="btn btn-filter-clear" style="padding:0.75rem;" title="Delete Selected Preset">🗑️</button>
+            </div>
+          </div>
+          <div class="modal-divider"><span>OR</span></div>
+          <button id="importConfigJsonBtn" class="btn btn-modal-action">📄 Upload Shared JSON File</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section Help Pop-up Modal -->
+  <div id="sectionHelpModal" class="modal-overlay" aria-hidden="true">
+    <div class="modal-card info-modal-card">
+      <div class="modal-header">
+        <h4 id="helpModalTitle">Report Documentation</h4>
+        <button id="closeSectionHelpBtn" class="modal-close-btn" aria-label="Close section help modal">×</button>
+      </div>
+      <div class="modal-body info-modal-body">
+        <div id="helpModalContent" class="help-modal-text"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification System -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- App Main Javascript -->
+  <script src="app.js"></script>
+</body>
+</html>
