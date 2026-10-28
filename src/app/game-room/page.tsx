@@ -43,6 +43,21 @@ const PRESET_TO_SERVER_ID: Record<string, string> = {
   blackout: 'blackout',
 };
 
+// URL Sanitizer: extracts base origin (e.g. "https://192.168.12.108:8088") even if user pastes "/spellbook"
+export function sanitizeGameRoomUrl(raw: string): string {
+  if (!raw) return '';
+  let clean = raw.trim();
+  if (!/^https?:\/\//i.test(clean)) {
+    clean = 'https://' + clean;
+  }
+  try {
+    const u = new URL(clean);
+    return `${u.protocol}//${u.host}`;
+  } catch (_) {
+    return clean.replace(/\/spellbook.*$/i, '').replace(/\/api\/.*$/i, '').replace(/\/+$/, '');
+  }
+}
+
 // Daily Rental Slots on Neon One
 const RENTAL_SLOTS = [
   {
@@ -87,10 +102,11 @@ export default function GameRoomPage() {
   const [isBlackout, setIsBlackout] = useState<boolean>(false);
   const [triggerNotice, setTriggerNotice] = useState<string | null>(null);
 
-  // Network / Server Connection State
-  const [serverUrl, setServerUrl] = useState<string>('https://192.168.1.100:8088');
+  // Network / Server Connection State (Default to the Makerspace Mini PC IP)
+  const DEFAULT_CONTROLLER_URL = 'https://192.168.12.108:8088';
+  const [serverUrl, setServerUrl] = useState<string>(DEFAULT_CONTROLLER_URL);
   const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
-  const [tempUrl, setTempUrl] = useState<string>('https://192.168.1.100:8088');
+  const [tempUrl, setTempUrl] = useState<string>(DEFAULT_CONTROLLER_URL);
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
   const [lastCheckError, setLastCheckError] = useState<string | null>(null);
@@ -104,8 +120,9 @@ export default function GameRoomPage() {
     if (typeof window !== 'undefined') {
       const savedUrl = localStorage.getItem('sm_game_room_server_url');
       if (savedUrl) {
-        setServerUrl(savedUrl);
-        setTempUrl(savedUrl);
+        const sanitized = sanitizeGameRoomUrl(savedUrl);
+        setServerUrl(sanitized);
+        setTempUrl(sanitized);
       }
     }
   }, []);
@@ -115,8 +132,13 @@ export default function GameRoomPage() {
     setIsCheckingConnection(true);
     setLastCheckError(null);
 
+    const cleanUrl = sanitizeGameRoomUrl(targetUrl);
+    if (!cleanUrl) {
+      setIsCheckingConnection(false);
+      return;
+    }
+
     try {
-      const cleanUrl = targetUrl.replace(/\/+$/, '');
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3500);
 
@@ -168,13 +190,14 @@ export default function GameRoomPage() {
 
   // Save server URL
   const handleSaveServerUrl = () => {
-    const formatted = tempUrl.trim().replace(/\/+$/, '');
-    setServerUrl(formatted);
+    const sanitized = sanitizeGameRoomUrl(tempUrl);
+    setServerUrl(sanitized);
+    setTempUrl(sanitized);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('sm_game_room_server_url', formatted);
+      localStorage.setItem('sm_game_room_server_url', sanitized);
     }
     setIsConfigOpen(false);
-    checkServerConnection(formatted);
+    checkServerConnection(sanitized);
   };
 
   // Dispatch Scene Preset to Live Server
@@ -193,9 +216,9 @@ export default function GameRoomPage() {
 
     // Call local server if configured
     if (serverUrl) {
+      const cleanUrl = sanitizeGameRoomUrl(serverUrl);
       const serverPresetId = PRESET_TO_SERVER_ID[preset.id] || preset.id;
       try {
-        const cleanUrl = serverUrl.replace(/\/+$/, '');
         const res = await fetch(`${cleanUrl}/api/scene`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -203,10 +226,13 @@ export default function GameRoomPage() {
         });
         if (res.ok) {
           setConnectionStatus('connected');
+          setTriggerNotice(`Room Displays Updated: ${preset.name}`);
+        } else {
+          setTriggerNotice(`Controller status: HTTP ${res.status}`);
         }
-      } catch (e) {
-        // If fetch fails due to self-signed cert or offline Wi-Fi
+      } catch (e: any) {
         console.warn('[Game Room] Failed to reach local controller:', e);
+        setConnectionStatus('offline');
       }
     }
   };
@@ -221,7 +247,8 @@ export default function GameRoomPage() {
 
       if (serverUrl) {
         try {
-          await fetch(`${serverUrl.replace(/\/+$/, '')}/api/scene`, {
+          const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+          await fetch(`${cleanUrl}/api/scene`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: 'blackout' }),
@@ -236,7 +263,8 @@ export default function GameRoomPage() {
 
       if (serverUrl) {
         try {
-          await fetch(`${serverUrl.replace(/\/+$/, '')}/api/scene`, {
+          const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+          await fetch(`${cleanUrl}/api/scene`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: 'study' }),
@@ -252,7 +280,8 @@ export default function GameRoomPage() {
     setBrightness(newVal);
     if (serverUrl && connectionStatus === 'connected') {
       try {
-        await fetch(`${serverUrl.replace(/\/+$/, '')}/api/lighting`, {
+        const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+        await fetch(`${cleanUrl}/api/lighting`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -414,7 +443,7 @@ export default function GameRoomPage() {
                 </button>
 
                 <a
-                  href={`${serverUrl.replace(/\/+$/, '')}/spellbook`}
+                  href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="py-1.5 px-3 rounded-xl bg-[#344ea2]/10 hover:bg-[#344ea2]/20 text-[#344ea2] font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
@@ -436,16 +465,16 @@ export default function GameRoomPage() {
                     To control the physical room displays and Hubspace ceiling lights, your device must be connected to the <strong>Social Medium Makerspace Wi-Fi</strong>.
                   </p>
                   <p className="text-amber-800 text-[11px]">
-                    <em>Tip:</em> If on the makerspace Wi-Fi for the first time, click{' '}
+                    <em>Tip:</em> If on the makerspace Wi-Fi, click{' '}
                     <a
-                      href={`${serverUrl.replace(/\/+$/, '')}/spellbook`}
+                      href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="underline font-bold text-amber-900 hover:text-black"
                     >
                       Open Spellbook
                     </a>{' '}
-                    once to accept the local self-signed certificate, which enables your browser to send commands.
+                    once to trust the local self-signed certificate, which allows your browser to send commands directly to room displays.
                   </p>
                 </div>
               </div>
@@ -462,7 +491,7 @@ export default function GameRoomPage() {
                     type="text"
                     value={tempUrl}
                     onChange={(e) => setTempUrl(e.target.value)}
-                    placeholder="e.g. https://192.168.1.100:8088"
+                    placeholder="e.g. https://192.168.12.108:8088"
                     className="flex-1 px-3 py-2 rounded-xl border border-stone-300 font-mono text-xs focus:outline-hidden focus:border-[#3bc0cd] focus:ring-2 focus:ring-[#3bc0cd]/20"
                   />
                   <button
@@ -475,13 +504,13 @@ export default function GameRoomPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setTempUrl('https://192.168.1.100:8088');
-                      setServerUrl('https://192.168.1.100:8088');
+                      setTempUrl('https://192.168.12.108:8088');
+                      setServerUrl('https://192.168.12.108:8088');
                       if (typeof window !== 'undefined') {
-                        localStorage.setItem('sm_game_room_server_url', 'https://192.168.1.100:8088');
+                        localStorage.setItem('sm_game_room_server_url', 'https://192.168.12.108:8088');
                       }
                       setIsConfigOpen(false);
-                      checkServerConnection('https://192.168.1.100:8088');
+                      checkServerConnection('https://192.168.12.108:8088');
                     }}
                     className="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs cursor-pointer"
                   >
