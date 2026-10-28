@@ -22,8 +22,8 @@ const roboto = Roboto({
 });
 
 export const metadata: Metadata = {
-  title: "Social Medium Makerspace Companion",
-  description: "Official member companion and management web app for Social Medium Makerspace.",
+  title: "Social Medium App",
+  description: "Official web app for Social Medium Makerspace.",
 };
 
 export const viewport: Viewport = {

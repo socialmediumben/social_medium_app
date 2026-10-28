@@ -8,6 +8,7 @@ export interface MemberProfile {
   email: string;
   phone: string;
   membershipTier: string;
+  membershipStatus?: string;// e.g. "Active", "Inactive", "None"
   certifications: string[]; // List field in Neon One: "Certifications" (ID 116)
   portalMedia?: string;     // Single-line text field in Neon One: "Portal Media" (ID 117)
 }

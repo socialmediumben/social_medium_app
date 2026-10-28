@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut, Code2, BookOpen, Sliders } from 'lucide-react';
+import { User, DoorOpen, Gamepad2, Home, CreditCard, LogOut, Code2, BookOpen, Sliders, Calendar } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
 import { APP_VERSION } from '@/lib/version';
 
 const NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
+  { href: '/events', label: 'Events', icon: Calendar, description: 'Upcoming events & RSVP' },
   { href: '/portal-media', label: 'Portal Media', icon: DoorOpen, description: 'Personal tap card media' },
   { href: '/game-room', label: 'Game Room', icon: Gamepad2, description: 'Room remote & presets' },
 ];
@@ -32,7 +33,7 @@ export function Navbar() {
                 SOCIAL MEDIUM
               </span>
               <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded-full bg-[#f16622]/10 text-[#f16622] border border-[#f16622]/20">
-                Companion
+                App
               </span>
             </div>
             <p className="text-[11px] text-stone-500 -mt-1 hidden sm:block font-roboto">
@@ -155,11 +156,11 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3 py-1 shadow-lg safe-area-pb">
-      <div className="grid grid-cols-4 items-center justify-around">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-2 py-1 shadow-lg safe-area-pb">
+      <div className="grid grid-cols-5 items-center justify-around">
         <Link
           href="/"
-          className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-xl text-[10px] font-medium transition-colors ${
+          className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-medium transition-colors ${
             pathname === '/'
               ? 'text-[#344ea2] font-semibold'
               : 'text-stone-500 hover:text-stone-800'

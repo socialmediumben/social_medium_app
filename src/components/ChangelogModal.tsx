@@ -97,7 +97,7 @@ export function ChangelogModal() {
 
         {/* Footer */}
         <div className="p-4 border-t border-stone-200 bg-stone-50 flex items-center justify-between text-xs text-stone-500">
-          <span>Social Medium Companion • Developer Mode</span>
+          <span>Social Medium App • Developer Mode</span>
           <button
             type="button"
             onClick={closeChangelog}

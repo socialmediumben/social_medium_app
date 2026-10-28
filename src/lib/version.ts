@@ -1,4 +1,4 @@
-export const APP_VERSION = '1.7';
+export const APP_VERSION = '1.8';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '1.8',
+    date: '2026-10-27',
+    title: 'Events Module, Free Member RSVPs & Brand Renaming',
+    changes: [
+      'Renamed platform to "Social Medium App" across all views and navigation.',
+      'Added comprehensive "Events" Module powered by the same Neon One system as the Check-In Kiosk.',
+      'Active Members can RSVP for free with 1 click directly in the app for eligible community events.',
+      'Non-members and paid Workshop category events open directly in the Neon One event registration storefront in a new tab.',
+      'Added desktop and mobile navigation shortcuts for quick access to upcoming makerspace events.',
+    ],
+  },
   {
     version: '1.7',
     date: '2026-10-27',

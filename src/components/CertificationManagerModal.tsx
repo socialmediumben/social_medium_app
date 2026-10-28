@@ -102,7 +102,7 @@ export function CertificationManagerModal() {
                 </span>
               </div>
               <p className="text-xs text-stone-500 font-roboto">
-                Single Source of Truth for Check-In Kiosk, Portal Door, and Companion App
+                Single Source of Truth for Check-In Kiosk, Portal Door, and Social Medium App
               </p>
             </div>
           </div>

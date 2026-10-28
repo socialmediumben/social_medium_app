@@ -132,6 +132,7 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
       email,
       phone,
       membershipTier,
+      membershipStatus: ind.accountCurrentMembershipStatus || 'Active',
       certifications: certsList,
       portalMedia: portalMediaUrl,
     };
