@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.2';
+export const APP_VERSION = '2.3';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.3',
+    date: '2026-10-28',
+    title: 'Neon One Constituent OAuth 2.0 Single Sign-On',
+    changes: [
+      'Added secure "Sign In with Neon One" Single Sign-On using constituents\' existing username and password.',
+      'Implemented OAuth authorization callback page at /auth/callback with automatic token exchange and account provisioning.',
+      'Created backend token exchange proxy endpoint in neon_kiosk on Render to securely keep Client Secret server-side.',
+      'Updated login interface with seamless dual login: Neon One Single Sign-On and quick physical Tap Card scan.',
+    ],
+  },
   {
     version: '2.2',
     date: '2026-10-27',

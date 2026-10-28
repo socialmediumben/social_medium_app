@@ -2,6 +2,35 @@ import { MemberProfile } from './types';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
 
+// Neon One Constituent OAuth 2.0 Credentials & Endpoints
+export const NEON_OAUTH_CLIENT_ID =
+  'QBY_hNyRYp1-aVKwOmQ8ELY6tCd6vW2KJ00k57X3hWCY1wsiz87dFfD7IT7hVgqiyjsBkw8VUPJoOuBy0xVnfg==';
+export const NEON_OAUTH_AUTH_URL =
+  'https://socialmedium.app.neoncrm.com/nx/auth/oauth/auth';
+
+/**
+ * Computes the OAuth callback redirect URI based on the current window origin.
+ */
+export function getNeonOAuthRedirectUri(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/auth/callback/`;
+  }
+  return 'https://app.socialmedium.space/auth/callback/';
+}
+
+/**
+ * Generates the full Neon One OAuth authorization URL.
+ */
+export function getNeonOAuthLoginUrl(): string {
+  const redirectUri = getNeonOAuthRedirectUri();
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: NEON_OAUTH_CLIENT_ID,
+    redirect_uri: redirectUri,
+  });
+  return `${NEON_OAUTH_AUTH_URL}?${params.toString()}`;
+}
+
 export interface NeonLookupResult {
   success: boolean;
   member?: MemberProfile;
@@ -39,61 +68,22 @@ export const NEON_INTEREST_OPTIONS: NeonInterestOption[] = [
 ];
 
 /**
- * Searches Neon One for a member by their exact "Tap Card" custom field,
- * then retrieves their complete account profile and custom fields.
+ * Fetches an individual member profile and custom fields directly by Neon Account ID.
  */
-export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookupResult> {
-  const cleanCard = tapCard.trim();
-  if (!cleanCard) {
-    return { success: false, error: 'Tap Card cannot be empty.' };
+export async function fetchMemberProfileByAccountId(
+  accountId: string,
+  fallbackTapCard?: string
+): Promise<NeonLookupResult> {
+  if (!accountId) {
+    return { success: false, error: 'Account ID is required.' };
   }
 
   try {
-    // 1. Search for account by Tap Card custom field
-    const searchResponse = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        searchFields: [
-          {
-            field: 'Tap Card',
-            operator: 'EQUAL',
-            value: cleanCard,
-          },
-        ],
-        outputFields: ['First Name', 'Last Name', 'Preferred Name', 'Account ID'],
-        pagination: {
-          currentPage: 0,
-          pageSize: 10,
-        },
-      }),
-    });
-
-    const searchData = await searchResponse.json();
-
-    if (!searchResponse.ok || (Array.isArray(searchData) && searchData[0]?.message)) {
-      const msg = searchData[0]?.message || searchData?.message || 'Neon One search failed.';
-      return { success: false, error: msg };
-    }
-
-    const results = searchData.searchResults || [];
-    if (results.length === 0) {
-      return { success: false, error: `No member found in Neon One with Tap Card "${cleanCard}".` };
-    }
-
-    const accountId = results[0]['Account ID'] || results[0].accountId;
-    if (!accountId) {
-      return { success: false, error: 'Account ID missing from search results.' };
-    }
-
-    // 2. Fetch full account record to get custom fields and contact info
     const accountResponse = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`);
     const accountData = await accountResponse.json();
 
     if (!accountResponse.ok || !accountData.individualAccount) {
-      return { success: false, error: 'Failed to load full member details from Neon One.' };
+      return { success: false, error: 'Failed to load member details from Neon One.' };
     }
 
     const ind = accountData.individualAccount;
@@ -120,7 +110,7 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
     // Field 83  = Custom Interests (string value)
     let certsList: string[] = [];
     let portalMediaUrl = '';
-    let foundTapCard = cleanCard;
+    let foundTapCard = fallbackTapCard || '';
     let interestsList: string[] = [];
     let customInterestsStr = '';
 
@@ -187,6 +177,127 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
     return {
       success: false,
       error: err.message || 'Failed to connect to Neon One backend proxy.',
+    };
+  }
+}
+
+/**
+ * Searches Neon One for a member by their exact "Tap Card" custom field,
+ * then retrieves their complete account profile and custom fields.
+ */
+export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookupResult> {
+  const cleanCard = tapCard.trim();
+  if (!cleanCard) {
+    return { success: false, error: 'Tap Card cannot be empty.' };
+  }
+
+  try {
+    // 1. Search for account by Tap Card custom field
+    const searchResponse = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        searchFields: [
+          {
+            field: 'Tap Card',
+            operator: 'EQUAL',
+            value: cleanCard,
+          },
+        ],
+        outputFields: ['First Name', 'Last Name', 'Preferred Name', 'Account ID'],
+        pagination: {
+          currentPage: 0,
+          pageSize: 10,
+        },
+      }),
+    });
+
+    const searchData = await searchResponse.json();
+
+    if (!searchResponse.ok || (Array.isArray(searchData) && searchData[0]?.message)) {
+      const msg = searchData[0]?.message || searchData?.message || 'Neon One search failed.';
+      return { success: false, error: msg };
+    }
+
+    const results = searchData.searchResults || [];
+    if (results.length === 0) {
+      return { success: false, error: `No member found in Neon One with Tap Card "${cleanCard}".` };
+    }
+
+    const accountId = results[0]['Account ID'] || results[0].accountId;
+    if (!accountId) {
+      return { success: false, error: 'Account ID missing from search results.' };
+    }
+
+    // 2. Fetch full account record
+    return await fetchMemberProfileByAccountId(String(accountId), cleanCard);
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Failed to connect to Neon One backend proxy.',
+    };
+  }
+}
+
+/**
+ * Exchanges a Neon One OAuth authorization code for an account token,
+ * then retrieves the authenticated constituent's complete profile.
+ */
+export async function authenticateWithNeonOAuth(
+  code: string,
+  redirectUri: string
+): Promise<NeonLookupResult> {
+  if (!code) {
+    return { success: false, error: 'Authorization code is missing.' };
+  }
+
+  try {
+    const tokenResponse = await fetch(`${NEON_PROXY_URL}/api/oauth/token`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        code,
+        redirect_uri: redirectUri,
+      }),
+    });
+
+    const tokenData = await tokenResponse.json();
+
+    if (!tokenResponse.ok || tokenData.error) {
+      const msg =
+        tokenData.error_description ||
+        tokenData.error ||
+        tokenData.message ||
+        'OAuth authentication failed.';
+      return { success: false, error: msg };
+    }
+
+    // Extract Account ID from OAuth token response
+    // Neon returns account_id, accountId, sub, or inside data
+    const accountId =
+      tokenData.account_id ||
+      tokenData.accountId ||
+      tokenData.sub ||
+      tokenData.user_id ||
+      tokenData.data?.accountId ||
+      tokenData.data?.account_id;
+
+    if (!accountId) {
+      return {
+        success: false,
+        error: 'Authentication succeeded, but no Neon One account ID was returned.',
+      };
+    }
+
+    return await fetchMemberProfileByAccountId(String(accountId));
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Error communicating with Neon One OAuth proxy.',
     };
   }
 }

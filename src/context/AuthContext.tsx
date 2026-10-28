@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MemberProfile } from '@/lib/types';
-import { searchMemberByTapCard } from '@/lib/neon';
+import { searchMemberByTapCard, fetchMemberProfileByAccountId } from '@/lib/neon';
 
 interface AuthContextType {
   activeCardId: string | null;
@@ -10,6 +10,7 @@ interface AuthContextType {
   isLoading: boolean;
   loginError: string | null;
   login: (cardId: string) => Promise<boolean>;
+  loginWithProfile: (profile: MemberProfile) => void;
   logout: () => void;
   updateMember: (updates: Partial<MemberProfile>) => void;
 }
@@ -20,6 +21,7 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   loginError: null,
   login: async () => false,
+  loginWithProfile: () => {},
   logout: () => {},
   updateMember: () => {},
 });
@@ -30,11 +32,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [loginError, setLoginError] = useState<string | null>(null);
 
-  // Load active card ID from URL query param (e.g. from Portal Door QR scan) or localStorage
+  // Load active session from URL query param, or localStorage (account ID / tap card)
   useEffect(() => {
     const initAuth = async () => {
       try {
         let initialCard: string | null = null;
+        let initialAccountId: string | null = null;
 
         // 1. Check for URL deep link query param (?card=... or ?tapCard=...)
         if (typeof window !== 'undefined') {
@@ -45,12 +48,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // 2. Fallback to localStorage if no URL parameter
-        if (!initialCard) {
-          initialCard = localStorage.getItem('sm_active_tap_card');
+        // 2. Check localStorage
+        if (typeof window !== 'undefined') {
+          if (!initialCard) {
+            initialCard = localStorage.getItem('sm_active_tap_card');
+          }
+          initialAccountId = localStorage.getItem('sm_active_account_id');
         }
 
-        if (initialCard) {
+        // 3. Try to authenticate via Account ID first (from OAuth) or Tap Card
+        if (initialAccountId) {
+          const savedProfile = localStorage.getItem(`sm_profile_${initialAccountId}`);
+          if (savedProfile) {
+            const parsed = JSON.parse(savedProfile);
+            setMember(parsed);
+            setActiveCardId(parsed.tapCard || initialAccountId);
+          }
+
+          const res = await fetchMemberProfileByAccountId(initialAccountId);
+          if (res.success && res.member) {
+            setMember(res.member);
+            setActiveCardId(res.member.tapCard || initialAccountId);
+            localStorage.setItem('sm_active_account_id', initialAccountId);
+            if (res.member.tapCard) {
+              localStorage.setItem('sm_active_tap_card', res.member.tapCard);
+            }
+            localStorage.setItem(`sm_profile_${initialAccountId}`, JSON.stringify(res.member));
+          }
+        } else if (initialCard) {
           // Load cached member profile first for instant UI response
           const savedProfile = localStorage.getItem(`sm_profile_${initialCard}`);
           if (savedProfile) {
@@ -58,7 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setActiveCardId(initialCard);
           }
 
-          // Then refresh from Neon One in background (or log in directly if from URL)
+          // Then refresh from Neon One in background
           const res = await searchMemberByTapCard(initialCard);
           if (res.success && res.member) {
             setMember(res.member);
@@ -76,6 +101,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
   }, []);
 
+  const loginWithProfile = (profile: MemberProfile) => {
+    const primaryId = profile.tapCard || profile.accountId || null;
+    setActiveCardId(primaryId);
+    setMember(profile);
+    setLoginError(null);
+    setIsLoading(false);
+    try {
+      if (profile.accountId) {
+        localStorage.setItem('sm_active_account_id', profile.accountId);
+        localStorage.setItem(`sm_profile_${profile.accountId}`, JSON.stringify(profile));
+      }
+      if (profile.tapCard) {
+        localStorage.setItem('sm_active_tap_card', profile.tapCard);
+        localStorage.setItem(`sm_profile_${profile.tapCard}`, JSON.stringify(profile));
+      }
+    } catch (_) {}
+  };
+
   const login = async (cardId: string): Promise<boolean> => {
     const cleanId = cardId.trim();
     if (!cleanId) return false;
@@ -86,24 +129,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const res = await searchMemberByTapCard(cleanId);
 
     if (res.success && res.member) {
-      setActiveCardId(cleanId);
-      setMember(res.member);
-      try {
-        localStorage.setItem('sm_active_tap_card', cleanId);
-        localStorage.setItem(`sm_profile_${cleanId}`, JSON.stringify(res.member));
-      } catch (_) {}
-      setIsLoading(false);
+      loginWithProfile(res.member);
       return true;
     } else {
-      // If error or not found, also check if there is a local cached profile
+      // If error or not found, check if there is a local cached profile
       try {
         const savedProfile = localStorage.getItem(`sm_profile_${cleanId}`);
         if (savedProfile) {
           const parsed = JSON.parse(savedProfile);
-          setActiveCardId(cleanId);
-          setMember(parsed);
-          localStorage.setItem('sm_active_tap_card', cleanId);
-          setIsLoading(false);
+          loginWithProfile(parsed);
           return true;
         }
       } catch (_) {}
@@ -117,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => {
     try {
       localStorage.removeItem('sm_active_tap_card');
+      localStorage.removeItem('sm_active_account_id');
     } catch (_) {}
     setActiveCardId(null);
     setMember(null);
@@ -124,14 +159,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateMember = (updates: Partial<MemberProfile>) => {
-    if (!member || !activeCardId) return;
+    if (!member) return;
     const updated: MemberProfile = {
       ...member,
       ...updates,
     };
     setMember(updated);
     try {
-      localStorage.setItem(`sm_profile_${activeCardId}`, JSON.stringify(updated));
+      if (updated.accountId) {
+        localStorage.setItem(`sm_profile_${updated.accountId}`, JSON.stringify(updated));
+      }
+      if (activeCardId) {
+        localStorage.setItem(`sm_profile_${activeCardId}`, JSON.stringify(updated));
+      }
     } catch (_) {}
   };
 
@@ -143,6 +183,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         loginError,
         login,
+        loginWithProfile,
         logout,
         updateMember,
       }}
