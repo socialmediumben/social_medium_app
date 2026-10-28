@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Tv,
   Image as ImageIcon,
@@ -24,9 +24,20 @@ import {
   Dice5,
   Volume2,
   X,
+  Radio,
+  Cast,
+  Wrench,
+  Grid,
+  Layers,
 } from 'lucide-react';
 import { GAME_ROOM_PRESETS, INITIAL_GAME_ROOM_STATUS } from '@/lib/member-data';
 import { GameRoomPreset, GameRoomDisplayStatus } from '@/lib/types';
+import { useDevMode } from '@/context/DevModeContext';
+import { ScreenMirrorModal } from '@/components/game-room/ScreenMirrorModal';
+import { MediaLibraryManager } from '@/components/game-room/MediaLibraryManager';
+import { GridCalibrationCard } from '@/components/game-room/GridCalibrationCard';
+import { HubspaceSettingsCard } from '@/components/game-room/HubspaceSettingsCard';
+import { PresetCreatorCard } from '@/components/game-room/PresetCreatorCard';
 
 // Server Preset Mapping (translates app preset IDs to the Mini PC server preset IDs)
 const PRESET_TO_SERVER_ID: Record<string, string> = {
@@ -56,6 +67,13 @@ export function sanitizeGameRoomUrl(raw: string): string {
   } catch (_) {
     return clean.replace(/\/spellbook.*$/i, '').replace(/\/api\/.*$/i, '').replace(/\/+$/, '');
   }
+}
+
+// Helper to convert HTTP/HTTPS server origin to WS/WSS URL
+export function getWebSocketUrl(rawHttpUrl: string): string {
+  const clean = sanitizeGameRoomUrl(rawHttpUrl);
+  if (!clean) return '';
+  return clean.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:') + '/ws';
 }
 
 // Daily Rental Slots on Neon One
@@ -89,11 +107,13 @@ const RENTAL_SLOTS = [
 ];
 
 export default function GameRoomPage() {
+  const { isDevMode } = useDevMode();
+
   // Navigation: Main Tabs ('remote' vs 'reservations')
   const [mainTab, setMainTab] = useState<'remote' | 'reservations'>('remote');
 
-  // Sub-tabs under Live Remote ('presets' | 'displays' | 'lights')
-  const [remoteSubTab, setRemoteSubTab] = useState<'presets' | 'displays' | 'lights'>('presets');
+  // Sub-tabs under Live Remote ('presets' | 'displays' | 'lights' | 'devtools')
+  const [remoteSubTab, setRemoteSubTab] = useState<'presets' | 'displays' | 'lights' | 'devtools'>('presets');
 
   // Controller State
   const [activePreset, setActivePreset] = useState<GameRoomPreset>(GAME_ROOM_PRESETS[0]);
@@ -111,9 +131,26 @@ export default function GameRoomPage() {
   const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
   const [lastCheckError, setLastCheckError] = useState<string | null>(null);
 
+  // Screen Mirroring State
+  const [isMirrorModalOpen, setIsMirrorModalOpen] = useState<boolean>(false);
+  const [activeMirrorScreen, setActiveMirrorScreen] = useState<'table' | 'window' | 'frame' | null>(null);
+
+  // Hardware / Server State
+  const [hubspaceConfig, setHubspaceConfig] = useState<{ enabled: boolean; username: string }>({
+    enabled: false,
+    username: '',
+  });
+  const [availableDevices, setAvailableDevices] = useState<any[]>([]);
+  const [tableGridSize, setTableGridSize] = useState<number>(22);
+  const [tableGridShape, setTableGridShape] = useState<'square' | 'hex'>('square');
+
   // Modal for Embedding Neon One Event Registration Portal
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string | null>(null);
   const [activeEmbedTitle, setActiveEmbedTitle] = useState<string>('');
+
+  // WebSocket Reference
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectTimeoutRef = useRef<any>(null);
 
   // Load configured server URL from localStorage
   useEffect(() => {
@@ -126,6 +163,137 @@ export default function GameRoomPage() {
       }
     }
   }, []);
+
+  // WebSocket Connection & Event Handler
+  useEffect(() => {
+    let isMounted = true;
+
+    const connectWs = () => {
+      const wsUrl = getWebSocketUrl(serverUrl);
+      if (!wsUrl) return;
+
+      try {
+        const ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
+
+        ws.onopen = () => {
+          if (!isMounted) return;
+          setConnectionStatus('connected');
+
+          // Send Grimoire Handshake
+          ws.send(
+            JSON.stringify({
+              action: 'HANDSHAKE',
+              client_type: 'spellbook',
+              version: '1.3.8',
+            })
+          );
+        };
+
+        ws.onmessage = (event) => {
+          if (!isMounted) return;
+          try {
+            const msg = JSON.parse(event.data);
+
+            if (msg.event === 'HANDSHAKE_ACK' || msg.event === 'STATE_UPDATE') {
+              const state = msg.state || msg.current_state;
+              if (state) {
+                if (state.lighting?.brightness !== undefined) {
+                  setBrightness(state.lighting.brightness);
+                }
+                if (state.scene_id) {
+                  const matched = GAME_ROOM_PRESETS.find(
+                    (p) => PRESET_TO_SERVER_ID[p.id] === state.scene_id || p.id === state.scene_id
+                  );
+                  if (matched) {
+                    setActivePreset(matched);
+                    setIsBlackout(matched.id === 'blackout');
+                  }
+                }
+                if (state.displays) {
+                  setDisplayStatus({
+                    windowTv: {
+                      online: true,
+                      currentScene: state.displays.window?.title || state.displays.window?.type || 'Scenic Window',
+                    },
+                    pictureFrame: {
+                      online: true,
+                      currentScene: state.displays.frame?.title || 'Art Portrait',
+                    },
+                    tableProjector: {
+                      online: true,
+                      currentScene: state.displays.table?.title || 'Tactical Battlemap',
+                    },
+                  });
+                }
+              }
+
+              if (msg.hubspace) {
+                setHubspaceConfig({
+                  enabled: !!msg.hubspace.enabled,
+                  username: msg.hubspace.username || '',
+                });
+              }
+              if (msg.available_devices) {
+                setAvailableDevices(msg.available_devices);
+              }
+              if (msg.table_grid_size) {
+                setTableGridSize(msg.table_grid_size);
+              }
+              if (msg.table_grid_shape) {
+                setTableGridShape(msg.table_grid_shape);
+              }
+            } else if (msg.event === 'MIRROR_STATUS') {
+              if (msg.active) {
+                setActiveMirrorScreen(msg.screen);
+              } else {
+                setActiveMirrorScreen(null);
+              }
+            } else if (msg.event === 'STOP_MIRROR') {
+              if (msg.screen === 'all' || msg.screen === activeMirrorScreen) {
+                setActiveMirrorScreen(null);
+              }
+            }
+          } catch (_) {}
+        };
+
+        ws.onclose = () => {
+          if (!isMounted) return;
+          wsRef.current = null;
+          // Try reconnect after 3.5s
+          reconnectTimeoutRef.current = setTimeout(() => {
+            if (isMounted) connectWs();
+          }, 3500);
+        };
+
+        ws.onerror = () => {
+          // Handled via onclose
+        };
+      } catch (_) {}
+    };
+
+    connectWs();
+
+    // Heartbeat PING interval (every 15s)
+    const pingInterval = setInterval(() => {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ action: 'PING' }));
+      }
+    }, 15000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(pingInterval);
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        try {
+          wsRef.current.close();
+        } catch (_) {}
+        wsRef.current = null;
+      }
+    };
+  }, [serverUrl]);
 
   // Ping Game Room Server to check Wi-Fi connection
   const checkServerConnection = async (targetUrl = serverUrl) => {
@@ -155,6 +323,22 @@ export default function GameRoomPage() {
         setConnectionStatus('connected');
         setTriggerNotice('Connected to Makerspace Game Room Server!');
 
+        if (stateData.hubspace) {
+          setHubspaceConfig({
+            enabled: !!stateData.hubspace.enabled,
+            username: stateData.hubspace.username || '',
+          });
+        }
+        if (stateData.available_devices) {
+          setAvailableDevices(stateData.available_devices);
+        }
+        if (stateData.table_grid_size) {
+          setTableGridSize(stateData.table_grid_size);
+        }
+        if (stateData.table_grid_shape) {
+          setTableGridShape(stateData.table_grid_shape);
+        }
+
         // Sync local display and preset state from server if available
         if (stateData.current_state) {
           const current = stateData.current_state;
@@ -169,6 +353,22 @@ export default function GameRoomPage() {
               setActivePreset(matched);
               setIsBlackout(matched.id === 'blackout');
             }
+          }
+          if (current.displays) {
+            setDisplayStatus({
+              windowTv: {
+                online: true,
+                currentScene: current.displays.window?.title || current.displays.window?.type || 'Scenic Window',
+              },
+              pictureFrame: {
+                online: true,
+                currentScene: current.displays.frame?.title || 'Art Portrait',
+              },
+              tableProjector: {
+                online: true,
+                currentScene: current.displays.table?.title || 'Tactical Battlemap',
+              },
+            });
           }
         }
       } else {
@@ -301,6 +501,11 @@ export default function GameRoomPage() {
           <div className="flex items-center gap-2 text-xs font-semibold text-[#f16622] uppercase tracking-wider mb-1">
             <span>📜</span>
             <span>The Wizard's Grimoire • v1.3.8</span>
+            {isDevMode && (
+              <span className="bg-amber-500/20 text-amber-300 text-[10px] px-2 py-0.5 rounded-full border border-amber-500/30 font-mono">
+                🛠️ Dev Mode Active
+              </span>
+            )}
           </div>
           <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-white mb-1">
             D&D Game Room Remote & Rentals
@@ -310,28 +515,45 @@ export default function GameRoomPage() {
           </p>
         </div>
 
-        {/* Quick Blackout Action */}
+        {/* Action Buttons in Banner */}
         {mainTab === 'remote' && (
-          <button
-            onClick={handleToggleBlackout}
-            className={`px-4 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md shrink-0 ${
-              isBlackout
-                ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                : 'bg-black/60 hover:bg-black text-white border border-white/20'
-            }`}
-          >
-            {isBlackout ? (
-              <>
-                <Sun className="w-4 h-4 text-amber-200" />
-                <span>Restore Lights</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-4 h-4 text-stone-300" />
-                <span>🌑 Blackout Mode</span>
-              </>
-            )}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Screen Casting Trigger */}
+            <button
+              onClick={() => setIsMirrorModalOpen(true)}
+              className={`px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md ${
+                activeMirrorScreen
+                  ? 'bg-red-600 hover:bg-red-700 text-white animate-pulse'
+                  : 'bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700'
+              }`}
+              title="Cast your laptop screen or window to tabletop projector or TVs"
+            >
+              <Radio className={`w-4 h-4 ${activeMirrorScreen ? 'text-white' : 'text-[#f16622]'}`} />
+              <span>{activeMirrorScreen ? '🔴 Live Mirroring' : '🖥️ Cast Screen'}</span>
+            </button>
+
+            {/* Quick Blackout Action */}
+            <button
+              onClick={handleToggleBlackout}
+              className={`px-3.5 py-2.5 rounded-xl font-semibold text-xs transition-all flex items-center gap-2 cursor-pointer shadow-md ${
+                isBlackout
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'bg-black/60 hover:bg-black text-white border border-white/20'
+              }`}
+            >
+              {isBlackout ? (
+                <>
+                  <Sun className="w-4 h-4 text-amber-200" />
+                  <span>Restore Lights</span>
+                </>
+              ) : (
+                <>
+                  <Moon className="w-4 h-4 text-stone-300" />
+                  <span>🌑 Blackout</span>
+                </>
+              )}
+            </button>
+          </div>
         )}
       </div>
 
@@ -532,19 +754,37 @@ export default function GameRoomPage() {
               <div className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
                 Physical Room Displays Status
               </div>
-              <div className="text-[11px] font-mono text-stone-400">
-                Active Theme: <span className="text-amber-400 font-semibold">{activePreset.name}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsMirrorModalOpen(true)}
+                  className="py-1 px-2.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-xs font-semibold text-[#f16622] border border-stone-700 transition-colors flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Cast className="w-3.5 h-3.5" />
+                  <span>{activeMirrorScreen ? 'Mirroring Active' : 'Cast Screen'}</span>
+                </button>
+                <div className="text-[11px] font-mono text-stone-400">
+                  Theme: <span className="text-amber-400 font-semibold">{activePreset.name}</span>
+                </div>
               </div>
             </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               {/* Window TV */}
               <div className="p-3 rounded-xl bg-stone-800/80 border border-stone-700/60 flex items-center justify-between">
                 <div className="flex items-center gap-2.5 truncate">
                   <Tv className="w-4 h-4 text-[#38bdf8] shrink-0" />
                   <div className="truncate">
-                    <div className="font-semibold text-stone-200">53" Window TV</div>
+                    <div className="font-semibold text-stone-200 flex items-center gap-1.5">
+                      <span>53" Window TV</span>
+                      {activeMirrorScreen === 'window' && (
+                        <span className="text-[9px] bg-red-600 text-white font-mono px-1.5 py-0.2 rounded-full uppercase">
+                          Mirrored
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-stone-400 truncate">
-                      {displayStatus.windowTv.currentScene}
+                      {activeMirrorScreen === 'window' ? 'Active Screen Stream' : displayStatus.windowTv.currentScene}
                     </div>
                   </div>
                 </div>
@@ -556,9 +796,16 @@ export default function GameRoomPage() {
                 <div className="flex items-center gap-2.5 truncate">
                   <ImageIcon className="w-4 h-4 text-amber-400 shrink-0" />
                   <div className="truncate">
-                    <div className="font-semibold text-stone-200">Picture Frame</div>
+                    <div className="font-semibold text-stone-200 flex items-center gap-1.5">
+                      <span>Picture Frame</span>
+                      {activeMirrorScreen === 'frame' && (
+                        <span className="text-[9px] bg-red-600 text-white font-mono px-1.5 py-0.2 rounded-full uppercase">
+                          Mirrored
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-stone-400 truncate">
-                      {displayStatus.pictureFrame.currentScene}
+                      {activeMirrorScreen === 'frame' ? 'Active Screen Stream' : displayStatus.pictureFrame.currentScene}
                     </div>
                   </div>
                 </div>
@@ -570,9 +817,16 @@ export default function GameRoomPage() {
                 <div className="flex items-center gap-2.5 truncate">
                   <Map className="w-4 h-4 text-emerald-400 shrink-0" />
                   <div className="truncate">
-                    <div className="font-semibold text-stone-200">Table Projector</div>
+                    <div className="font-semibold text-stone-200 flex items-center gap-1.5">
+                      <span>Table Projector</span>
+                      {activeMirrorScreen === 'table' && (
+                        <span className="text-[9px] bg-red-600 text-white font-mono px-1.5 py-0.2 rounded-full uppercase">
+                          Mirrored
+                        </span>
+                      )}
+                    </div>
                     <div className="text-[10px] text-stone-400 truncate">
-                      {displayStatus.tableProjector.currentScene}
+                      {activeMirrorScreen === 'table' ? 'Active Screen Stream' : displayStatus.tableProjector.currentScene}
                     </div>
                   </div>
                 </div>
@@ -582,10 +836,10 @@ export default function GameRoomPage() {
           </div>
 
           {/* Remote Sub-Tabs */}
-          <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
+          <div className="flex items-center gap-2 border-b border-stone-200 pb-2 overflow-x-auto">
             <button
               onClick={() => setRemoteSubTab('presets')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 remoteSubTab === 'presets'
                   ? 'bg-[#344ea2] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
@@ -594,9 +848,10 @@ export default function GameRoomPage() {
               <Sparkles className="w-3.5 h-3.5" />
               <span>✨ Arcane Presets ({GAME_ROOM_PRESETS.length})</span>
             </button>
+
             <button
               onClick={() => setRemoteSubTab('displays')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 remoteSubTab === 'displays'
                   ? 'bg-[#344ea2] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
@@ -605,9 +860,10 @@ export default function GameRoomPage() {
               <Tv className="w-3.5 h-3.5" />
               <span>🔮 Screen Overrides</span>
             </button>
+
             <button
               onClick={() => setRemoteSubTab('lights')}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                 remoteSubTab === 'lights'
                   ? 'bg-[#344ea2] text-white shadow-xs'
                   : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
@@ -616,6 +872,21 @@ export default function GameRoomPage() {
               <Sliders className="w-3.5 h-3.5" />
               <span>🕯️ Chamber Lights</span>
             </button>
+
+            {/* Developer Mode Sub-Tab */}
+            {isDevMode && (
+              <button
+                onClick={() => setRemoteSubTab('devtools')}
+                className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  remoteSubTab === 'devtools'
+                    ? 'bg-amber-600 text-white shadow-xs'
+                    : 'text-amber-800 bg-amber-500/10 hover:bg-amber-500/20'
+                }`}
+              >
+                <Wrench className="w-3.5 h-3.5" />
+                <span>🛠️ Developer Studio</span>
+              </button>
+            )}
           </div>
 
           {/* Sub-Tab 1: Arcane Presets Grid */}
@@ -725,45 +996,73 @@ export default function GameRoomPage() {
                 </div>
                 <div className="space-y-1.5 text-xs">
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         windowTv: { online: true, currentScene: 'Rain on Castle Glass' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/window`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'weather', effect_type: 'rain', title: 'Rain on Castle Glass' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🌧️ Rain on Castle Glass
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         windowTv: { online: true, currentScene: 'Midnight Tempest & Gale' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/window`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'weather', effect_type: 'tempest', title: 'Midnight Tempest & Gale' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     ⚡ Midnight Tempest & Gale
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         windowTv: { online: true, currentScene: 'Tavern Village Sunset' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/window`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'weather', effect_type: 'sunset', title: 'Tavern Village Sunset' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🌇 Tavern Village Sunset
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         windowTv: { online: true, currentScene: 'Inferno Skies & Embers' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/window`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'weather', effect_type: 'inferno', title: 'Inferno Skies & Embers' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🔥 Inferno Skies & Embers
@@ -788,45 +1087,73 @@ export default function GameRoomPage() {
                 </div>
                 <div className="space-y-1.5 text-xs">
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         pictureFrame: { online: true, currentScene: 'Archmage Ignis (Wise Wizard)' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/frame`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/archmage.svg', title: 'Archmage Ignis' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🧙 Archmage Ignis
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         pictureFrame: { online: true, currentScene: 'Barnaby the Barkeep' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/frame`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/barkeep.svg', title: 'Barnaby the Barkeep' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🍺 Barnaby the Barkeep
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         pictureFrame: { online: true, currentScene: 'Vermithrax the Red Dragon' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/frame`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/dragon.svg', title: 'Vermithrax the Red Dragon' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🐉 Vermithrax the Red Dragon
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         pictureFrame: { online: true, currentScene: 'Queen Titania (Summer Court)' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/frame`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/fey.svg', title: 'Queen Titania' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🧚 Queen Titania
@@ -851,45 +1178,73 @@ export default function GameRoomPage() {
                 </div>
                 <div className="space-y-1.5 text-xs">
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         tableProjector: { online: true, currentScene: 'The Arcane Library Map' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/table`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/library.svg', title: 'The Arcane Library Map' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🗺️ The Arcane Library Map
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         tableProjector: { online: true, currentScene: 'Tavern Main Hall Map' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/table`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/tavern.svg', title: 'Tavern Main Hall Map' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🍻 Tavern Main Hall Map
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         tableProjector: { online: true, currentScene: 'Volcanic Caldera Arena' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/table`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/volcano.svg', title: 'Volcanic Caldera Arena' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🌋 Volcanic Caldera Arena
                   </button>
                   <button
-                    onClick={() =>
+                    onClick={() => {
                       setDisplayStatus({
                         ...displayStatus,
                         tableProjector: { online: true, currentScene: 'Flooded Crypt Map' },
-                      })
-                    }
+                      });
+                      if (serverUrl) {
+                        fetch(`${serverUrl}/api/display/table`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/crypt.svg', title: 'Flooded Crypt Map' }),
+                        });
+                      }
+                    }}
                     className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
                   >
                     🌊 Flooded Crypt Map
@@ -945,9 +1300,61 @@ export default function GameRoomPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-stone-500">Hubspace Integration:</span>
-                  <span className="font-semibold text-emerald-700">Auto-Synced</span>
+                  <span className="font-semibold text-emerald-700">
+                    {hubspaceConfig.enabled ? 'Auto-Synced (Live)' : 'Simulator Mode'}
+                  </span>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Sub-Tab 4: Developer Mode Studio */}
+          {remoteSubTab === 'devtools' && isDevMode && (
+            <div className="space-y-6 animate-fade-in">
+              {/* Media Library Manager */}
+              <MediaLibraryManager
+                serverUrl={serverUrl}
+                wsRef={wsRef}
+                onNotification={(msg) => {
+                  setTriggerNotice(msg);
+                  setTimeout(() => setTriggerNotice(null), 3500);
+                }}
+              />
+
+              {/* Grid Calibration */}
+              <GridCalibrationCard
+                serverUrl={serverUrl}
+                wsRef={wsRef}
+                initialGridSize={tableGridSize}
+                initialGridShape={tableGridShape}
+                onNotification={(msg) => {
+                  setTriggerNotice(msg);
+                  setTimeout(() => setTriggerNotice(null), 3500);
+                }}
+              />
+
+              {/* Hubspace Smart Fixtures & Settings */}
+              <HubspaceSettingsCard
+                serverUrl={serverUrl}
+                hubspaceConfig={hubspaceConfig}
+                availableDevices={availableDevices}
+                onRefreshState={() => checkServerConnection()}
+                onNotification={(msg) => {
+                  setTriggerNotice(msg);
+                  setTimeout(() => setTriggerNotice(null), 3500);
+                }}
+              />
+
+              {/* Preset Creator */}
+              <PresetCreatorCard
+                serverUrl={serverUrl}
+                wsRef={wsRef}
+                onPresetSaved={() => checkServerConnection()}
+                onNotification={(msg) => {
+                  setTriggerNotice(msg);
+                  setTimeout(() => setTriggerNotice(null), 3500);
+                }}
+              />
             </div>
           )}
         </div>
@@ -1126,6 +1533,20 @@ export default function GameRoomPage() {
         </div>
       )}
 
+      {/* Screen Mirroring Modal */}
+      <ScreenMirrorModal
+        isOpen={isMirrorModalOpen}
+        onClose={() => setIsMirrorModalOpen(false)}
+        serverUrl={serverUrl}
+        wsRef={wsRef}
+        activeMirrorScreen={activeMirrorScreen}
+        setActiveMirrorScreen={setActiveMirrorScreen}
+        onNotification={(msg) => {
+          setTriggerNotice(msg);
+          setTimeout(() => setTriggerNotice(null), 3500);
+        }}
+      />
+
       {/* Embedded Neon One Portal Modal */}
       {activeEmbedUrl && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-fade-in">
@@ -1191,4 +1612,3 @@ export default function GameRoomPage() {
     </div>
   );
 }
-
