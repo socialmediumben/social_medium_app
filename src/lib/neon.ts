@@ -4,6 +4,7 @@ import {
   CreateActivityInput,
   NeonPropertyItem,
   NeonSystemUser,
+  PortalPhotoRecord,
 } from './types';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
@@ -830,5 +831,44 @@ export async function createNeonActivity(
     return { success: true, activityId: String(data.id || '') };
   } catch (err: any) {
     return { success: false, error: err.message || 'Network error creating Neon CRM activity.' };
+  }
+}
+
+/**
+ * Fetches recent photobooth photos taken at the Portal Door kiosk, optionally filtered by card ID.
+ */
+export async function fetchPortalPhotos(cardId?: string): Promise<PortalPhotoRecord[]> {
+  try {
+    const url = cardId
+      ? `${NEON_PROXY_URL}/api/portal-photos?cardId=${encodeURIComponent(cardId)}`
+      : `${NEON_PROXY_URL}/api/portal-photos`;
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.photos) ? data.photos : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Saves a new portal photo record to the backend proxy.
+ */
+export async function savePortalPhotoRecord(photo: {
+  cardId: string;
+  url: string;
+  fileId?: string;
+  downloadUrl?: string;
+  timestamp?: string;
+}): Promise<boolean> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/portal-photos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(photo),
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }

@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.6';
+export const APP_VERSION = '2.7';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.7',
+    date: '2026-10-28',
+    title: 'Portal Door Photobooth Integration & In-App Photo Gallery',
+    changes: [
+      'Updated Portal Door kiosk to route photobooth QR codes directly to the app\'s Portal Media module.',
+      'Added "My Portal Door Photos" gallery to the Portal Media module, displaying all member snapshots captured at the door.',
+      'Added high-resolution photo preview modal with single-tap download.',
+      'Added "Use as Portal Media" shortcut allowing members to set any captured photo as their active door media with one click.',
+      'Integrated backend photobooth sync API (/api/portal-photos) on neon_kiosk with automatic tap card linking.',
+    ],
+  },
   {
     version: '2.6',
     date: '2026-10-28',

@@ -16,11 +16,15 @@ import {
   Sparkles,
   ExternalLink,
   Film,
+  Camera,
+  Download,
+  Maximize2,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
-import { TapCardMedia, getGreetingName } from '@/lib/types';
-import { updatePortalMediaInNeon } from '@/lib/neon';
+import { TapCardMedia, getGreetingName, PortalPhotoRecord } from '@/lib/types';
+import { updatePortalMediaInNeon, fetchPortalPhotos, savePortalPhotoRecord } from '@/lib/neon';
 
 /**
  * Extracts 11-character YouTube video ID from various YouTube URL formats.
@@ -73,9 +77,61 @@ export default function PortalMediaPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Photobooth photos state
+  const [portalPhotos, setPortalPhotos] = useState<PortalPhotoRecord[]>([]);
+  const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
+  const [newPhotoAlert, setNewPhotoAlert] = useState<string | null>(null);
+  const [previewModalPhoto, setPreviewModalPhoto] = useState<PortalPhotoRecord | null>(null);
+
   // Simulation controls
   const [doorsOpen, setDoorsOpen] = useState(true);
   const [isMuted, setIsMuted] = useState(true);
+
+  const loadPhotos = async (cardIdToUse?: string) => {
+    const targetCard = cardIdToUse || activeCardId;
+    if (!targetCard) return;
+
+    setIsLoadingPhotos(true);
+    try {
+      // 1. Load cached photos
+      const cached = localStorage.getItem(`sm_portal_photos_${targetCard}`);
+      if (cached) {
+        setPortalPhotos(JSON.parse(cached));
+      }
+
+      // 2. Fetch live from proxy
+      const live = await fetchPortalPhotos(targetCard);
+      if (live && live.length > 0) {
+        setPortalPhotos(live);
+        localStorage.setItem(`sm_portal_photos_${targetCard}`, JSON.stringify(live));
+      }
+    } catch (_) {}
+    setIsLoadingPhotos(false);
+  };
+
+  useEffect(() => {
+    if (!activeCardId) return;
+
+    // Check URL parameters for newly snapped photo (?newPhoto=... or ?card=...)
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const newPhoto = urlParams.get('newPhoto');
+      if (newPhoto) {
+        setNewPhotoAlert(newPhoto);
+
+        // Auto-save this photo to the proxy if cardId is known
+        savePortalPhotoRecord({
+          cardId: activeCardId,
+          url: newPhoto,
+          timestamp: new Date().toISOString(),
+        }).then(() => {
+          loadPhotos(activeCardId);
+        });
+      }
+    }
+
+    loadPhotos(activeCardId);
+  }, [activeCardId]);
 
   useEffect(() => {
     if (!activeCardId) return;
@@ -162,6 +218,26 @@ export default function PortalMediaPage() {
     setIsSaving(false);
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 4000);
+  };
+
+  const handleUsePhotoAsMedia = (photoUrl: string) => {
+    setTypeInput('image');
+    setFilePathInput(photoUrl);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setSaveSuccess(true);
+    setTimeout(() => setSaveSuccess(false), 3000);
+  };
+
+  const handleDownloadPhoto = (photo: PortalPhotoRecord) => {
+    const downloadUrl = photo.downloadUrl || photo.url;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.download = `Portal_Photo_${photo.id || Date.now()}.jpg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
@@ -510,6 +586,224 @@ export default function PortalMediaPage() {
           </div>
         </div>
       </div>
+
+      {/* Photobooth Captures Section */}
+      <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+              <Camera className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-fredoka text-xl font-bold text-stone-900 leading-tight">
+                  My Portal Door Photos
+                </h2>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 uppercase tracking-wide">
+                  Photobooth Captures
+                </span>
+              </div>
+              <p className="text-stone-500 text-xs mt-0.5">
+                Pictures snapped by you at the physical Portal Door kiosk. View, download, or use them as your active portal media.
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => loadPhotos()}
+            disabled={isLoadingPhotos}
+            className="self-start sm:self-auto text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-50 hover:bg-stone-100 border border-stone-200 px-3 py-1.5 rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoadingPhotos ? 'animate-spin' : ''}`} />
+            <span>Refresh Photos</span>
+          </button>
+        </div>
+
+        {/* New Photo Banner (when redirected from QR code) */}
+        {newPhotoAlert && (
+          <div className="p-4 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-purple-600 text-white flex items-center justify-center shrink-0">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <div>
+                <strong className="text-xs text-purple-950 font-bold block">
+                  ✨ Fresh Photo Detected from the Portal Door!
+                </strong>
+                <span className="text-[11px] text-purple-700">
+                  Your photobooth snapshot has been linked to Tap Card <code>#{activeCardId}</code>.
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleUsePhotoAsMedia(newPhotoAlert)}
+                className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-xs"
+              >
+                Use as Portal Media
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewPhotoAlert(null)}
+                className="p-1 rounded-lg text-stone-400 hover:text-stone-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Photos Grid */}
+        {portalPhotos.length === 0 ? (
+          <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-stone-200/60 text-stone-400 flex items-center justify-center mx-auto">
+              <Camera className="w-6 h-6" />
+            </div>
+            <div className="max-w-md mx-auto space-y-1">
+              <h3 className="font-semibold text-stone-800 text-sm">
+                No Photobooth Photos Recorded Yet
+              </h3>
+              <p className="text-stone-500 text-xs leading-relaxed">
+                Step up to the <strong>Portal Door</strong> kiosk, toggle to Photobooth mode (or press <kbd className="px-1 py-0.5 rounded bg-stone-200 text-stone-700 font-mono text-[10px]">+</kbd> on the keypad to snap a photo).
+                Your captures will automatically appear here so you can download and share them!
+              </p>
+            </div>
+            <div className="pt-2">
+              <a
+                href="https://portal.socialmedium.space"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold transition-colors shadow-xs"
+              >
+                <span>Launch Portal Door Kiosk</span>
+                <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+              </a>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {portalPhotos.map((photo) => (
+              <div
+                key={photo.id}
+                className="group relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-900 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+              >
+                {/* Photo Thumbnail */}
+                <div
+                  onClick={() => setPreviewModalPhoto(photo)}
+                  className="aspect-[3/4] w-full overflow-hidden relative cursor-pointer bg-stone-950 flex items-center justify-center"
+                >
+                  <img
+                    src={photo.url}
+                    alt="Portal Door Photobooth capture"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <span className="p-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-xs flex items-center gap-1.5 font-medium">
+                      <Maximize2 className="w-3.5 h-3.5" />
+                      <span>Preview</span>
+                    </span>
+                  </div>
+                  {/* Timestamp Tag */}
+                  <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-[10px] text-white font-mono">
+                    {photo.timestamp
+                      ? new Date(photo.timestamp).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })
+                      : 'Recent'}
+                  </div>
+                </div>
+
+                {/* Action Bar */}
+                <div className="p-2.5 bg-white border-t border-stone-100 flex items-center justify-between gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleUsePhotoAsMedia(photo.url)}
+                    title="Set this photo as your active Portal Door media"
+                    className="flex-1 py-1.5 px-2 rounded-lg bg-stone-50 hover:bg-purple-50 hover:text-purple-700 text-stone-700 text-[11px] font-semibold border border-stone-200 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                  >
+                    <Sparkles className="w-3 h-3 text-[#f16622]" />
+                    <span>Set Media</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadPhoto(photo)}
+                    title="Download high-resolution photo"
+                    className="p-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition-colors cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Full Photo Preview Modal */}
+      {previewModalPhoto && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="relative max-w-xl w-full bg-stone-900 rounded-3xl overflow-hidden border border-stone-800 shadow-2xl space-y-4 p-4 text-white">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-stone-300">
+                <Camera className="w-4 h-4 text-purple-400" />
+                <span>
+                  Captured on{' '}
+                  {previewModalPhoto.timestamp
+                    ? new Date(previewModalPhoto.timestamp).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })
+                    : 'Recent'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPreviewModalPhoto(null)}
+                className="p-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="max-h-[70vh] flex items-center justify-center overflow-hidden rounded-2xl bg-black">
+              <img
+                src={previewModalPhoto.url}
+                alt="Full resolution preview"
+                className="max-h-[70vh] w-auto object-contain rounded-xl"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleUsePhotoAsMedia(previewModalPhoto.url);
+                  setPreviewModalPhoto(null);
+                }}
+                className="px-4 py-2 rounded-xl bg-[#f16622] hover:bg-[#d95313] text-white font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Use as My Portal Media</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadPhoto(previewModalPhoto)}
+                className="px-4 py-2 rounded-xl bg-white text-stone-900 hover:bg-stone-100 font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Download Photo</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

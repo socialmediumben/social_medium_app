@@ -97,3 +97,12 @@ export interface CreateActivityInput {
   accountIds?: string[];
   note?: string;
 }
+
+export interface PortalPhotoRecord {
+  id: string;
+  cardId: string;
+  url: string;
+  fileId?: string;
+  downloadUrl?: string;
+  timestamp: string;
+}
