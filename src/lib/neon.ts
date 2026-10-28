@@ -295,41 +295,100 @@ export async function fetchMemberProfileByAccountId(
 }
 
 /**
+ * Normalizes any NFC/RFID Tap Card format to canonical decimal ID.
+ * Supports:
+ * - 8-10 digit decimal: "1423631962"
+ * - 8-char hex (e.g. from USB readers): "54dae65a" -> "1423631962"
+ * - 7-byte / 4-byte UID from phone (colon/space/dash): "5A:E6:DA:54:25:41:89" -> "1423631962"
+ * - 14-char raw hex from phone: "5ae6da54254189" -> "1423631962"
+ */
+export function normalizeNfcTapCard(raw: string): string {
+  if (!raw) return '';
+  const clean = String(raw).trim();
+
+  // 1. If it's already an 8-10 digit decimal number, return as-is
+  if (/^\d{8,10}$/.test(clean)) {
+    return clean;
+  }
+
+  // 2. 7-byte (or 4-byte) UID separated by colons, hyphens, or spaces (e.g. from phone "5A:E6:DA:54:25:41:89")
+  const byteParts = clean.split(/[:\-\s]+/);
+  if (byteParts.length >= 4 && byteParts.every((p) => /^[0-9a-fA-F]{1,2}$/.test(p))) {
+    const hex4Reverse = byteParts.slice(0, 4).reverse().map((p) => p.padStart(2, '0')).join('');
+    const dec = parseInt(hex4Reverse, 16);
+    if (!isNaN(dec)) return dec.toString();
+  }
+
+  // 3. 14-hex character unspaced string (7 bytes from phone, e.g. "5AE6DA54254189")
+  if (/^[0-9a-fA-F]{14}$/.test(clean)) {
+    const b0 = clean.substring(0, 2);
+    const b1 = clean.substring(2, 4);
+    const b2 = clean.substring(4, 6);
+    const b3 = clean.substring(6, 8);
+    const dec = parseInt(b3 + b2 + b1 + b0, 16);
+    if (!isNaN(dec)) return dec.toString();
+  }
+
+  // 4. 8-hex character string (e.g. USB reader "54dae65a")
+  if (/^[0-9a-fA-F]{8}$/.test(clean)) {
+    const dec = parseInt(clean, 16);
+    if (!isNaN(dec)) return dec.toString();
+  }
+
+  return clean;
+}
+
+/**
  * Searches Neon One for a member by their exact "Tap Card" custom field,
  * then retrieves their complete account profile and custom fields.
+ * Automatically normalizes hex ("54dae65a"), 7-byte phone scans, and decimal IDs.
  */
 export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookupResult> {
   const cleanCard = tapCard.trim();
   if (!cleanCard) {
     return { success: false, error: 'Tap Card cannot be empty.' };
   }
+  const normalizedCard = normalizeNfcTapCard(cleanCard);
 
   try {
-    // 1. Search for account by Tap Card custom field
-    const searchResponse = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        searchFields: [
-          {
-            field: 'Tap Card',
-            operator: 'EQUAL',
-            value: cleanCard,
-          },
-        ],
-        outputFields: ['First Name', 'Last Name', 'Preferred Name', 'Account ID'],
-        pagination: {
-          currentPage: 0,
-          pageSize: 10,
+    const executeSearch = async (cardVal: string) => {
+      const searchResponse = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      }),
-    });
+        body: JSON.stringify({
+          searchFields: [
+            {
+              field: 'Tap Card',
+              operator: 'EQUAL',
+              value: cardVal,
+            },
+          ],
+          outputFields: ['First Name', 'Last Name', 'Preferred Name', 'Account ID'],
+          pagination: {
+            currentPage: 0,
+            pageSize: 10,
+          },
+        }),
+      });
 
-    const searchData = await searchResponse.json();
+      const searchData = await searchResponse.json();
+      return { ok: searchResponse.ok, searchData };
+    };
 
-    if (!searchResponse.ok || (Array.isArray(searchData) && searchData[0]?.message)) {
+    let { ok, searchData } = await executeSearch(normalizedCard);
+
+    // Fallback: if not found by normalized ID and normalized differs from cleanCard, try raw cleanCard
+    if ((!searchData.searchResults || searchData.searchResults.length === 0) && normalizedCard !== cleanCard) {
+      const fallback = await executeSearch(cleanCard);
+      if (fallback.searchData.searchResults && fallback.searchData.searchResults.length > 0) {
+        ok = fallback.ok;
+        searchData = fallback.searchData;
+      }
+    }
+
+    if (!ok || (Array.isArray(searchData) && searchData[0]?.message)) {
       const msg = searchData[0]?.message || searchData?.message || 'Neon One search failed.';
       return { success: false, error: msg };
     }
@@ -345,7 +404,7 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
     }
 
     // 2. Fetch full account record
-    return await fetchMemberProfileByAccountId(String(accountId), cleanCard);
+    return await fetchMemberProfileByAccountId(String(accountId), normalizedCard);
   } catch (err: any) {
     return {
       success: false,

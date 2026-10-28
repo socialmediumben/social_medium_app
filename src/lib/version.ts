@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.7';
+export const APP_VERSION = '2.8';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.8',
+    date: '2026-10-28',
+    title: 'Universal NFC Tap Card Aliasing & Hex Scanner Unification',
+    changes: [
+      'Implemented universal NFC UID normalization across Social Medium App, Portal Door, and Kiosk.',
+      'Automatically resolves 8-digit hexadecimal reader scans (e.g. 54dae65a) to canonical 10-digit decimal CRM IDs (1423631962).',
+      'Added support for 7-byte and 4-byte NFC chip scans directly from mobile devices and NFC Tools.',
+      'Fixed Portal Door keyboard wedge listener to preserve hexadecimal keystrokes (A-F) and trigger media on Enter.',
+      'Unified constituent Tap Card lookups in Neon One so physical passes work identically across any reader hardware.',
+    ],
+  },
   {
     version: '2.7',
     date: '2026-10-28',
