@@ -276,24 +276,42 @@ export async function authenticateWithNeonOAuth(
       return { success: false, error: msg };
     }
 
-    // Extract Account ID from OAuth token response
-    // Neon returns account_id, accountId, sub, or inside data
-    const accountId =
+    // Extract Account ID from OAuth token response.
+    // In Neon One Constituent OAuth, the "access_token" value is literally the constituent's Account ID!
+    let rawId =
+      tokenData.access_token ||
       tokenData.account_id ||
       tokenData.accountId ||
       tokenData.sub ||
       tokenData.user_id ||
       tokenData.data?.accountId ||
-      tokenData.data?.account_id;
+      tokenData.data?.account_id ||
+      tokenData.id;
 
-    if (!accountId) {
+    if (!rawId && typeof tokenData === 'string' && /^\d+$/.test(tokenData.trim())) {
+      rawId = tokenData.trim();
+    }
+
+    // If access_token is formatted as a JWT (header.payload.signature), extract ID from payload
+    if (typeof rawId === 'string' && rawId.includes('.')) {
+      try {
+        const payloadBase64 = rawId.split('.')[1];
+        const payloadJson = atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/'));
+        const parsed = JSON.parse(payloadJson);
+        rawId = parsed.accountId || parsed.account_id || parsed.sub || parsed.id || rawId;
+      } catch (_) {}
+    }
+
+    if (!rawId) {
+      console.error('Neon One token response payload:', tokenData);
       return {
         success: false,
-        error: 'Authentication succeeded, but no Neon One account ID was returned.',
+        error: `Authentication succeeded, but no account ID was identified in token response: ${JSON.stringify(tokenData)}`,
       };
     }
 
-    return await fetchMemberProfileByAccountId(String(accountId));
+    const cleanAccountId = String(rawId).replace(/^bearer\s+/i, '').trim();
+    return await fetchMemberProfileByAccountId(cleanAccountId);
   } catch (err: any) {
     return {
       success: false,
