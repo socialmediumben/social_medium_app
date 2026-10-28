@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.1';
+export const APP_VERSION = '2.2';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,16 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.2',
+    date: '2026-10-27',
+    title: 'Custom Domain Setup for App & Portal Door',
+    changes: [
+      'Configured custom domain app.socialmedium.space for Social Medium App with CNAME generation and root path routing.',
+      'Configured custom domain portal.socialmedium.space for the Portal Door system.',
+      'Updated cross-system references, SSOT script links, and Portal Door QR code deep links.',
+    ],
+  },
   {
     version: '2.1',
     date: '2026-10-27',

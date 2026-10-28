@@ -57,7 +57,7 @@ function normalizeMediaUrl(url: string | null | undefined, type: 'video' | 'imag
   // Relative Portal Door assets (e.g. videos/Tron.mp4 or static/...)
   if (!clean.startsWith('http://') && !clean.startsWith('https://')) {
     const asset = clean.startsWith('static/') ? clean : `static/${clean}`;
-    return `https://socialmediumben.github.io/Portal-Door/${asset}`;
+    return `https://portal.socialmedium.space/${asset}`;
   }
 
   return clean;
@@ -478,7 +478,7 @@ export default function PortalMediaPage() {
                     onClick={() => {
                       setTitleInput("Hobbit Door");
                       setTypeInput('image');
-                      setFilePathInput("https://socialmediumben.github.io/Portal-Door/static/hobbit.jpg");
+                      setFilePathInput("https://portal.socialmedium.space/static/hobbit.jpg");
                     }}
                     className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-medium cursor-pointer transition-colors"
                   >
