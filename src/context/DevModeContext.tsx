@@ -2,8 +2,14 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-interface DevModeContextType {
+export type AppMode = 'user' | 'staff' | 'developer';
+
+export interface DevModeContextType {
+  mode: AppMode;
+  setMode: (mode: AppMode) => void;
+  cycleMode: () => void;
   isDevMode: boolean;
+  isStaffMode: boolean;
   toggleDevMode: () => void;
   isChangelogOpen: boolean;
   openChangelog: () => void;
@@ -14,7 +20,11 @@ interface DevModeContextType {
 }
 
 const DevModeContext = createContext<DevModeContextType>({
+  mode: 'user',
+  setMode: () => {},
+  cycleMode: () => {},
   isDevMode: false,
+  isStaffMode: false,
   toggleDevMode: () => {},
   isChangelogOpen: false,
   openChangelog: () => {},
@@ -25,28 +35,44 @@ const DevModeContext = createContext<DevModeContextType>({
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
-  const [isDevMode, setIsDevMode] = useState<boolean>(false);
+  const [mode, setModeState] = useState<AppMode>('user');
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('sm_dev_mode');
-      if (saved === 'true') {
-        setIsDevMode(true);
+      const savedMode = localStorage.getItem('sm_app_mode');
+      if (savedMode === 'staff' || savedMode === 'developer' || savedMode === 'user') {
+        setModeState(savedMode);
+      } else {
+        const savedDev = localStorage.getItem('sm_dev_mode');
+        if (savedDev === 'true') {
+          setModeState('developer');
+        }
       }
     } catch (_) {}
   }, []);
 
-  const toggleDevMode = () => {
-    setIsDevMode((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem('sm_dev_mode', next ? 'true' : 'false');
-      } catch (_) {}
-      return next;
-    });
+  const setMode = (newMode: AppMode) => {
+    setModeState(newMode);
+    try {
+      localStorage.setItem('sm_app_mode', newMode);
+      localStorage.setItem('sm_dev_mode', newMode === 'developer' ? 'true' : 'false');
+    } catch (_) {}
   };
+
+  const cycleMode = () => {
+    if (mode === 'user') setMode('staff');
+    else if (mode === 'staff') setMode('developer');
+    else setMode('user');
+  };
+
+  const toggleDevMode = () => {
+    setMode(mode === 'developer' ? 'user' : 'developer');
+  };
+
+  const isDevMode = mode === 'developer';
+  const isStaffMode = mode === 'staff' || mode === 'developer';
 
   const openChangelog = () => setIsChangelogOpen(true);
   const closeChangelog = () => setIsChangelogOpen(false);
@@ -57,7 +83,11 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   return (
     <DevModeContext.Provider
       value={{
+        mode,
+        setMode,
+        cycleMode,
         isDevMode,
+        isStaffMode,
         toggleDevMode,
         isChangelogOpen,
         openChangelog,
@@ -73,3 +103,4 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
 }
 
 export const useDevMode = () => useContext(DevModeContext);
+export const useAppMode = () => useContext(DevModeContext);

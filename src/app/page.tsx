@@ -1,7 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { User, DoorOpen, Gamepad2, ChevronRight, CreditCard, Sparkles, MapPin, Wrench, Code2, BookOpen, Calendar } from 'lucide-react';
+import {
+  User,
+  DoorOpen,
+  Gamepad2,
+  ChevronRight,
+  CreditCard,
+  Sparkles,
+  MapPin,
+  Wrench,
+  Code2,
+  BookOpen,
+  Calendar,
+  Shield,
+  BarChart3,
+} from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
@@ -10,7 +24,7 @@ import { APP_VERSION } from '@/lib/version';
 
 export default function HomePage() {
   const { activeCardId, member, isLoading } = useAuth();
-  const { isDevMode, openChangelog } = useDevMode();
+  const { mode, isDevMode, isStaffMode, openChangelog } = useDevMode();
 
   if (isLoading) {
     return (
@@ -51,6 +65,27 @@ export default function HomePage() {
         </div>
       )}
 
+      {/* Staff Mode Banner (Visible in Staff Mode) */}
+      {mode === 'staff' && (
+        <div className="p-3.5 rounded-2xl bg-indigo-500/10 border border-indigo-500/25 flex items-center justify-between gap-3 text-xs text-indigo-950 font-roboto shadow-xs">
+          <div className="flex items-center gap-2">
+            <span className="p-1 rounded-lg bg-indigo-500/20 text-indigo-800 font-bold">
+              <Shield className="w-3.5 h-3.5" />
+            </span>
+            <span>
+              <strong>Staff Mode Active</strong> • Neon CRM Activities Intelligence Center Available
+            </span>
+          </div>
+          <Link
+            href="/neon-dashboard"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors cursor-pointer"
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Open Dashboard</span>
+          </Link>
+        </div>
+      )}
+
       {/* Welcome Hero Card */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#344ea2] via-[#2a3f85] to-[#1e2e66] text-white p-6 sm:p-8 shadow-md">
         <div className="relative z-10 max-w-2xl">
@@ -86,8 +121,8 @@ export default function HomePage() {
         <div className="absolute right-1/3 -top-12 w-48 h-48 rounded-full bg-[#f16622]/20 blur-3xl pointer-events-none" />
       </div>
 
-      {/* 4 Top-Level Module Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* Top-Level Module Cards (4 for Members, 5 for Staff/Dev) */}
+      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isStaffMode ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4'} gap-4`}>
         {/* Module 1: Profile */}
         <Link
           href="/profile"
@@ -195,6 +230,36 @@ export default function HomePage() {
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>
+
+        {/* Module 5: Neon Dashboard (Staff & Dev Mode Only) */}
+        {isStaffMode && (
+          <Link
+            href="/neon-dashboard"
+            className="group p-5 rounded-2xl bg-gradient-to-b from-stone-900 via-stone-900 to-[#070b14] text-white border border-indigo-500/30 hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-500/10 transition-all flex flex-col justify-between relative overflow-hidden"
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                  <BarChart3 className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/30 border border-indigo-500/50 text-indigo-200">
+                  Staff Only
+                </span>
+              </div>
+              <h2 className="font-fredoka text-xl font-bold text-white group-hover:text-cyan-300 transition-colors mb-1">
+                Neon Dashboard
+              </h2>
+              <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
+                Live event attendance, check-in trends, staff activity tracking, and searchable activity ledger.
+              </p>
+            </div>
+            <div className="relative z-10 mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs font-semibold text-cyan-400">
+              <span>Open Intelligence Center</span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+            <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-cyan-500/15 blur-xl pointer-events-none" />
+          </Link>
+        )}
       </div>
 
       {/* Community Info Banner */}
