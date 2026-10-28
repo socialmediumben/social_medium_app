@@ -725,7 +725,28 @@ export async function searchNeonAccounts(
 }
 
 /**
+ * Converts 24-hour time (e.g. "14:30") to Neon One CRM required 12-hour AM/PM format (e.g. "2:30 PM").
+ */
+export function formatTimeToNeon12Hour(timeStr?: string): string | null {
+  if (!timeStr || !timeStr.trim()) return null;
+  const clean = timeStr.trim();
+  if (/(am|pm)/i.test(clean)) return clean;
+
+  const [hStr, mStr] = clean.split(':');
+  let h = parseInt(hStr, 10);
+  const m = parseInt(mStr, 10);
+  if (isNaN(h) || isNaN(m)) return null;
+
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+
+  return `${h}:${String(m).padStart(2, '0')} ${ampm}`;
+}
+
+/**
  * Creates a new Activity record in Neon CRM.
+ * Supports multiple client accounts and multiple assigned staff members.
  */
 export async function createNeonActivity(
   input: CreateActivityInput
@@ -736,15 +757,18 @@ export async function createNeonActivity(
 
   try {
     const todayStr = new Date().toISOString().split('T')[0];
+    const formattedStartTime = formatTimeToNeon12Hour(input.startTime);
+    const formattedEndTime = formatTimeToNeon12Hour(input.endTime);
+
     const payload: any = {
       subject: input.subject.trim(),
       status: { id: input.statusId || '4' }, // Default to "Completed"
       priority: input.priority || 'Normal',
       activityDates: {
         startDate: input.startDate || todayStr,
-        startTime: input.startTime ? `${input.startTime}:00` : null,
+        startTime: formattedStartTime,
         endDate: input.endDate || null,
-        endTime: input.endTime ? `${input.endTime}:00` : null,
+        endTime: formattedEndTime,
         timeZone: {
           id: '82', // (GMT-07:00) Pacific Time - Los Angeles
         },
@@ -755,12 +779,28 @@ export async function createNeonActivity(
       payload.activityType = { id: input.typeId };
     }
 
-    if (input.systemUserId) {
-      payload.systemUserId = [input.systemUserId];
+    // Support multiple staff users
+    const staffIds: string[] = [];
+    if (Array.isArray(input.systemUserIds)) {
+      staffIds.push(...input.systemUserIds.filter(Boolean));
+    }
+    if (input.systemUserId && !staffIds.includes(input.systemUserId)) {
+      staffIds.push(input.systemUserId);
+    }
+    if (staffIds.length > 0) {
+      payload.systemUserId = staffIds;
     }
 
-    if (input.accountId) {
-      payload.clientAccount = [{ accountId: input.accountId }];
+    // Support multiple constituent accounts
+    const accountIds: string[] = [];
+    if (Array.isArray(input.accountIds)) {
+      accountIds.push(...input.accountIds.filter(Boolean));
+    }
+    if (input.accountId && !accountIds.includes(input.accountId)) {
+      accountIds.push(input.accountId);
+    }
+    if (accountIds.length > 0) {
+      payload.clientAccount = accountIds.map((id) => ({ accountId: String(id) }));
     }
 
     if (input.note && input.note.trim()) {

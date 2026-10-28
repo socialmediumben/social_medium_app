@@ -10,16 +10,16 @@ import {
   RefreshCw,
   Search,
   User,
+  Users,
   Calendar,
   Clock,
   Tag,
-  Flag,
-  Sparkles,
   ArrowLeft,
   X,
   ExternalLink,
   ChevronRight,
   Plus,
+  Check,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
@@ -49,7 +49,7 @@ const COMMON_PRESETS = [
 
 export default function NewActivityPage() {
   const { member, isLoading: isAuthLoading } = useAuth();
-  const { isStaffMode, canAccessStaff, setMode } = useDevMode();
+  const { canAccessStaff } = useDevMode();
 
   // Reference data
   const [types, setTypes] = useState<NeonPropertyItem[]>([]);
@@ -67,14 +67,18 @@ export default function NewActivityPage() {
     const now = new Date();
     return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   });
-  const [systemUserId, setSystemUserId] = useState('');
+
+  // Multiple Assigned Staff Members
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
+
+  // Notes
   const [note, setNote] = useState('');
 
-  // Associated Member Search
+  // Multiple Associated Members
   const [memberQuery, setMemberQuery] = useState('');
   const [isSearchingMembers, setIsSearchingMembers] = useState(false);
   const [searchResults, setSearchResults] = useState<MemberSearchResult[]>([]);
-  const [selectedMember, setSelectedMember] = useState<MemberSearchResult | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<MemberSearchResult[]>([]);
 
   // Form Submission
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,7 +101,7 @@ export default function NewActivityPage() {
           setStatuses(s);
           setSystemUsers(u);
 
-          // Default assigned user to the currently logged in staff user if matched
+          // Default assigned staff to the currently logged in staff member if matched
           if (member?.firstName && member?.lastName) {
             const first = member.firstName.toLowerCase();
             const last = member.lastName.toLowerCase();
@@ -107,7 +111,7 @@ export default function NewActivityPage() {
                 (usr.firstName?.toLowerCase() === first || usr.name.toLowerCase().includes(first))
             );
             if (matchedUser) {
-              setSystemUserId(matchedUser.id);
+              setSelectedStaffIds([matchedUser.id]);
             }
           }
         }
@@ -123,6 +127,21 @@ export default function NewActivityPage() {
       isMounted = false;
     };
   }, [member]);
+
+  // Toggle staff member selection
+  const toggleStaffMember = (id: string) => {
+    setSelectedStaffIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllStaff = () => {
+    setSelectedStaffIds(systemUsers.map((u) => u.id));
+  };
+
+  const handleClearStaff = () => {
+    setSelectedStaffIds([]);
+  };
 
   // Handle member search
   const handleSearchMembers = async (e?: React.FormEvent) => {
@@ -140,14 +159,22 @@ export default function NewActivityPage() {
     }
   };
 
-  const handleSelectMember = (m: MemberSearchResult) => {
-    setSelectedMember(m);
+  // Add member to selected list
+  const handleAddMember = (m: MemberSearchResult) => {
+    if (!selectedMembers.some((item) => item.accountId === m.accountId)) {
+      setSelectedMembers((prev) => [...prev, m]);
+    }
     setSearchResults([]);
     setMemberQuery('');
   };
 
-  const handleClearSelectedMember = () => {
-    setSelectedMember(null);
+  // Remove member from selected list
+  const handleRemoveMember = (accountId: string) => {
+    setSelectedMembers((prev) => prev.filter((item) => item.accountId !== accountId));
+  };
+
+  const handleClearAllMembers = () => {
+    setSelectedMembers([]);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -167,8 +194,8 @@ export default function NewActivityPage() {
       startDate: startDate || new Date().toISOString().split('T')[0],
       startTime: startTime || undefined,
       typeId: typeId || undefined,
-      systemUserId: systemUserId || undefined,
-      accountId: selectedMember ? selectedMember.accountId : undefined,
+      systemUserIds: selectedStaffIds.length > 0 ? selectedStaffIds : undefined,
+      accountIds: selectedMembers.map((m) => m.accountId),
       note: note.trim() || undefined,
     });
 
@@ -187,7 +214,7 @@ export default function NewActivityPage() {
     setPriority('Normal');
     setStartDate(new Date().toISOString().split('T')[0]);
     setNote('');
-    setSelectedMember(null);
+    setSelectedMembers([]);
     setCreatedActivityId(null);
     setSubmitError(null);
   };
@@ -227,7 +254,7 @@ export default function NewActivityPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 pb-32 sm:pb-16">
       {/* Header Breadcrumb & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -246,7 +273,7 @@ export default function NewActivityPage() {
             <span>Log CRM Activity</span>
           </h1>
           <p className="text-stone-600 text-xs sm:text-sm">
-            Record safety walkthroughs, member interactions, and staff notes directly into Neon CRM.
+            Record safety walkthroughs, multiple member interactions, and staff notes directly into Neon CRM.
           </p>
         </div>
 
@@ -275,7 +302,7 @@ export default function NewActivityPage() {
               Activity Recorded Successfully!
             </h2>
             <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
-              &quot;<strong>{subject}</strong>&quot; has been synchronized in real-time with Neon One CRM and is now visible across the organization.
+              &quot;<strong>{subject}</strong>&quot; has been synchronized in real-time with Neon One CRM and linked to all specified members and staff.
             </p>
           </div>
 
@@ -349,14 +376,14 @@ export default function NewActivityPage() {
             </div>
           </div>
 
-          {/* Card 2: Activity Categorization & Staff Assignment */}
+          {/* Card 2: Classification, Status & Date/Time */}
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-5">
             <h2 className="font-fredoka text-lg font-bold text-stone-900 flex items-center gap-2">
               <Tag className="w-4 h-4 text-purple-600" />
-              <span>Details & Classification</span>
+              <span>Details & Schedule</span>
             </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Type */}
               <div>
                 <label className="text-xs font-bold text-stone-700 block mb-1">
@@ -418,25 +445,6 @@ export default function NewActivityPage() {
                   <option value="Low">Low</option>
                 </select>
               </div>
-
-              {/* Assigned Staff Member */}
-              <div>
-                <label className="text-xs font-bold text-stone-700 block mb-1">
-                  Assigned Staff
-                </label>
-                <select
-                  value={systemUserId}
-                  onChange={(e) => setSystemUserId(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-purple-600 text-xs font-medium outline-none cursor-pointer"
-                >
-                  <option value="">Unassigned</option>
-                  {systemUsers.map((usr) => (
-                    <option key={usr.id} value={usr.id}>
-                      {usr.name || `${usr.firstName || ''} ${usr.lastName || ''}`.trim()}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {/* Date & Time */}
@@ -456,100 +464,217 @@ export default function NewActivityPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold text-stone-700 block mb-1 flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-stone-400" />
-                  <span>Activity Time (Optional)</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-stone-700 flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-stone-400" />
+                    <span>Activity Time (Optional)</span>
+                  </label>
+                  {startTime && (
+                    <button
+                      type="button"
+                      onClick={() => setStartTime('')}
+                      className="text-[10px] text-stone-400 hover:text-stone-700 cursor-pointer"
+                    >
+                      Clear Time
+                    </button>
+                  )}
+                </div>
                 <input
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-purple-600 text-xs font-medium outline-none"
                 />
+                <span className="text-[10px] text-stone-400 mt-1 block">
+                  Automatically converted to Pacific Time 12-hour AM/PM for Neon CRM.
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Card 3: Associated Constituent / Member (Optional) */}
+          {/* Card 3: Assigned Staff Members (Multi-Select) */}
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="font-fredoka text-lg font-bold text-stone-900 flex items-center gap-2">
-                  <User className="w-4 h-4 text-purple-600" />
-                  <span>Associated Member (Optional)</span>
+                  <Shield className="w-4 h-4 text-purple-600" />
+                  <span>Assigned Staff Members</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800">
+                    {selectedStaffIds.length} Selected
+                  </span>
                 </h2>
                 <p className="text-stone-500 text-xs">
-                  Link this activity directly to a constituent account in Neon CRM.
+                  Tap to add or remove staff members involved in this activity.
                 </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={handleSelectAllStaff}
+                  className="text-purple-600 hover:text-purple-800 font-semibold cursor-pointer"
+                >
+                  Select All
+                </button>
+                <span className="text-stone-300">•</span>
+                <button
+                  type="button"
+                  onClick={handleClearStaff}
+                  className="text-stone-400 hover:text-stone-600 font-medium cursor-pointer"
+                >
+                  Clear
+                </button>
               </div>
             </div>
 
-            {selectedMember ? (
-              <div className="p-3.5 rounded-xl bg-purple-50/70 border border-purple-200 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-lg bg-purple-600 text-white flex items-center justify-center font-bold text-xs">
-                    #{selectedMember.accountId}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-1">
+              {systemUsers.map((usr) => {
+                const isSelected = selectedStaffIds.includes(usr.id);
+                return (
+                  <button
+                    key={usr.id}
+                    type="button"
+                    onClick={() => toggleStaffMember(usr.id)}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                      isSelected
+                        ? 'bg-purple-600 border-purple-600 text-white shadow-xs'
+                        : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-800'
+                    }`}
+                  >
+                    <div className="truncate">
+                      <div className="font-semibold text-xs truncate leading-tight">
+                        {usr.name || `${usr.firstName} ${usr.lastName}`}
+                      </div>
+                      <div
+                        className={`text-[10px] mt-0.5 font-mono ${
+                          isSelected ? 'text-purple-200' : 'text-stone-400'
+                        }`}
+                      >
+                        #{usr.id}
+                      </div>
+                    </div>
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 border ${
+                        isSelected
+                          ? 'bg-white text-purple-600 border-white'
+                          : 'border-stone-300 text-transparent'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Card 4: Associated Constituent Accounts (Multiple Members) */}
+          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-fredoka text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <Users className="w-4 h-4 text-purple-600" />
+                  <span>Associated Members (Optional)</span>
+                  {selectedMembers.length > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#3bc0cd]/15 text-[#344ea2]">
+                      {selectedMembers.length} {selectedMembers.length === 1 ? 'Member' : 'Members'} Linked
+                    </span>
+                  )}
+                </h2>
+                <p className="text-stone-500 text-xs">
+                  Search and link one or multiple constituent accounts to this activity.
+                </p>
+              </div>
+
+              {selectedMembers.length > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAllMembers}
+                  className="text-xs text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                >
+                  Clear All
+                </button>
+              )}
+            </div>
+
+            {/* List of currently selected members */}
+            {selectedMembers.length > 0 && (
+              <div className="flex flex-wrap gap-2 p-3 rounded-xl bg-purple-50/50 border border-purple-100">
+                {selectedMembers.map((m) => (
+                  <div
+                    key={m.accountId}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white border border-purple-200 shadow-xs text-xs"
+                  >
+                    <span className="w-5 h-5 rounded-md bg-purple-100 text-purple-700 font-bold text-[10px] flex items-center justify-center">
+                      #{m.accountId}
+                    </span>
+                    <span className="font-semibold text-stone-900">{m.name}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveMember(m.accountId)}
+                      className="text-stone-400 hover:text-red-600 p-0.5 rounded-md transition-colors cursor-pointer"
+                      title="Remove member"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <div>
-                    <strong className="text-xs text-stone-900 block font-semibold">
-                      {selectedMember.name}
-                    </strong>
-                    {selectedMember.email && (
-                      <span className="text-[11px] text-stone-500 block">
-                        {selectedMember.email}
-                      </span>
-                    )}
-                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Member search bar */}
+            <div className="space-y-3">
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <input
+                    type="text"
+                    value={memberQuery}
+                    onChange={(e) => setMemberQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearchMembers(e)}
+                    placeholder="Search member by first name, last name, or account ID..."
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-purple-600 text-xs outline-none"
+                  />
+                  <Search className="w-4 h-4 text-stone-400 absolute left-3 top-3 pointer-events-none" />
                 </div>
                 <button
                   type="button"
-                  onClick={handleClearSelectedMember}
-                  className="p-1.5 rounded-lg hover:bg-purple-100 text-purple-800 transition-colors cursor-pointer"
-                  title="Remove linked member"
+                  onClick={() => handleSearchMembers()}
+                  disabled={isSearchingMembers || !memberQuery.trim()}
+                  className="px-4 py-2.5 rounded-xl bg-stone-800 hover:bg-stone-900 disabled:opacity-40 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
                 >
-                  <X className="w-4 h-4" />
+                  {isSearchingMembers ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <span>Search</span>
+                  )}
                 </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      value={memberQuery}
-                      onChange={(e) => setMemberQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && handleSearchMembers(e)}
-                      placeholder="Search member by first name, last name, or account ID..."
-                      className="w-full pl-9 pr-4 py-2 rounded-xl bg-stone-50 border border-stone-200 focus:bg-white focus:border-purple-600 text-xs outline-none"
-                    />
-                    <Search className="w-4 h-4 text-stone-400 absolute left-3 top-2.5 pointer-events-none" />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleSearchMembers()}
-                    disabled={isSearchingMembers || !memberQuery.trim()}
-                    className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-900 disabled:opacity-40 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  >
-                    {isSearchingMembers ? (
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <span>Search</span>
-                    )}
-                  </button>
-                </div>
 
-                {/* Search Results List */}
-                {searchResults.length > 0 && (
-                  <div className="border border-stone-200 rounded-xl overflow-hidden divide-y divide-stone-100 bg-white shadow-xs max-h-48 overflow-y-auto">
-                    {searchResults.map((res) => (
+              {/* Search Results Dropdown List */}
+              {searchResults.length > 0 && (
+                <div className="border border-stone-200 rounded-xl overflow-hidden divide-y divide-stone-100 bg-white shadow-md max-h-56 overflow-y-auto">
+                  <div className="px-3 py-1.5 bg-stone-50 text-[10px] font-bold text-stone-500 uppercase tracking-wider flex items-center justify-between">
+                    <span>Search Results</span>
+                    <span>Click to add</span>
+                  </div>
+                  {searchResults.map((res) => {
+                    const isAlreadyAdded = selectedMembers.some(
+                      (item) => item.accountId === res.accountId
+                    );
+                    return (
                       <button
                         key={res.accountId}
                         type="button"
-                        onClick={() => handleSelectMember(res)}
-                        className="w-full px-3.5 py-2 text-left hover:bg-purple-50/60 flex items-center justify-between text-xs transition-colors cursor-pointer group"
+                        onClick={() => handleAddMember(res)}
+                        disabled={isAlreadyAdded}
+                        className={`w-full px-3.5 py-2.5 text-left flex items-center justify-between text-xs transition-colors cursor-pointer ${
+                          isAlreadyAdded
+                            ? 'bg-stone-50 text-stone-400 cursor-default'
+                            : 'hover:bg-purple-50/70 text-stone-800'
+                        }`}
                       >
                         <div>
-                          <span className="font-semibold text-stone-900 group-hover:text-purple-700">
+                          <span className="font-semibold text-stone-900">
                             {res.name}
                           </span>
                           {res.email && (
@@ -558,18 +683,29 @@ export default function NewActivityPage() {
                             </span>
                           )}
                         </div>
-                        <span className="font-mono text-[11px] text-stone-400 group-hover:text-purple-600">
-                          #{res.accountId}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-[11px] text-stone-400">
+                            #{res.accountId}
+                          </span>
+                          {isAlreadyAdded ? (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                              Added ✓
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded-md">
+                              + Add
+                            </span>
+                          )}
+                        </div>
                       </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Card 4: Activity Notes */}
+          {/* Card 5: Activity Notes */}
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-3">
             <label className="text-xs font-bold text-stone-800 uppercase tracking-wide block">
               Activity Notes & Summary
@@ -586,18 +722,18 @@ export default function NewActivityPage() {
             </span>
           </div>
 
-          {/* Form Actions */}
-          <div className="flex items-center justify-end gap-3 pt-2">
+          {/* Form Actions - Optimized for Mobile Clearance */}
+          <div className="pt-4 border-t border-stone-200 mb-12 sm:mb-0 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
             <Link
               href="/"
-              className="px-4 py-2.5 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors"
+              className="py-3 px-4 rounded-xl text-xs font-semibold text-stone-600 hover:bg-stone-100 transition-colors text-center order-2 sm:order-1"
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={isSubmitting || isLoadingRefData}
-              className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-md"
+              className="py-3 px-8 rounded-xl bg-purple-600 hover:bg-purple-700 disabled:opacity-50 text-white font-bold text-sm sm:text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-md order-1 sm:order-2"
             >
               {isSubmitting ? (
                 <>
@@ -607,7 +743,7 @@ export default function NewActivityPage() {
               ) : (
                 <>
                   <ClipboardList className="w-4 h-4" />
-                  <span>Create Activity</span>
+                  <span>Create Activity in Neon CRM</span>
                 </>
               )}
             </button>

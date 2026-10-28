@@ -320,13 +320,19 @@ export function BottomNav() {
             icon: BarChart3,
             description: 'Neon CRM Analytics',
           },
+          {
+            href: '/new-activity',
+            label: 'Activity',
+            icon: ClipboardList,
+            description: 'Log Activity',
+          },
         ]
       : []),
   ];
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-2 py-1 shadow-lg safe-area-pb">
-      <div className={`grid ${isStaffMode ? 'grid-cols-6' : 'grid-cols-5'} items-center justify-around`}>
+      <div className={`grid ${isStaffMode ? 'grid-cols-7' : 'grid-cols-5'} items-center justify-around`}>
         <Link
           href="/"
           className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-medium transition-colors ${

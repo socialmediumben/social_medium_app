@@ -92,6 +92,8 @@ export interface CreateActivityInput {
   endTime?: string;
   typeId?: string;
   systemUserId?: string;
+  systemUserIds?: string[];
   accountId?: string;
+  accountIds?: string[];
   note?: string;
 }
