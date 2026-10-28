@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.8';
+export const APP_VERSION = '2.9';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,19 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '2.9',
+    date: '2026-10-28',
+    title: 'Game Room Makerspace Wi-Fi Remote & Neon One Rental Reservations',
+    changes: [
+      'Added dual-mode Game Room module: "Live Room Remote" and "Reserve Game Room".',
+      'Connected live remote controls to local Mini PC server via LAN / Makerspace Wi-Fi with automatic health check.',
+      'Added configurable Game Room Server IP / URL setting stored in localStorage with instant ping test.',
+      'Added one-click shortcut to launch the direct "Spellbook" DM interface for certificate acceptance & advanced tools.',
+      'Integrated the two daily Game Room rental sessions (3 PM - 6 PM and 7 PM - 10 PM) with direct Neon One booking links and in-app sign-up preview.',
+      'Detailed included studio amenities (overhead battlemap projector, 53" castle window, gilded portrait frame, and Hubspace smart lighting).',
+    ],
+  },
   {
     version: '2.8',
     date: '2026-10-28',
