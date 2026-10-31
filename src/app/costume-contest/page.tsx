@@ -602,40 +602,15 @@ export default function CostumeContestPage() {
 
                     {/* Card Content Details */}
                     <div className="p-4">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                      <div className="flex items-start justify-between gap-2">
                         <h3 className="font-bold text-stone-900 text-base leading-snug group-hover:text-amber-700 transition-colors">
                           {entry.costumeTitle || names}
                         </h3>
                       </div>
 
-                      {entry.costumeTitle && (
-                        <p className="text-xs text-stone-500 mb-2">by {names}</p>
-                      )}
-
-                      {/* Linked Tap Band Chips */}
-                      {entry.cardIds && entry.cardIds.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 mb-2">
-                          {entry.cardIds.map((cid) => (
-                            <span
-                              key={cid}
-                              className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-stone-100 text-stone-600 border border-stone-200"
-                            >
-                              Card #{cid}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      <div className="text-[11px] text-stone-400 flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
-                        <span>
-                          {new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-
                       {/* Live Vote Count for Developer or when ended */}
                       {(isDevMode || status === 'ended') && typeof entry.votesCount === 'number' && (
-                        <div className="mt-3 pt-2.5 border-t border-stone-100 flex items-center justify-between text-xs">
+                        <div className="mt-2.5 pt-2 border-t border-stone-100 flex items-center justify-between text-xs">
                           <span className="font-semibold text-stone-500">Votes:</span>
                           <span className="font-bold text-amber-600">
                             {entry.votesCount} {entry.votesCount === 1 ? 'vote' : 'votes'} ({entry.votePercentage || 0}%)
@@ -703,9 +678,6 @@ export default function CostumeContestPage() {
               <h3 className="font-bold text-lg">
                 {activeLightboxPhoto.participantNames?.join(', ') || 'Costume Contestant'}
               </h3>
-              <p className="text-xs text-stone-400">
-                {new Date(activeLightboxPhoto.timestamp).toLocaleString()}
-              </p>
             </div>
           </div>
         </div>
