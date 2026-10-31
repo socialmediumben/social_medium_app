@@ -23,6 +23,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
@@ -422,6 +423,33 @@ export default function HomePage() {
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-emerald-600">
             <span>Browse Events</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+
+        {/* Module: Costume Contest */}
+        <Link
+          href="/costume-contest"
+          className="group p-5 rounded-2xl bg-gradient-to-br from-amber-500/10 via-orange-500/5 to-white border border-amber-300 hover:border-amber-500 hover:shadow-md transition-all flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                <Trophy className="w-6 h-6" />
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 border border-amber-400/30">
+                Halloween 🎃
+              </span>
+            </div>
+            <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-amber-700 transition-colors mb-1">
+              Costume Contest
+            </h2>
+            <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+              Browse contestant photos taken at the Portal Door, watch live entries stream in, and vote for your favorites!
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-amber-200/60 flex items-center justify-between text-xs font-semibold text-amber-700">
+            <span>View Contest & Vote</span>
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>

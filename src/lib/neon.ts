@@ -931,3 +931,128 @@ export async function savePortalPhotoRecord(photo: {
     return false;
   }
 }
+
+// ============================================================================
+// Costume Contest Types & API
+// ============================================================================
+
+export interface CostumeContestEntry {
+  id: string;
+  photoUrl: string;
+  fileId?: string;
+  cardIds?: string[];
+  participantNames?: string[];
+  costumeTitle?: string;
+  timestamp: string;
+  votesCount?: number;
+  votePercentage?: number;
+}
+
+export interface CostumeContestState {
+  success: boolean;
+  status: 'submissions' | 'voting' | 'ended';
+  updatedAt?: string;
+  entries: CostumeContestEntry[];
+  totalVotes: number;
+  userVotedEntryId?: string | null;
+  leaderboard?: CostumeContestEntry[] | null;
+}
+
+/**
+ * Fetches the current Costume Contest state and entries.
+ */
+export async function fetchCostumeContest(
+  isDev = false,
+  voterId?: string
+): Promise<CostumeContestState | null> {
+  try {
+    const params = new URLSearchParams();
+    if (isDev) params.set('dev', 'true');
+    if (voterId) params.set('voterId', voterId);
+
+    const qs = params.toString();
+    const url = `${NEON_PROXY_URL}/api/costume-contest${qs ? `?${qs}` : ''}`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || !data.success) return null;
+    return data as CostumeContestState;
+  } catch (err) {
+    console.warn('[Costume Contest] fetch error:', err);
+    return null;
+  }
+}
+
+/**
+ * Changes the active status of the Costume Contest ('submissions' | 'voting' | 'ended').
+ */
+export async function setCostumeContestStatus(
+  status: 'submissions' | 'voting' | 'ended'
+): Promise<boolean> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/costume-contest/status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Casts a vote for an entry in the Costume Contest (1 vote per voterId).
+ */
+export async function castCostumeContestVote(
+  voterId: string,
+  entryId: string
+): Promise<{ success: boolean; totalVotes?: number; error?: string }> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/costume-contest/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ voterId, entryId }),
+    });
+    const data = await res.json();
+    return {
+      success: res.ok && Boolean(data.success),
+      totalVotes: data.totalVotes,
+      error: data.error,
+    };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error voting.' };
+  }
+}
+
+/**
+ * Deletes an entry from the Costume Contest (developer only).
+ */
+export async function deleteCostumeContestEntry(entryId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/costume-contest/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ entryId }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resets the Costume Contest back to blank state (developer only).
+ */
+export async function resetCostumeContest(): Promise<boolean> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/costume-contest/reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

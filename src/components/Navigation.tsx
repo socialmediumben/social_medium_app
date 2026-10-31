@@ -20,6 +20,7 @@ import {
   ChevronDown,
   Check,
   Lock,
+  Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -28,6 +29,7 @@ import { APP_VERSION } from '@/lib/version';
 const BASE_NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
   { href: '/events', label: 'Events', icon: Calendar, description: 'Upcoming events & RSVP' },
+  { href: '/costume-contest', label: 'Costume Contest', icon: Trophy, description: 'Halloween photos & live voting' },
   { href: '/portal-media', label: 'Portal Media', icon: DoorOpen, description: 'Personal tap card media' },
   { href: '/game-room', label: 'Game Room', icon: Gamepad2, description: 'Room remote & presets' },
 ];
