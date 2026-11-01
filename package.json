@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "postbuild": "node -e \"require('fs').writeFileSync('out/.nojekyll', '')\"",
-    "deploy": "gh-pages -d out --dotfiles",
+    "deploy": "gh-pages -d out --dotfiles -b gh-pages",
     "start": "next start",
     "lint": "eslint"
   },

@@ -67,16 +67,24 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (_) {}
 
-    fetchCostumeContest()
-      .then((data) => {
+    const syncVisibility = async () => {
+      try {
+        const data = await fetchCostumeContest();
         if (data?.visibility) {
           setContestVisibilityState(data.visibility);
           try {
             localStorage.setItem('sm_contest_visibility', data.visibility);
           } catch (_) {}
         }
-      })
-      .catch(() => {});
+      } catch (_) {}
+    };
+
+    syncVisibility();
+    const interval = setInterval(() => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
+        syncVisibility();
+      }
+    }, 6000);
 
     const handleVisChange = (e: any) => {
       if (e.detail && (e.detail === 'all' || e.detail === 'staff' || e.detail === 'none')) {
@@ -84,7 +92,10 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
       }
     };
     window.addEventListener('contest_visibility_changed', handleVisChange);
-    return () => window.removeEventListener('contest_visibility_changed', handleVisChange);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('contest_visibility_changed', handleVisChange);
+    };
   }, []);
 
   const setContestVisibility = async (vis: CostumeContestVisibility): Promise<boolean> => {

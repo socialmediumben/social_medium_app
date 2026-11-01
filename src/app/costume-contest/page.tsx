@@ -96,6 +96,9 @@ export default function CostumeContestPage() {
         const data = await fetchCostumeContest(isDevMode, voterId);
         if (data && data.success) {
           setContest(data);
+          if (data.visibility && data.visibility !== contestVisibility) {
+            setContestVisibility(data.visibility);
+          }
           if (data.userVotedEntryId) {
             setVotedEntryId(data.userVotedEntryId);
           }
@@ -486,6 +489,31 @@ export default function CostumeContestPage() {
                   <span>No-one</span>
                 </button>
               </div>
+            </div>
+
+            {/* Live user-facing status callout for Developer */}
+            <div className="mt-2.5 pt-2 border-t border-purple-500/15 flex items-center justify-between text-[11px] text-stone-400">
+              <span className="flex items-center gap-1.5">
+                <span className="font-semibold text-purple-300">Live User Status:</span>
+                {contestVisibility === 'none' && (
+                  <span className="text-red-400 font-bold bg-red-950/60 border border-red-800/60 px-2 py-0.5 rounded-md">
+                    🚫 Completely Hidden from Users & Staff (Dev-only preview)
+                  </span>
+                )}
+                {contestVisibility === 'staff' && (
+                  <span className="text-amber-400 font-bold bg-amber-950/60 border border-amber-800/60 px-2 py-0.5 rounded-md">
+                    🛡️ Restricted to Staff & Developers (Hidden from users)
+                  </span>
+                )}
+                {contestVisibility === 'all' && (
+                  <span className="text-emerald-400 font-bold bg-emerald-950/60 border border-emerald-800/60 px-2 py-0.5 rounded-md">
+                    👥 Publicly Visible to Everyone
+                  </span>
+                )}
+              </span>
+              <span className="hidden sm:inline text-stone-500 italic">
+                (Switch to &ldquo;User (Member)&rdquo; in top right mode dropdown to preview)
+              </span>
             </div>
           </div>
         )}

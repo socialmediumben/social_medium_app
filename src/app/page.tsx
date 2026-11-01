@@ -23,6 +23,7 @@ import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
+  EyeOff,
   Trophy,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -34,7 +35,8 @@ import { APP_VERSION } from '@/lib/version';
 
 export default function HomePage() {
   const { activeCardId, member, isLoading } = useAuth();
-  const { mode, isDevMode, isStaffMode, openChangelog, isContestVisible } = useDevMode();
+  const { mode, isDevMode, isStaffMode, openChangelog, isContestVisible, contestVisibility } =
+    useDevMode();
 
   // Community Announcement State
   const [announcement, setAnnouncement] = useState<CommunityAnnouncement | null>(null);
@@ -438,9 +440,21 @@ export default function HomePage() {
                 <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
                   <Trophy className="w-6 h-6" />
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 border border-amber-400/30">
-                  Halloween 🎃
-                </span>
+                {isDevMode && contestVisibility === 'none' && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-red-500/20 text-red-700 border border-red-500/30 flex items-center gap-1">
+                    <EyeOff className="w-3 h-3" /> Hidden from Users
+                  </span>
+                )}
+                {isDevMode && contestVisibility === 'staff' && (
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-800 border border-amber-500/30 flex items-center gap-1">
+                    <Shield className="w-3 h-3" /> Staff Only
+                  </span>
+                )}
+                {contestVisibility === 'all' && (
+                  <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 border border-amber-400/30">
+                    Halloween 🎃
+                  </span>
+                )}
               </div>
               <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-amber-700 transition-colors mb-1">
                 Costume Contest

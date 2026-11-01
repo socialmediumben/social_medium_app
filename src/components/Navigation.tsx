@@ -316,10 +316,15 @@ export function Navbar() {
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { isStaffMode } = useDevMode();
+  const { isStaffMode, isContestVisible } = useDevMode();
+
+  const baseItems = useMemo(
+    () => BASE_NAV_ITEMS.filter((item) => (item.href === '/costume-contest' ? isContestVisible : true)),
+    [isContestVisible]
+  );
 
   const navItems = [
-    ...BASE_NAV_ITEMS,
+    ...baseItems,
     ...(isStaffMode
       ? [
           {
@@ -338,9 +343,14 @@ export function BottomNav() {
       : []),
   ];
 
+  const totalCols = 1 + navItems.length;
+
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-2 py-1 shadow-lg safe-area-pb">
-      <div className={`grid ${isStaffMode ? 'grid-cols-7' : 'grid-cols-5'} items-center justify-around`}>
+      <div
+        className="grid items-center justify-around"
+        style={{ gridTemplateColumns: `repeat(${totalCols}, minmax(0, 1fr))` }}
+      >
         <Link
           href="/"
           className={`flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl text-[10px] font-medium transition-colors ${

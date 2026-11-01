@@ -1202,10 +1202,11 @@ export async function fetchCostumeContest(
     const params = new URLSearchParams();
     if (isDev) params.set('dev', 'true');
     if (voterId) params.set('voterId', voterId);
+    params.set('_t', String(Date.now()));
 
     const qs = params.toString();
     const url = `${NEON_PROXY_URL}/api/costume-contest${qs ? `?${qs}` : ''}`;
-    const res = await fetch(url);
+    const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || !data.success) return null;
