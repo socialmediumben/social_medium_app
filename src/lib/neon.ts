@@ -893,25 +893,226 @@ export async function createNeonActivity(
   }
 }
 
+export const GOOGLE_SHEET_PHOTOBOOTH_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Photobooth_Photos';
+
+export const APPS_SCRIPT_PHOTOBOOTH_URL =
+  'https://script.google.com/macros/s/AKfycbw8sI54Tsza9NwwLd-Id3DgGBg69L4N0VxwSp9d3_dryLdSB5CvmPGtPpzt2uymKRjwcQ/exec';
+
 /**
- * Fetches recent photobooth photos taken at the Portal Door kiosk, optionally filtered by card ID.
+ * Parses CSV text into rows and columns handling quotes and escapes.
  */
-export async function fetchPortalPhotos(cardId?: string): Promise<PortalPhotoRecord[]> {
+function parseCsv(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = '';
+  let insideQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (insideQuotes && nextChar === '"') {
+        currentField += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === ',' && !insideQuotes) {
+      currentRow.push(currentField.trim());
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+      if (char === '\r' && nextChar === '\n') {
+        i++;
+      }
+      currentRow.push(currentField.trim());
+      if (currentRow.some((f) => f.length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (currentField.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentField.trim());
+    if (currentRow.some((f) => f.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Fetches member photos directly from the permanent Google Sheet "Photobooth_Photos" tab.
+ * This guarantees 24/7 availability even when the kiosk is off and Render is asleep.
+ */
+export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<PortalPhotoRecord[]> {
   try {
-    const url = cardId
-      ? `${NEON_PROXY_URL}/api/portal-photos?cardId=${encodeURIComponent(cardId)}`
-      : `${NEON_PROXY_URL}/api/portal-photos`;
-    const res = await fetch(url);
+    const res = await fetch(`${GOOGLE_SHEET_PHOTOBOOTH_CSV_URL}&t=${Date.now()}`);
     if (!res.ok) return [];
-    const data = await res.json();
-    return Array.isArray(data.photos) ? data.photos : [];
+    const text = await res.text();
+    const rows = parseCsv(text);
+    if (!rows || rows.length < 2) return [];
+
+    // Header index detection
+    const header = rows[0];
+    let timeIdx = 0;
+    let cardIdx = 1;
+    let titleIdx = 2;
+    let urlIdx = 4;
+    let fileIdx = 5;
+
+    let isPhotoboothSheet = false;
+    for (let i = 0; i < header.length; i++) {
+      const norm = String(header[i] || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      if (norm.includes('time') || norm.includes('date')) timeIdx = i;
+      else if (norm.includes('card') || norm === 'id') cardIdx = i;
+      else if (norm.includes('title') || norm.includes('name')) titleIdx = i;
+      else if (norm.includes('url') || norm.includes('image') || norm.includes('file')) {
+        urlIdx = i;
+        isPhotoboothSheet = true;
+      } else if (norm.includes('fileid') || norm === 'file') {
+        fileIdx = i;
+        isPhotoboothSheet = true;
+      }
+    }
+
+    // If Google Sheet returned default first tab rather than Photobooth_Photos, skip
+    if (!isPhotoboothSheet && !header.some(h => String(h).toLowerCase().includes('card'))) {
+      return [];
+    }
+
+    const candidateIds = new Set<string>();
+    if (cardId) {
+      const clean = String(cardId).trim().toLowerCase();
+      candidateIds.add(clean);
+      const norm = normalizeNfcTapCard(clean).toLowerCase();
+      if (norm) candidateIds.add(norm);
+      if (/^\d+$/.test(clean)) {
+        try {
+          candidateIds.add(Number(clean).toString(16).toLowerCase());
+        } catch (_) {}
+      } else if (/^[0-9a-fA-F]+$/.test(clean)) {
+        try {
+          const parsed = parseInt(clean, 16);
+          if (!isNaN(parsed)) candidateIds.add(parsed.toString());
+        } catch (_) {}
+      }
+    }
+
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const photos: PortalPhotoRecord[] = [];
+
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      const rawUrl = String(row[urlIdx] || '').trim();
+      if (!rawUrl || !rawUrl.startsWith('http')) continue;
+
+      const rowCard = String(row[cardIdx] || '').trim().toLowerCase();
+      const rowNorm = normalizeNfcTapCard(rowCard).toLowerCase();
+      let rowHex = '';
+      let rowDec = '';
+      if (/^\d+$/.test(rowCard)) {
+        try {
+          rowHex = Number(rowCard).toString(16).toLowerCase();
+        } catch (_) {}
+        rowDec = rowCard;
+      } else if (/^[0-9a-fA-F]+$/.test(rowCard)) {
+        rowHex = rowCard;
+        try {
+          const parsed = parseInt(rowCard, 16);
+          if (!isNaN(parsed)) rowDec = parsed.toString();
+        } catch (_) {}
+      }
+
+      if (candidateIds.size > 0) {
+        const match =
+          candidateIds.has(rowCard) ||
+          candidateIds.has(rowNorm) ||
+          (rowHex && candidateIds.has(rowHex)) ||
+          (rowDec && candidateIds.has(rowDec));
+        if (!match) continue;
+      }
+
+      const rawTime = row[timeIdx];
+      const timeMs = rawTime ? new Date(rawTime).getTime() : now;
+      if (!isNaN(timeMs) && (now - timeMs > THIRTY_DAYS_MS)) {
+        continue; // Keep only recent photos within 30 days
+      }
+
+      const fileId = String(row[fileIdx] || '').trim();
+      photos.push({
+        id: fileId || `sheet_${r}_${Date.now()}`,
+        cardId: rowCard,
+        url: rawUrl,
+        fileId: fileId,
+        downloadUrl: fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : rawUrl,
+        timestamp: !isNaN(timeMs) ? new Date(timeMs).toISOString() : new Date().toISOString(),
+      });
+    }
+
+    return photos;
   } catch {
     return [];
   }
 }
 
 /**
- * Saves a new portal photo record to the backend proxy.
+ * Fetches recent photobooth photos taken at the Portal Door kiosk, optionally filtered by card ID.
+ * Multi-source query: combines Google Sheets database with Render proxy and local cache.
+ */
+export async function fetchPortalPhotos(cardId?: string): Promise<PortalPhotoRecord[]> {
+  try {
+    const photoMap = new Map<string, PortalPhotoRecord>();
+
+    // 1. Fetch from Google Sheet permanent database (primary ground truth)
+    const sheetPhotos = await fetchPhotoboothPhotosFromSheet(cardId);
+    sheetPhotos.forEach((p) => {
+      if (p && p.url) photoMap.set(p.url, p);
+    });
+
+    // 2. Fetch from Render proxy / in-memory cache
+    try {
+      const url = cardId
+        ? `${NEON_PROXY_URL}/api/portal-photos?cardId=${encodeURIComponent(cardId)}`
+        : `${NEON_PROXY_URL}/api/portal-photos`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.photos)) {
+          data.photos.forEach((p: PortalPhotoRecord) => {
+            if (p && p.url && !photoMap.has(p.url)) {
+              photoMap.set(p.url, p);
+            }
+          });
+        }
+      }
+    } catch (_) {}
+
+    const all = Array.from(photoMap.values());
+    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const recent = all.filter((p) => {
+      if (!p.timestamp) return true;
+      const t = new Date(p.timestamp).getTime();
+      return isNaN(t) || (now - t <= THIRTY_DAYS_MS);
+    });
+
+    recent.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+    return recent;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Saves a new portal photo record to the backend proxy and persistent datastores.
  */
 export async function savePortalPhotoRecord(photo: {
   cardId: string;
