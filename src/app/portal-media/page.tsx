@@ -29,6 +29,15 @@ import { updatePortalMediaInNeon, fetchPortalPhotos, savePortalPhotoRecord } fro
 /**
  * Extracts 11-character YouTube video ID from various YouTube URL formats.
  */
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+function isWithin30Days(timestamp?: string): boolean {
+  if (!timestamp) return true;
+  const time = new Date(timestamp).getTime();
+  if (isNaN(time)) return true;
+  return Date.now() - time <= THIRTY_DAYS_MS;
+}
+
 function getYouTubeVideoId(url: string | null | undefined): string | null {
   if (!url) return null;
   const clean = String(url).trim();
@@ -82,6 +91,16 @@ export default function PortalMediaPage() {
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [newPhotoAlert, setNewPhotoAlert] = useState<string | null>(null);
   const [previewModalPhoto, setPreviewModalPhoto] = useState<PortalPhotoRecord | null>(null);
+  const [showOlderPhotos, setShowOlderPhotos] = useState(false);
+
+  // Partition photos into Recent (last 30 days) and Older (over 30 days)
+  const recentPhotos = useMemo(() => {
+    return portalPhotos.filter((photo) => isWithin30Days(photo.timestamp));
+  }, [portalPhotos]);
+
+  const olderPhotos = useMemo(() => {
+    return portalPhotos.filter((photo) => !isWithin30Days(photo.timestamp));
+  }, [portalPhotos]);
 
   // Simulation controls
   const [doorsOpen, setDoorsOpen] = useState(true);
@@ -600,11 +619,11 @@ export default function PortalMediaPage() {
                   My Portal Door Photos
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-800 uppercase tracking-wide">
-                  Photobooth Captures
+                  Recent (Within 30 Days)
                 </span>
               </div>
               <p className="text-stone-500 text-xs mt-0.5">
-                Pictures snapped by you at the physical Portal Door kiosk. View, download, or use them as your active portal media.
+                Pictures snapped by you at the physical Portal Door kiosk within the last 30 days. View, download, or use them as your active portal media.
               </p>
             </div>
           </div>
@@ -656,35 +675,38 @@ export default function PortalMediaPage() {
         )}
 
         {/* Photos Grid */}
-        {portalPhotos.length === 0 ? (
+        {recentPhotos.length === 0 ? (
           <div className="p-8 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-3">
             <div className="w-12 h-12 rounded-2xl bg-stone-200/60 text-stone-400 flex items-center justify-center mx-auto">
               <Camera className="w-6 h-6" />
             </div>
             <div className="max-w-md mx-auto space-y-1">
               <h3 className="font-semibold text-stone-800 text-sm">
-                No Photobooth Photos Recorded Yet
+                {olderPhotos.length > 0 ? 'No Photos Within the Last 30 Days' : 'No Photobooth Photos Recorded Yet'}
               </h3>
               <p className="text-stone-500 text-xs leading-relaxed">
-                Step up to the <strong>Portal Door</strong> kiosk, toggle to Photobooth mode (or press <kbd className="px-1 py-0.5 rounded bg-stone-200 text-stone-700 font-mono text-[10px]">+</kbd> on the keypad to snap a photo).
-                Your captures will automatically appear here so you can download and share them!
+                {olderPhotos.length > 0 
+                  ? `You have ${olderPhotos.length} older photo${olderPhotos.length > 1 ? 's' : ''} available below. Step up to the Portal Door to take a fresh one!`
+                  : 'Step up to the Portal Door kiosk, toggle to Photobooth mode (or press + on the keypad to snap a photo). Your captures will automatically appear here so you can download and share them!'}
               </p>
             </div>
-            <div className="pt-2">
-              <a
-                href="https://portal.socialmedium.space"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold transition-colors shadow-xs"
-              >
-                <span>Launch Portal Door Kiosk</span>
-                <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
-              </a>
-            </div>
+            {olderPhotos.length === 0 && (
+              <div className="pt-2">
+                <a
+                  href="https://portal.socialmedium.space"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-white border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold transition-colors shadow-xs"
+                >
+                  <span>Launch Portal Door Kiosk</span>
+                  <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+                </a>
+              </div>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-            {portalPhotos.map((photo) => (
+            {recentPhotos.map((photo) => (
               <div
                 key={photo.id}
                 className="group relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-900 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
@@ -739,6 +761,71 @@ export default function PortalMediaPage() {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Older Photos Collapsible (Over 30 days) */}
+        {olderPhotos.length > 0 && (
+          <div className="pt-4 border-t border-stone-200 space-y-3">
+            <button
+              type="button"
+              onClick={() => setShowOlderPhotos(!showOlderPhotos)}
+              className="w-full py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold flex items-center justify-between transition-colors cursor-pointer"
+            >
+              <span>{showOlderPhotos ? 'Hide Older Captures' : `View Older Captures (${olderPhotos.length})`}</span>
+              <span className="text-[11px] text-stone-500 font-normal">Over 30 days old</span>
+            </button>
+
+            {showOlderPhotos && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {olderPhotos.map((photo) => (
+                  <div
+                    key={photo.id}
+                    className="group relative rounded-2xl overflow-hidden border border-stone-200 bg-stone-900 shadow-xs hover:shadow-md transition-all flex flex-col justify-between opacity-85 hover:opacity-100"
+                  >
+                    <div
+                      onClick={() => setPreviewModalPhoto(photo)}
+                      className="aspect-[3/4] w-full overflow-hidden relative cursor-pointer bg-stone-950 flex items-center justify-center"
+                    >
+                      <img
+                        src={photo.url}
+                        alt="Older Photobooth capture"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-[10px] text-white font-mono">
+                        {photo.timestamp
+                          ? new Date(photo.timestamp).toLocaleDateString(undefined, {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric'
+                            })
+                          : 'Archive'}
+                      </div>
+                    </div>
+                    <div className="p-2.5 bg-white border-t border-stone-100 flex items-center justify-between gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleUsePhotoAsMedia(photo.url)}
+                        title="Set this photo as your active Portal Door media"
+                        className="flex-1 py-1.5 px-2 rounded-lg bg-stone-50 hover:bg-purple-50 hover:text-purple-700 text-stone-700 text-[11px] font-semibold border border-stone-200 transition-colors flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <Sparkles className="w-3 h-3 text-[#f16622]" />
+                        <span>Set Media</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadPhoto(photo)}
+                        title="Download high-resolution photo"
+                        className="p-1.5 rounded-lg bg-stone-50 hover:bg-stone-100 text-stone-700 border border-stone-200 transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
