@@ -101,6 +101,8 @@ export interface CreateActivityInput {
 export interface PortalPhotoRecord {
   id: string;
   cardId: string;
+  rawCardId?: string;
+  cardIds?: string[];
   url: string;
   fileId?: string;
   downloadUrl?: string;

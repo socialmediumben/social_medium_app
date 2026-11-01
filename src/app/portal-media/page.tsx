@@ -164,6 +164,30 @@ export default function PortalMediaPage() {
         }
       });
 
+      // Helper to check if a photo's card(s) match user candidates
+      const matchesCandidate = (p: PortalPhotoRecord) => {
+        const raw = String(p.rawCardId || p.cardId || '').trim();
+        if (!raw) return false;
+        const tokens = raw.split(/[,;|\/\s]+/).map((t) => t.trim()).filter(Boolean);
+        return tokens.some((tok) => {
+          const clean = tok.toLowerCase();
+          const norm = normalizeNfcTapCard(clean).toLowerCase();
+          if (candidateKeys.has(clean) || (norm && candidateKeys.has(norm))) return true;
+          if (/^\d+$/.test(clean)) {
+            try {
+              const hex = Number(clean).toString(16).toLowerCase();
+              if (candidateKeys.has(hex)) return true;
+            } catch (_) {}
+          } else if (/^[0-9a-fA-F]+$/.test(clean)) {
+            try {
+              const dec = parseInt(clean, 16).toString();
+              if (candidateKeys.has(dec)) return true;
+            } catch (_) {}
+          }
+          return false;
+        });
+      };
+
       // Also check general recent photos cache if available in this browser
       const genRaw = localStorage.getItem('portal_recent_photos');
       if (genRaw) {
@@ -171,12 +195,8 @@ export default function PortalMediaPage() {
           const gArr = JSON.parse(genRaw);
           if (Array.isArray(gArr)) {
             gArr.forEach((p: PortalPhotoRecord) => {
-              if (p && p.url) {
-                const pCard = String(p.cardId || '').trim().toLowerCase();
-                const pNorm = normalizeNfcTapCard(pCard).toLowerCase();
-                if (pCard && (candidateKeys.has(pCard) || candidateKeys.has(pNorm))) {
-                  localMap.set(p.url, p);
-                }
+              if (p && p.url && matchesCandidate(p)) {
+                localMap.set(p.url, p);
               }
             });
           }
@@ -194,12 +214,8 @@ export default function PortalMediaPage() {
                 const parsed = JSON.parse(val);
                 if (Array.isArray(parsed)) {
                   parsed.forEach((p: PortalPhotoRecord) => {
-                    if (p && p.url && !localMap.has(p.url)) {
-                      const pCard = String(p.cardId || '').trim().toLowerCase();
-                      const pNorm = normalizeNfcTapCard(pCard).toLowerCase();
-                      if (pCard && (candidateKeys.has(pCard) || candidateKeys.has(pNorm))) {
-                        localMap.set(p.url, p);
-                      }
+                    if (p && p.url && !localMap.has(p.url) && matchesCandidate(p)) {
+                      localMap.set(p.url, p);
                     }
                   });
                 }

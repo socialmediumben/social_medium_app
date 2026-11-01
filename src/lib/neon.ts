@@ -973,10 +973,10 @@ export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<P
       if (norm.includes('time') || norm.includes('date')) timeIdx = i;
       else if (norm.includes('card') || norm === 'id') cardIdx = i;
       else if (norm.includes('title') || norm.includes('name')) titleIdx = i;
-      else if (norm.includes('url') || norm.includes('image') || norm.includes('file')) {
+      else if (norm.includes('url') || norm.includes('image') || norm.includes('link')) {
         urlIdx = i;
         isPhotoboothSheet = true;
-      } else if (norm.includes('fileid') || norm === 'file') {
+      } else if (norm.includes('file')) {
         fileIdx = i;
         isPhotoboothSheet = true;
       }
@@ -1005,24 +1005,26 @@ export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<P
       }
     }
 
-    const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-    const now = Date.now();
     const photos: PortalPhotoRecord[] = [];
 
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r];
       let rawUrl = String(row[urlIdx] || '').trim();
-      if (!rawUrl || !rawUrl.startsWith('http')) continue;
-
       let fileId = String(row[fileIdx] || '').trim();
+
       const driveMatch = rawUrl.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/);
       if (driveMatch && driveMatch[1]) {
         if (!fileId) fileId = driveMatch[1];
         rawUrl = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+      } else if (!rawUrl.startsWith('http') && fileId) {
+        rawUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
       }
 
+      if (!rawUrl || !rawUrl.startsWith('http')) continue;
+
       const rawCardField = String(row[cardIdx] || '').trim();
-      const cardTokens = rawCardField.split(/[,;\s]+/).filter(Boolean);
+      // Split multiple card IDs by comma, semicolon, pipe, slash, or space
+      const cardTokens = rawCardField.split(/[,;|\/\s]+/).map(t => t.trim()).filter(Boolean);
 
       if (candidateIds.size > 0) {
         let match = false;
@@ -1057,10 +1059,7 @@ export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<P
       }
 
       const rawTime = row[timeIdx];
-      const timeMs = rawTime ? new Date(rawTime).getTime() : now;
-      if (!isNaN(timeMs) && (now - timeMs > THIRTY_DAYS_MS)) {
-        continue; // Keep only recent photos within 30 days
-      }
+      const timeMs = rawTime ? new Date(rawTime).getTime() : Date.now();
 
       photos.push({
         id: fileId || `sheet_${r}_${Date.now()}`,
