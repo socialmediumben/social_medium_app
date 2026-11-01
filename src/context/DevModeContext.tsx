@@ -2,6 +2,12 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import {
+  CostumeContestVisibility,
+  canViewContest,
+  fetchCostumeContest,
+  setCostumeContestVisibility as updateContestVisibilityApi,
+} from '@/lib/neon';
 
 export type AppMode = 'user' | 'staff' | 'developer';
 
@@ -20,6 +26,9 @@ export interface DevModeContextType {
   isIconManagerOpen: boolean;
   openIconManager: () => void;
   closeIconManager: () => void;
+  contestVisibility: CostumeContestVisibility;
+  setContestVisibility: (vis: CostumeContestVisibility) => Promise<boolean>;
+  isContestVisible: boolean;
 }
 
 const DevModeContext = createContext<DevModeContextType>({
@@ -37,6 +46,9 @@ const DevModeContext = createContext<DevModeContextType>({
   isIconManagerOpen: false,
   openIconManager: () => {},
   closeIconManager: () => {},
+  contestVisibility: 'all',
+  setContestVisibility: async () => false,
+  isContestVisible: true,
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
@@ -44,6 +56,41 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<AppMode>('user');
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
+  const [contestVisibility, setContestVisibilityState] = useState<CostumeContestVisibility>('all');
+
+  // Load initial contest visibility & sync with backend/local events
+  useEffect(() => {
+    try {
+      const savedVis = localStorage.getItem('sm_contest_visibility');
+      if (savedVis === 'all' || savedVis === 'staff' || savedVis === 'none') {
+        setContestVisibilityState(savedVis as CostumeContestVisibility);
+      }
+    } catch (_) {}
+
+    fetchCostumeContest()
+      .then((data) => {
+        if (data?.visibility) {
+          setContestVisibilityState(data.visibility);
+          try {
+            localStorage.setItem('sm_contest_visibility', data.visibility);
+          } catch (_) {}
+        }
+      })
+      .catch(() => {});
+
+    const handleVisChange = (e: any) => {
+      if (e.detail && (e.detail === 'all' || e.detail === 'staff' || e.detail === 'none')) {
+        setContestVisibilityState(e.detail);
+      }
+    };
+    window.addEventListener('contest_visibility_changed', handleVisChange);
+    return () => window.removeEventListener('contest_visibility_changed', handleVisChange);
+  }, []);
+
+  const setContestVisibility = async (vis: CostumeContestVisibility): Promise<boolean> => {
+    setContestVisibilityState(vis);
+    return await updateContestVisibilityApi(vis);
+  };
 
   // Neon One CRM Role Permissions:
   // - canAccessDev: Checked custom field 118 ("App Developer" = TRUE)
@@ -121,6 +168,7 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
 
   const isDevMode = mode === 'developer' && (!member || canAccessDev);
   const isStaffMode = (mode === 'staff' || mode === 'developer') && (!member || canAccessStaff);
+  const isContestVisible = canViewContest(contestVisibility, isDevMode, isStaffMode);
 
   const openChangelog = () => setIsChangelogOpen(true);
   const closeChangelog = () => setIsChangelogOpen(false);
@@ -145,6 +193,9 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
         isIconManagerOpen,
         openIconManager,
         closeIconManager,
+        contestVisibility,
+        setContestVisibility,
+        isContestVisible,
       }}
     >
       {children}

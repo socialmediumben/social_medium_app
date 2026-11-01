@@ -1164,14 +1164,31 @@ export interface CostumeContestEntry {
   votePercentage?: number;
 }
 
+export type CostumeContestVisibility = 'all' | 'staff' | 'none';
+
 export interface CostumeContestState {
   success: boolean;
   status: 'submissions' | 'voting' | 'ended';
+  visibility?: CostumeContestVisibility;
   updatedAt?: string;
   entries: CostumeContestEntry[];
   totalVotes: number;
   userVotedEntryId?: string | null;
   leaderboard?: CostumeContestEntry[] | null;
+}
+
+/**
+ * Helper to determine if a user with the given dev/staff status can view the contest.
+ */
+export function canViewContest(
+  visibility: CostumeContestVisibility = 'all',
+  isDev = false,
+  isStaff = false
+): boolean {
+  if (isDev) return true; // Developers can always view and manage it
+  if (visibility === 'all') return true;
+  if (visibility === 'staff') return isStaff;
+  return false; // 'none'
 }
 
 /**
@@ -1192,10 +1209,46 @@ export async function fetchCostumeContest(
     if (!res.ok) return null;
     const data = await res.json();
     if (!data || !data.success) return null;
+
+    if (data.visibility && typeof window !== 'undefined') {
+      try {
+        const prev = localStorage.getItem('sm_contest_visibility');
+        if (prev !== data.visibility) {
+          localStorage.setItem('sm_contest_visibility', data.visibility);
+          window.dispatchEvent(new CustomEvent('contest_visibility_changed', { detail: data.visibility }));
+        }
+      } catch (_) {}
+    }
+
     return data as CostumeContestState;
   } catch (err) {
     console.warn('[Costume Contest] fetch error:', err);
     return null;
+  }
+}
+
+/**
+ * Updates the visibility setting of the Costume Contest ('all' | 'staff' | 'none').
+ */
+export async function setCostumeContestVisibility(
+  visibility: CostumeContestVisibility
+): Promise<boolean> {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('sm_contest_visibility', visibility);
+      window.dispatchEvent(new CustomEvent('contest_visibility_changed', { detail: visibility }));
+    } catch (_) {}
+  }
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/costume-contest/visibility`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visibility }),
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('[Costume Contest] set visibility error:', err);
+    return false;
   }
 }
 

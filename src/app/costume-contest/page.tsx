@@ -21,28 +21,38 @@ import {
   AlertTriangle,
   Award,
   ChevronLeft,
+  Eye,
+  Shield,
+  EyeOff,
+  Lock,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
 import {
   fetchCostumeContest,
   setCostumeContestStatus,
+  setCostumeContestVisibility,
   castCostumeContestVote,
   deleteCostumeContestEntry,
   resetCostumeContest,
   CostumeContestState,
   CostumeContestEntry,
+  CostumeContestVisibility,
 } from '@/lib/neon';
 
 export default function CostumeContestPage() {
   const { activeCardId, member } = useAuth();
-  const { mode, isDevMode } = useDevMode();
+  const { mode, isDevMode, isStaffMode, contestVisibility, setContestVisibility, isContestVisible } =
+    useDevMode();
 
   // Contest State
   const [contest, setContest] = useState<CostumeContestState | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Visibility toggle spinner
+  const [isUpdatingVisibility, setIsUpdatingVisibility] = useState<boolean>(false);
 
   // Voting state
   const [votedEntryId, setVotedEntryId] = useState<string | null>(null);
@@ -162,6 +172,20 @@ export default function CostumeContestPage() {
     }
   };
 
+  // Developer Module Visibility Toggle ('all' | 'staff' | 'none')
+  const handleToggleVisibility = async (newVis: CostumeContestVisibility) => {
+    if (!isDevMode || isUpdatingVisibility || newVis === contestVisibility) return;
+    setIsUpdatingVisibility(true);
+    try {
+      const ok = await setContestVisibility(newVis);
+      if (!ok) {
+        alert('Notice: Visibility saved locally, but server sync failed.');
+      }
+    } finally {
+      setIsUpdatingVisibility(false);
+    }
+  };
+
   // Developer Delete Entry
   const confirmDeleteEntry = async () => {
     if (!entryToDelete || isDeleting) return;
@@ -210,6 +234,32 @@ export default function CostumeContestPage() {
     const list = contest?.leaderboard || [...entries].sort((a, b) => (b.votesCount || 0) - (a.votesCount || 0));
     return list.slice(0, 3);
   }, [contest?.leaderboard, entries, status]);
+
+  // If user cannot view the contest (e.g. set to 'none' or 'staff' and user lacks permissions), show friendly restricted screen
+  if (!isLoading && !isContestVisible) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-2xl shadow-sm border border-stone-200 p-6 text-center">
+          <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 mx-auto flex items-center justify-center mb-4">
+            <Lock className="w-7 h-7" />
+          </div>
+          <h2 className="text-xl font-bold font-fredoka text-stone-900 mb-2">
+            Costume Contest Unavailable
+          </h2>
+          <p className="text-stone-600 text-sm mb-6 leading-relaxed">
+            The Costume Contest module is currently restricted or hidden by the administrator. Please check back later!
+          </p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold transition-colors shadow-xs"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Return to Home</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 pb-24">
@@ -369,6 +419,72 @@ export default function CostumeContestPage() {
                 <span className="text-xs font-mono text-cyan-300 truncate block mt-1" title={voterId}>
                   {voterId}
                 </span>
+              </div>
+            </div>
+
+            {/* Module Visibility Toggle for Developer */}
+            <div className="mt-4 pt-3 border-t border-purple-500/20 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0">
+                  <Eye className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="text-xs font-bold text-purple-200 block">
+                    Module Visibility Toggle
+                  </span>
+                  <span className="text-[11px] text-stone-400">
+                    {contestVisibility === 'all' && 'Visible to All Users (Public: nav & home cards visible)'}
+                    {contestVisibility === 'staff' && 'Staff Only (Visible to staff & devs; hidden from public users)'}
+                    {contestVisibility === 'none' && 'No-one / Dev Only (Completely hidden from users & staff)'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="inline-flex items-center p-1 rounded-xl bg-black/40 border border-purple-500/30 gap-1 self-start md:self-auto">
+                <button
+                  type="button"
+                  onClick={() => handleToggleVisibility('all')}
+                  disabled={isUpdatingVisibility}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    contestVisibility === 'all'
+                      ? 'bg-emerald-600 text-white shadow-xs font-bold'
+                      : 'text-stone-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="Make Costume Contest visible to everyone"
+                >
+                  <Users className="w-3.5 h-3.5" />
+                  <span>All Users</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleVisibility('staff')}
+                  disabled={isUpdatingVisibility}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    contestVisibility === 'staff'
+                      ? 'bg-amber-600 text-white shadow-xs font-bold'
+                      : 'text-stone-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="Make Costume Contest visible only to staff and developers"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span>Staff</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleToggleVisibility('none')}
+                  disabled={isUpdatingVisibility}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    contestVisibility === 'none'
+                      ? 'bg-red-600 text-white shadow-xs font-bold'
+                      : 'text-stone-300 hover:text-white hover:bg-white/10'
+                  }`}
+                  title="Hide Costume Contest from everyone except developer mode"
+                >
+                  <EyeOff className="w-3.5 h-3.5" />
+                  <span>No-one</span>
+                </button>
               </div>
             </div>
           </div>

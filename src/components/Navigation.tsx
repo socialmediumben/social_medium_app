@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   User,
   DoorOpen,
@@ -46,11 +46,17 @@ export function Navbar() {
     canAccessDev,
     openChangelog,
     openIconManager,
+    isContestVisible,
   } = useDevMode();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
 
+  const baseItems = useMemo(
+    () => BASE_NAV_ITEMS.filter((item) => (item.href === '/costume-contest' ? isContestVisible : true)),
+    [isContestVisible]
+  );
+
   const navItems = [
-    ...BASE_NAV_ITEMS,
+    ...baseItems,
     ...(isStaffMode
       ? [
           {
