@@ -24,7 +24,7 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
 import { TapCardMedia, getGreetingName, PortalPhotoRecord } from '@/lib/types';
-import { updatePortalMediaInNeon, fetchPortalPhotos, savePortalPhotoRecord } from '@/lib/neon';
+import { updatePortalMediaInNeon, fetchPortalPhotos, savePortalPhotoRecord, normalizeNfcTapCard } from '@/lib/neon';
 
 /**
  * Extracts 11-character YouTube video ID from various YouTube URL formats.
@@ -112,17 +112,135 @@ export default function PortalMediaPage() {
 
     setIsLoadingPhotos(true);
     try {
-      // 1. Load cached photos
-      const cached = localStorage.getItem(`sm_portal_photos_${targetCard}`);
-      if (cached) {
-        setPortalPhotos(JSON.parse(cached));
+      // 1. Gather all potential card representations (hex, decimal, accountId)
+      const candidateKeys = new Set<string>();
+      const cleanTarget = String(targetCard).trim().toLowerCase();
+      candidateKeys.add(cleanTarget);
+      
+      const normalized = normalizeNfcTapCard(cleanTarget);
+      if (normalized) candidateKeys.add(normalized.toLowerCase());
+
+      // If numeric (decimal), compute hex representation; if hex, compute decimal
+      if (/^\d+$/.test(cleanTarget)) {
+        try {
+          const hex = Number(cleanTarget).toString(16).toLowerCase();
+          candidateKeys.add(hex);
+        } catch (_) {}
+      } else if (/^[0-9a-fA-F]+$/.test(cleanTarget)) {
+        try {
+          const dec = parseInt(cleanTarget, 16).toString();
+          candidateKeys.add(dec);
+        } catch (_) {}
       }
 
-      // 2. Fetch live from proxy
-      const live = await fetchPortalPhotos(targetCard);
-      if (live && live.length > 0) {
-        setPortalPhotos(live);
-        localStorage.setItem(`sm_portal_photos_${targetCard}`, JSON.stringify(live));
+      if (member?.accountId) candidateKeys.add(String(member.accountId).trim().toLowerCase());
+      if (member?.tapCard) {
+        const mTap = String(member.tapCard).trim().toLowerCase();
+        candidateKeys.add(mTap);
+        const mNorm = normalizeNfcTapCard(mTap);
+        if (mNorm) candidateKeys.add(mNorm.toLowerCase());
+      }
+
+      // 2. Load cached photos from localStorage across all candidate keys
+      const localMap = new Map<string, PortalPhotoRecord>();
+
+      candidateKeys.forEach((key) => {
+        const cached = localStorage.getItem(`sm_portal_photos_${key}`) || localStorage.getItem(`portal_photos_${key}`);
+        if (cached) {
+          try {
+            const arr = JSON.parse(cached);
+            if (Array.isArray(arr)) {
+              arr.forEach((p: PortalPhotoRecord) => {
+                if (p && p.url) localMap.set(p.url, p);
+              });
+            }
+          } catch (_) {}
+        }
+      });
+
+      // Also check general recent photos cache if available in this browser
+      const genRaw = localStorage.getItem('portal_recent_photos');
+      if (genRaw) {
+        try {
+          const gArr = JSON.parse(genRaw);
+          if (Array.isArray(gArr)) {
+            gArr.forEach((p: PortalPhotoRecord) => {
+              if (p && p.url) {
+                const pCard = String(p.cardId || '').trim().toLowerCase();
+                const pNorm = normalizeNfcTapCard(pCard);
+                if (!pCard || candidateKeys.has(pCard) || candidateKeys.has(pNorm)) {
+                  localMap.set(p.url, p);
+                }
+              }
+            });
+          }
+        } catch (_) {}
+      }
+
+      // Also scan localStorage for any existing sm_portal_photos_* keys that might belong to the user
+      if (typeof window !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sm_portal_photos_') || key.startsWith('portal_photos_'))) {
+            try {
+              const val = localStorage.getItem(key);
+              if (val) {
+                const parsed = JSON.parse(val);
+                if (Array.isArray(parsed)) {
+                  parsed.forEach((p: PortalPhotoRecord) => {
+                    if (p && p.url && !localMap.has(p.url)) {
+                      const pCard = String(p.cardId || '').trim().toLowerCase();
+                      const pNorm = normalizeNfcTapCard(pCard);
+                      if (!pCard || candidateKeys.has(pCard) || candidateKeys.has(pNorm)) {
+                        localMap.set(p.url, p);
+                      }
+                    }
+                  });
+                }
+              }
+            } catch (_) {}
+          }
+        }
+      }
+
+      if (localMap.size > 0) {
+        const cachedList = Array.from(localMap.values());
+        cachedList.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+        setPortalPhotos(cachedList);
+      }
+
+      // 3. Fetch live from proxy for all candidate keys
+      for (const cId of Array.from(candidateKeys)) {
+        const live = await fetchPortalPhotos(cId);
+        if (live && live.length > 0) {
+          live.forEach((p: PortalPhotoRecord) => {
+            if (p && p.url && !localMap.has(p.url)) {
+              localMap.set(p.url, p);
+            }
+          });
+        }
+      }
+
+      // If still empty after querying candidate card IDs, fetch without card filter to retrieve all station captures
+      if (localMap.size === 0) {
+        const allLive = await fetchPortalPhotos();
+        if (allLive && allLive.length > 0) {
+          allLive.forEach((p: PortalPhotoRecord) => {
+            if (p && p.url && !localMap.has(p.url)) {
+              localMap.set(p.url, p);
+            }
+          });
+        }
+      }
+
+      const finalList = Array.from(localMap.values());
+      finalList.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      setPortalPhotos(finalList);
+
+      // Cache back under canonical keys so next time it's instant
+      localStorage.setItem(`sm_portal_photos_${cleanTarget}`, JSON.stringify(finalList));
+      if (normalized && normalized !== cleanTarget) {
+        localStorage.setItem(`sm_portal_photos_${normalized}`, JSON.stringify(finalList));
       }
     } catch (_) {}
     setIsLoadingPhotos(false);
