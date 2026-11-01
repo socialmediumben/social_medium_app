@@ -88,19 +88,25 @@ export default function PortalMediaPage() {
 
   // Photobooth photos state
   const [portalPhotos, setPortalPhotos] = useState<PortalPhotoRecord[]>([]);
+  const [failedPhotoUrls, setFailedPhotoUrls] = useState<Set<string>>(new Set());
   const [isLoadingPhotos, setIsLoadingPhotos] = useState(false);
   const [newPhotoAlert, setNewPhotoAlert] = useState<string | null>(null);
   const [previewModalPhoto, setPreviewModalPhoto] = useState<PortalPhotoRecord | null>(null);
   const [showOlderPhotos, setShowOlderPhotos] = useState(false);
 
+  // Filter out any photos that fail to load (e.g. deleted from Google Drive)
+  const visiblePhotos = useMemo(() => {
+    return portalPhotos.filter((photo) => !failedPhotoUrls.has(photo.url));
+  }, [portalPhotos, failedPhotoUrls]);
+
   // Partition photos into Recent (last 30 days) and Older (over 30 days)
   const recentPhotos = useMemo(() => {
-    return portalPhotos.filter((photo) => isWithin30Days(photo.timestamp));
-  }, [portalPhotos]);
+    return visiblePhotos.filter((photo) => isWithin30Days(photo.timestamp));
+  }, [visiblePhotos]);
 
   const olderPhotos = useMemo(() => {
-    return portalPhotos.filter((photo) => !isWithin30Days(photo.timestamp));
-  }, [portalPhotos]);
+    return visiblePhotos.filter((photo) => !isWithin30Days(photo.timestamp));
+  }, [visiblePhotos]);
 
   // Simulation controls
   const [doorsOpen, setDoorsOpen] = useState(true);
@@ -839,6 +845,7 @@ export default function PortalMediaPage() {
                     alt="Portal Door Photobooth capture"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    onError={() => setFailedPhotoUrls((prev) => new Set(prev).add(photo.url))}
                   />
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
                     <span className="p-2 rounded-xl bg-black/60 backdrop-blur-md text-white text-xs flex items-center gap-1.5 font-medium">
@@ -910,6 +917,7 @@ export default function PortalMediaPage() {
                         alt="Older Photobooth capture"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"
+                        onError={() => setFailedPhotoUrls((prev) => new Set(prev).add(photo.url))}
                       />
                       <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md text-[10px] text-white font-mono">
                         {photo.timestamp

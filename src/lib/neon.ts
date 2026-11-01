@@ -1011,32 +1011,48 @@ export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<P
 
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r];
-      const rawUrl = String(row[urlIdx] || '').trim();
+      let rawUrl = String(row[urlIdx] || '').trim();
       if (!rawUrl || !rawUrl.startsWith('http')) continue;
 
-      const rowCard = String(row[cardIdx] || '').trim().toLowerCase();
-      const rowNorm = normalizeNfcTapCard(rowCard).toLowerCase();
-      let rowHex = '';
-      let rowDec = '';
-      if (/^\d+$/.test(rowCard)) {
-        try {
-          rowHex = Number(rowCard).toString(16).toLowerCase();
-        } catch (_) {}
-        rowDec = rowCard;
-      } else if (/^[0-9a-fA-F]+$/.test(rowCard)) {
-        rowHex = rowCard;
-        try {
-          const parsed = parseInt(rowCard, 16);
-          if (!isNaN(parsed)) rowDec = parsed.toString();
-        } catch (_) {}
+      let fileId = String(row[fileIdx] || '').trim();
+      const driveMatch = rawUrl.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?id=)([a-zA-Z0-9_-]+)/);
+      if (driveMatch && driveMatch[1]) {
+        if (!fileId) fileId = driveMatch[1];
+        rawUrl = `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
       }
 
+      const rawCardField = String(row[cardIdx] || '').trim();
+      const cardTokens = rawCardField.split(/[,;\s]+/).filter(Boolean);
+
       if (candidateIds.size > 0) {
-        const match =
-          candidateIds.has(rowCard) ||
-          candidateIds.has(rowNorm) ||
-          (rowHex && candidateIds.has(rowHex)) ||
-          (rowDec && candidateIds.has(rowDec));
+        let match = false;
+        for (const token of cardTokens) {
+          const tClean = token.toLowerCase();
+          const tNorm = normalizeNfcTapCard(tClean).toLowerCase();
+          let tHex = '';
+          let tDec = '';
+          if (/^\d+$/.test(tClean)) {
+            try {
+              tHex = Number(tClean).toString(16).toLowerCase();
+            } catch (_) {}
+            tDec = tClean;
+          } else if (/^[0-9a-fA-F]+$/.test(tClean)) {
+            tHex = tClean;
+            try {
+              const parsed = parseInt(tClean, 16);
+              if (!isNaN(parsed)) tDec = parsed.toString();
+            } catch (_) {}
+          }
+          if (
+            candidateIds.has(tClean) ||
+            candidateIds.has(tNorm) ||
+            (tHex && candidateIds.has(tHex)) ||
+            (tDec && candidateIds.has(tDec))
+          ) {
+            match = true;
+            break;
+          }
+        }
         if (!match) continue;
       }
 
@@ -1046,10 +1062,9 @@ export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<P
         continue; // Keep only recent photos within 30 days
       }
 
-      const fileId = String(row[fileIdx] || '').trim();
       photos.push({
         id: fileId || `sheet_${r}_${Date.now()}`,
-        cardId: rowCard,
+        cardId: rawCardField,
         url: rawUrl,
         fileId: fileId,
         downloadUrl: fileId ? `https://drive.google.com/uc?export=download&id=${fileId}` : rawUrl,
