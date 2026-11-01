@@ -173,8 +173,8 @@ export default function PortalMediaPage() {
             gArr.forEach((p: PortalPhotoRecord) => {
               if (p && p.url) {
                 const pCard = String(p.cardId || '').trim().toLowerCase();
-                const pNorm = normalizeNfcTapCard(pCard);
-                if (!pCard || candidateKeys.has(pCard) || candidateKeys.has(pNorm)) {
+                const pNorm = normalizeNfcTapCard(pCard).toLowerCase();
+                if (pCard && (candidateKeys.has(pCard) || candidateKeys.has(pNorm))) {
                   localMap.set(p.url, p);
                 }
               }
@@ -196,8 +196,8 @@ export default function PortalMediaPage() {
                   parsed.forEach((p: PortalPhotoRecord) => {
                     if (p && p.url && !localMap.has(p.url)) {
                       const pCard = String(p.cardId || '').trim().toLowerCase();
-                      const pNorm = normalizeNfcTapCard(pCard);
-                      if (!pCard || candidateKeys.has(pCard) || candidateKeys.has(pNorm)) {
+                      const pNorm = normalizeNfcTapCard(pCard).toLowerCase();
+                      if (pCard && (candidateKeys.has(pCard) || candidateKeys.has(pNorm))) {
                         localMap.set(p.url, p);
                       }
                     }
@@ -215,28 +215,22 @@ export default function PortalMediaPage() {
         setPortalPhotos(cachedList);
       }
 
-      // 3. Fetch live from proxy for all candidate keys
+      // 3. Fetch live photos from Google Sheets & backend for each candidate card representation
+      const livePhotosMap = new Map<string, PortalPhotoRecord>();
       for (const cId of Array.from(candidateKeys)) {
         const live = await fetchPortalPhotos(cId);
         if (live && live.length > 0) {
           live.forEach((p: PortalPhotoRecord) => {
-            if (p && p.url && !localMap.has(p.url)) {
-              localMap.set(p.url, p);
+            if (p && p.url) {
+              livePhotosMap.set(p.url, p);
             }
           });
         }
       }
 
-      // If still empty after querying candidate card IDs, fetch without card filter to retrieve all station captures
-      if (localMap.size === 0) {
-        const allLive = await fetchPortalPhotos();
-        if (allLive && allLive.length > 0) {
-          allLive.forEach((p: PortalPhotoRecord) => {
-            if (p && p.url && !localMap.has(p.url)) {
-              localMap.set(p.url, p);
-            }
-          });
-        }
+      // If live photos were returned from the cloud database, merge them into localMap
+      if (livePhotosMap.size > 0) {
+        livePhotosMap.forEach((p, url) => localMap.set(url, p));
       }
 
       const finalList = Array.from(localMap.values());
