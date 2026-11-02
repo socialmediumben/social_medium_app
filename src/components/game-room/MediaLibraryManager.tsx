@@ -32,6 +32,8 @@ interface MediaLibraryManagerProps {
   serverUrl: string;
   wsRef: React.MutableRefObject<WebSocket | null>;
   onNotification?: (msg: string) => void;
+  onDisplayChanged?: (screen: 'table' | 'window' | 'frame', title: string) => void;
+  onMediaUpdated?: () => void;
   cardId?: string | null;
   userName?: string | null;
   isDevMode?: boolean;
@@ -41,6 +43,8 @@ export function MediaLibraryManager({
   serverUrl,
   wsRef,
   onNotification,
+  onDisplayChanged,
+  onMediaUpdated,
   cardId,
   userName,
   isDevMode = false,
@@ -234,6 +238,7 @@ export function MediaLibraryManager({
 
       if (res.success && res.item) {
         setItems((prev) => [res.item!, ...prev]);
+        onMediaUpdated?.();
         onNotification?.(`Enchanted and saved '${res.item.title}' to the cloud!`);
         setIsUploadModalOpen(false);
         setUploadFile(null);
@@ -260,6 +265,7 @@ export function MediaLibraryManager({
       const ok = await deleteGameRoomMedia(idToDelete);
       if (ok) {
         setItems((prev) => prev.filter((i) => (i.id || i.fileId) !== idToDelete));
+        onMediaUpdated?.();
         onNotification?.(`Deleted '${item.title}' from cloud database.`);
       } else {
         alert('Failed to delete media piece.');
@@ -320,6 +326,7 @@ export function MediaLibraryManager({
         screen === 'table' ? 'Tabletop Projector' : screen === 'window' ? '53" Window TV' : 'Picture Frame';
       setActiveCastNotice(`Casting '${cleanTitle}' onto ${displayLabel}!`);
       setTimeout(() => setActiveCastNotice(null), 3500);
+      onDisplayChanged?.(screen, cleanTitle);
       onNotification?.(`Casting '${cleanTitle}' to ${displayLabel}`);
     } catch (err: any) {
       console.warn('Cast error:', err);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Tv,
   Image as ImageIcon,
@@ -29,9 +29,18 @@ import {
   Wrench,
   Grid,
   Layers,
+  UploadCloud,
+  Play,
+  CheckCircle2,
+  Lock,
+  Globe,
+  ChevronDown,
+  ChevronUp,
+  Plus,
 } from 'lucide-react';
 import { GAME_ROOM_PRESETS, INITIAL_GAME_ROOM_STATUS } from '@/lib/member-data';
-import { GameRoomPreset, GameRoomDisplayStatus } from '@/lib/types';
+import { GameRoomPreset, GameRoomDisplayStatus, GameRoomMediaItem } from '@/lib/types';
+import { fetchGameRoomMedia } from '@/lib/neon';
 import { useDevMode } from '@/context/DevModeContext';
 import { useAuth } from '@/context/AuthContext';
 import { ScreenMirrorModal } from '@/components/game-room/ScreenMirrorModal';
@@ -155,6 +164,187 @@ export default function GameRoomPage() {
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<any>(null);
   const wsRetryCountRef = useRef<number>(0);
+
+  // Cloud Custom Media State (Battlemaps, Scenes, Portraits)
+  const [customMediaList, setCustomMediaList] = useState<GameRoomMediaItem[]>([]);
+  const [isLoadingCustomMedia, setIsLoadingCustomMedia] = useState<boolean>(false);
+
+  const loadCustomMedia = async (refresh: boolean = false) => {
+    setIsLoadingCustomMedia(true);
+    try {
+      const items = await fetchGameRoomMedia(activeCardId || undefined, refresh, isDevMode);
+      setCustomMediaList(items);
+    } catch (err) {
+      console.warn('Error loading custom media in GameRoomPage:', err);
+    } finally {
+      setIsLoadingCustomMedia(false);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomMedia(false);
+  }, [activeCardId, isDevMode]);
+
+  // Screen-specific categorized custom media
+  const customTableMaps = useMemo(() => {
+    return customMediaList.filter((m) => m.targetScreen === 'table' || m.type === 'map');
+  }, [customMediaList]);
+
+  const otherTableMedia = useMemo(() => {
+    return customMediaList.filter((m) => m.targetScreen !== 'table' && m.type !== 'map');
+  }, [customMediaList]);
+
+  const customWindowScenes = useMemo(() => {
+    return customMediaList.filter((m) => m.targetScreen === 'window' || m.type === 'video');
+  }, [customMediaList]);
+
+  const otherWindowMedia = useMemo(() => {
+    return customMediaList.filter((m) => m.targetScreen !== 'window' && m.type !== 'video');
+  }, [customMediaList]);
+
+  const customFramePortraits = useMemo(() => {
+    return customMediaList.filter((m) => m.targetScreen === 'frame' || m.type === 'portrait' || m.type === 'image');
+  }, [customMediaList]);
+
+  const otherFrameMedia = useMemo(() => {
+    return customMediaList.filter((m) => m.targetScreen !== 'frame' && m.type !== 'portrait' && m.type !== 'image');
+  }, [customMediaList]);
+
+  const [showOtherWindow, setShowOtherWindow] = useState<boolean>(false);
+  const [showOtherFrame, setShowOtherFrame] = useState<boolean>(false);
+  const [showOtherTable, setShowOtherTable] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (remoteSubTab === 'displays') {
+      loadCustomMedia(false);
+    }
+  }, [remoteSubTab]);
+
+  // Preset Cast Handlers
+  const castWindowPreset = (title: string, effectType: string) => {
+    setDisplayStatus((prev) => ({
+      ...prev,
+      windowTv: { online: true, currentScene: title },
+    }));
+    const payload = { type: 'weather', effect_type: effectType, title };
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'window', display: payload }));
+    }
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/display/window`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch((err) => console.warn('Cast window preset error:', err));
+    }
+    setTriggerNotice(`✨ Cast preset '${title}' onto 53" Window TV!`);
+    setTimeout(() => setTriggerNotice(null), 3500);
+  };
+
+  const castFramePreset = (title: string, src: string) => {
+    setDisplayStatus((prev) => ({
+      ...prev,
+      pictureFrame: { online: true, currentScene: title },
+    }));
+    const payload = { type: 'portrait', src, title };
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'frame', display: payload }));
+    }
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/display/frame`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch((err) => console.warn('Cast frame preset error:', err));
+    }
+    setTriggerNotice(`✨ Cast preset '${title}' onto Picture Frame!`);
+    setTimeout(() => setTriggerNotice(null), 3500);
+  };
+
+  const castTablePreset = (title: string, src: string) => {
+    setDisplayStatus((prev) => ({
+      ...prev,
+      tableProjector: { online: true, currentScene: title },
+    }));
+    const payload = { type: 'map', src, title, grid_enabled: true };
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'table', display: payload }));
+    }
+    if (serverUrl) {
+      fetch(`${serverUrl}/api/display/table`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch((err) => console.warn('Cast table preset error:', err));
+    }
+    setTriggerNotice(`✨ Cast preset '${title}' onto Tabletop Projector!`);
+    setTimeout(() => setTriggerNotice(null), 3500);
+  };
+
+  // Shared Screen Casting Handler
+  const castMediaToScreen = async (
+    screen: 'table' | 'window' | 'frame',
+    title: string,
+    src: string,
+    type: string = 'map'
+  ) => {
+    setDisplayStatus((prev) => ({
+      ...prev,
+      ...(screen === 'table' ? { tableProjector: { online: true, currentScene: title } } : {}),
+      ...(screen === 'window' ? { windowTv: { online: true, currentScene: title } } : {}),
+      ...(screen === 'frame' ? { pictureFrame: { online: true, currentScene: title } } : {}),
+    }));
+
+    const isVideo = type === 'video' || src.match(/\.(mp4|webm)$/i);
+    let directSrc = src;
+    if (isVideo && !directSrc.endsWith('.mp4') && !directSrc.endsWith('.webm')) {
+      directSrc += '#video.mp4';
+    }
+
+    let payload: any = {};
+    if (screen === 'table') {
+      payload = {
+        type: 'map',
+        title,
+        src: directSrc,
+        grid_enabled: true,
+      };
+    } else if (screen === 'window') {
+      payload = {
+        type: isVideo ? 'video' : 'image',
+        title,
+        src: directSrc,
+      };
+    } else if (screen === 'frame') {
+      payload = {
+        type: 'portrait',
+        title,
+        src: directSrc,
+      };
+    }
+
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'SET_DISPLAY', screen, display: payload }));
+    }
+
+    if (serverUrl) {
+      try {
+        await fetch(`${serverUrl}/api/display/${screen}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+      } catch (err) {
+        console.warn('Cast error:', err);
+      }
+    }
+
+    const screenLabel =
+      screen === 'table' ? 'Tabletop Projector' : screen === 'window' ? '53" Window TV' : 'Picture Frame';
+    setTriggerNotice(`✨ Cast '${title}' onto ${screenLabel}!`);
+    setTimeout(() => setTriggerNotice(null), 3500);
+  };
 
   // Load configured server URL from localStorage
   useEffect(() => {
@@ -1056,277 +1246,648 @@ export default function GameRoomPage() {
 
           {/* Sub-Tab 2: Screen Overrides */}
           {remoteSubTab === 'displays' && (
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
-              {/* Window TV */}
-              <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-sm text-stone-900 flex items-center gap-1.5">
-                    <Tv className="w-4 h-4 text-[#38bdf8]" />
-                    53" Window TV
-                  </span>
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
+            <div className="space-y-6">
+              {/* Screen Overrides & Cloud Media Header Bar */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-[#344ea2]/10 via-[#f16622]/5 to-transparent border border-[#344ea2]/20">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-[#344ea2] text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Layers className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm text-stone-900 flex items-center gap-2">
+                      <span>Physical Screen Overrides</span>
+                      <span className="text-[10px] bg-[#344ea2]/15 text-[#344ea2] font-semibold px-2 py-0.5 rounded-full">
+                        {customMediaList.length} Cloud Media Loaded
+                      </span>
+                    </div>
+                    <p className="text-xs text-stone-500">
+                      Cast your uploaded battlemaps, dynamic scenes, and portraits directly onto the chamber screens.
+                    </p>
+                  </div>
                 </div>
-                <div className="text-xs text-stone-500 mb-2">Current Window Atmosphere:</div>
-                <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 font-medium text-xs text-stone-800 mb-4">
-                  {displayStatus.windowTv.currentScene}
-                </div>
-                <div className="space-y-1.5 text-xs">
+                <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        windowTv: { online: true, currentScene: 'Rain on Castle Glass' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/window`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'weather', effect_type: 'rain', title: 'Rain on Castle Glass' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
+                    type="button"
+                    onClick={() => loadCustomMedia(true)}
+                    disabled={isLoadingCustomMedia}
+                    className="py-1.5 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 shadow-2xs"
+                    title="Refresh media from Google Drive database"
                   >
-                    🌧️ Rain on Castle Glass
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCustomMedia ? 'animate-spin' : ''}`} />
+                    <span>{isLoadingCustomMedia ? 'Refreshing...' : 'Refresh Media'}</span>
                   </button>
                   <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        windowTv: { online: true, currentScene: 'Midnight Tempest & Gale' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/window`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'weather', effect_type: 'tempest', title: 'Midnight Tempest & Gale' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
+                    type="button"
+                    onClick={() => setMainTab('media')}
+                    className="py-1.5 px-3 rounded-xl bg-[#f16622] hover:bg-[#d95516] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                    title="Upload new battlemap or portrait"
                   >
-                    ⚡ Midnight Tempest & Gale
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        windowTv: { online: true, currentScene: 'Tavern Village Sunset' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/window`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'weather', effect_type: 'sunset', title: 'Tavern Village Sunset' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🌇 Tavern Village Sunset
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        windowTv: { online: true, currentScene: 'Inferno Skies & Embers' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/window`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'weather', effect_type: 'inferno', title: 'Inferno Skies & Embers' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🔥 Inferno Skies & Embers
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Upload New Media</span>
                   </button>
                 </div>
               </div>
 
-              {/* Picture Frame */}
-              <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-sm text-stone-900 flex items-center gap-1.5">
-                    <ImageIcon className="w-4 h-4 text-amber-500" />
-                    Picture Frame
-                  </span>
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
-                </div>
-                <div className="text-xs text-stone-500 mb-2">Current Portrait:</div>
-                <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 font-medium text-xs text-stone-800 mb-4">
-                  {displayStatus.pictureFrame.currentScene}
-                </div>
-                <div className="space-y-1.5 text-xs">
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        pictureFrame: { online: true, currentScene: 'Archmage Ignis (Wise Wizard)' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/frame`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/archmage.svg', title: 'Archmage Ignis' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🧙 Archmage Ignis
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        pictureFrame: { online: true, currentScene: 'Barnaby the Barkeep' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/frame`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/barkeep.svg', title: 'Barnaby the Barkeep' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🍺 Barnaby the Barkeep
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        pictureFrame: { online: true, currentScene: 'Vermithrax the Red Dragon' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/frame`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/dragon.svg', title: 'Vermithrax the Red Dragon' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🐉 Vermithrax the Red Dragon
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        pictureFrame: { online: true, currentScene: 'Queen Titania (Summer Court)' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/frame`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'portrait', src: '/static/media/frames/fey.svg', title: 'Queen Titania' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🧚 Queen Titania
-                  </button>
-                </div>
-              </div>
+              {/* 3 Physical Screens Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                {/* 1. 53" Window TV */}
+                <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-semibold text-sm text-stone-900 flex items-center gap-1.5">
+                        <Tv className="w-4 h-4 text-[#38bdf8]" />
+                        53" Window TV
+                      </span>
+                      <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        Active
+                      </span>
+                    </div>
+                    <div className="text-xs text-stone-500 mb-1.5 font-medium">Current Window Atmosphere:</div>
+                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 font-medium text-xs text-stone-800 mb-4 flex items-center justify-between">
+                      <span className="truncate">{displayStatus.windowTv.currentScene}</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ml-2" />
+                    </div>
 
-              {/* Tabletop Projector */}
-              <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-semibold text-sm text-stone-900 flex items-center gap-1.5">
-                    <Map className="w-4 h-4 text-emerald-500" />
-                    Table Projector
-                  </span>
-                  <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-                    Active
-                  </span>
+                    {/* Custom Uploaded Window Media */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                          <UploadCloud className="w-3.5 h-3.5 text-[#344ea2]" />
+                          <span>Custom Window Media ({customWindowScenes.length})</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMainTab('media')}
+                          className="text-[11px] text-[#f16622] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Upload</span>
+                        </button>
+                      </div>
+
+                      {customWindowScenes.length > 0 ? (
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          {customWindowScenes.map((item: GameRoomMediaItem) => {
+                            const isCurrent = displayStatus.windowTv.currentScene === item.title;
+                            return (
+                              <div
+                                key={item.id || item.fileId}
+                                className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
+                                  isCurrent
+                                    ? 'bg-emerald-50/70 border-emerald-400 shadow-2xs'
+                                    : 'bg-stone-50 hover:bg-stone-100/80 border-stone-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-stone-200 shrink-0 border border-stone-300 relative flex items-center justify-center">
+                                    {item.url ? (
+                                      <img
+                                        src={item.url}
+                                        alt={item.title}
+                                        className="w-full h-full object-cover"
+                                        crossOrigin="anonymous"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <Tv className="w-5 h-5 text-stone-500" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-xs text-stone-900 truncate flex items-center gap-1.5">
+                                      <span className="truncate">{item.title}</span>
+                                      {item.visibility === 'private' ? (
+                                        <span className="text-[9px] text-amber-700 bg-amber-100/70 px-1 py-0.2 rounded font-medium shrink-0">
+                                          <Lock className="w-2.5 h-2.5 inline mr-0.5" />Me
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] text-emerald-700 bg-emerald-100/70 px-1 py-0.2 rounded font-medium shrink-0">
+                                          <Globe className="w-2.5 h-2.5 inline mr-0.5" />All
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-stone-500 truncate">
+                                      {item.uploaderName ? `By ${item.uploaderName}` : 'Custom Scene'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0">
+                                  {isCurrent ? (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>Active</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => castMediaToScreen('window', item.title, item.url, item.type)}
+                                      className="py-1 px-2.5 rounded-lg bg-[#344ea2] hover:bg-[#2b4085] text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    >
+                                      <Play className="w-3 h-3 fill-current" />
+                                      <span>Cast</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-center space-y-1">
+                          <div className="text-xs text-stone-500">No custom window scenes uploaded yet.</div>
+                          <button
+                            type="button"
+                            onClick={() => setMainTab('media')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#f16622] hover:underline cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Upload a Scene</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Expandable Other Uploads */}
+                      {otherWindowMedia.length > 0 && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowOtherWindow((prev) => !prev)}
+                            className="text-[11px] font-semibold text-stone-500 hover:text-stone-800 flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {showOtherWindow ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            <span>{showOtherWindow ? 'Hide other media' : `Show all uploaded media (${otherWindowMedia.length})`}</span>
+                          </button>
+                          {showOtherWindow && (
+                            <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1">
+                              {otherWindowMedia.map((item: GameRoomMediaItem) => (
+                                <div
+                                  key={item.id || item.fileId}
+                                  className="p-2 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <div className="truncate min-w-0">
+                                    <div className="font-semibold truncate text-stone-800">{item.title}</div>
+                                    <div className="text-[10px] text-stone-400 capitalize">{item.type}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => castMediaToScreen('window', item.title, item.url, item.type)}
+                                    className="py-1 px-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 font-semibold text-[10px] shrink-0 cursor-pointer"
+                                  >
+                                    Cast to Window
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Standard Weather Presets */}
+                    <div className="pt-3 border-t border-stone-200">
+                      <div className="text-xs font-bold text-stone-700 mb-2">Chamber Atmosphere Presets:</div>
+                      <div className="space-y-1.5 text-xs">
+                        <button
+                          onClick={() => castWindowPreset('Rain on Castle Glass', 'rain')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🌧️ Rain on Castle Glass</span>
+                          {displayStatus.windowTv.currentScene === 'Rain on Castle Glass' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castWindowPreset('Midnight Tempest & Gale', 'tempest')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>⚡ Midnight Tempest & Gale</span>
+                          {displayStatus.windowTv.currentScene === 'Midnight Tempest & Gale' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castWindowPreset('Tavern Village Sunset', 'sunset')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🌇 Tavern Village Sunset</span>
+                          {displayStatus.windowTv.currentScene === 'Tavern Village Sunset' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castWindowPreset('Inferno Skies & Embers', 'inferno')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🔥 Inferno Skies & Embers</span>
+                          {displayStatus.windowTv.currentScene === 'Inferno Skies & Embers' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-xs text-stone-500 mb-2">Current Tabletop Map:</div>
-                <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 font-medium text-xs text-stone-800 mb-4">
-                  {displayStatus.tableProjector.currentScene}
+
+                {/* 2. Picture Frame */}
+                <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-semibold text-sm text-stone-900 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-amber-500" />
+                        Picture Frame
+                      </span>
+                      <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        Active
+                      </span>
+                    </div>
+                    <div className="text-xs text-stone-500 mb-1.5 font-medium">Current Portrait:</div>
+                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 font-medium text-xs text-stone-800 mb-4 flex items-center justify-between">
+                      <span className="truncate">{displayStatus.pictureFrame.currentScene}</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ml-2" />
+                    </div>
+
+                    {/* Custom Uploaded Portraits */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                          <UploadCloud className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Custom Portraits ({customFramePortraits.length})</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMainTab('media')}
+                          className="text-[11px] text-[#f16622] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Upload</span>
+                        </button>
+                      </div>
+
+                      {customFramePortraits.length > 0 ? (
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          {customFramePortraits.map((item: GameRoomMediaItem) => {
+                            const isCurrent = displayStatus.pictureFrame.currentScene === item.title;
+                            return (
+                              <div
+                                key={item.id || item.fileId}
+                                className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
+                                  isCurrent
+                                    ? 'bg-emerald-50/70 border-emerald-400 shadow-2xs'
+                                    : 'bg-stone-50 hover:bg-stone-100/80 border-stone-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-stone-200 shrink-0 border border-stone-300 relative flex items-center justify-center">
+                                    {item.url ? (
+                                      <img
+                                        src={item.url}
+                                        alt={item.title}
+                                        className="w-full h-full object-cover"
+                                        crossOrigin="anonymous"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <ImageIcon className="w-5 h-5 text-stone-500" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-xs text-stone-900 truncate flex items-center gap-1.5">
+                                      <span className="truncate">{item.title}</span>
+                                      {item.visibility === 'private' ? (
+                                        <span className="text-[9px] text-amber-700 bg-amber-100/70 px-1 py-0.2 rounded font-medium shrink-0">
+                                          <Lock className="w-2.5 h-2.5 inline mr-0.5" />Me
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] text-emerald-700 bg-emerald-100/70 px-1 py-0.2 rounded font-medium shrink-0">
+                                          <Globe className="w-2.5 h-2.5 inline mr-0.5" />All
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-stone-500 truncate">
+                                      {item.uploaderName ? `By ${item.uploaderName}` : 'Custom Portrait'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0">
+                                  {isCurrent ? (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>Active</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => castMediaToScreen('frame', item.title, item.url, item.type)}
+                                      className="py-1 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    >
+                                      <Play className="w-3 h-3 fill-current" />
+                                      <span>Cast</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-center space-y-1">
+                          <div className="text-xs text-stone-500">No custom portraits uploaded yet.</div>
+                          <button
+                            type="button"
+                            onClick={() => setMainTab('media')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#f16622] hover:underline cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Upload a Portrait</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Expandable Other Uploads */}
+                      {otherFrameMedia.length > 0 && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowOtherFrame((prev) => !prev)}
+                            className="text-[11px] font-semibold text-stone-500 hover:text-stone-800 flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {showOtherFrame ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            <span>{showOtherFrame ? 'Hide other media' : `Show all uploaded media (${otherFrameMedia.length})`}</span>
+                          </button>
+                          {showOtherFrame && (
+                            <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1">
+                              {otherFrameMedia.map((item: GameRoomMediaItem) => (
+                                <div
+                                  key={item.id || item.fileId}
+                                  className="p-2 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <div className="truncate min-w-0">
+                                    <div className="font-semibold truncate text-stone-800">{item.title}</div>
+                                    <div className="text-[10px] text-stone-400 capitalize">{item.type}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => castMediaToScreen('frame', item.title, item.url, item.type)}
+                                    className="py-1 px-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 font-semibold text-[10px] shrink-0 cursor-pointer"
+                                  >
+                                    Cast to Frame
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Standard Frame Presets */}
+                    <div className="pt-3 border-t border-stone-200">
+                      <div className="text-xs font-bold text-stone-700 mb-2">Chamber Portrait Presets:</div>
+                      <div className="space-y-1.5 text-xs">
+                        <button
+                          onClick={() => castFramePreset('Archmage Ignis (Wise Wizard)', '/static/media/frames/archmage.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🧙 Archmage Ignis</span>
+                          {displayStatus.pictureFrame.currentScene === 'Archmage Ignis (Wise Wizard)' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castFramePreset('Barnaby the Barkeep', '/static/media/frames/barkeep.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🍺 Barnaby the Barkeep</span>
+                          {displayStatus.pictureFrame.currentScene === 'Barnaby the Barkeep' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castFramePreset('Vermithrax the Red Dragon', '/static/media/frames/dragon.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🐉 Vermithrax the Red Dragon</span>
+                          {displayStatus.pictureFrame.currentScene === 'Vermithrax the Red Dragon' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castFramePreset('Queen Titania (Summer Court)', '/static/media/frames/fey.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🧚 Queen Titania</span>
+                          {displayStatus.pictureFrame.currentScene === 'Queen Titania (Summer Court)' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="space-y-1.5 text-xs">
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        tableProjector: { online: true, currentScene: 'The Arcane Library Map' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/table`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/library.svg', title: 'The Arcane Library Map' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🗺️ The Arcane Library Map
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        tableProjector: { online: true, currentScene: 'Tavern Main Hall Map' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/table`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/tavern.svg', title: 'Tavern Main Hall Map' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🍻 Tavern Main Hall Map
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        tableProjector: { online: true, currentScene: 'Volcanic Caldera Arena' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/table`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/volcano.svg', title: 'Volcanic Caldera Arena' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🌋 Volcanic Caldera Arena
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDisplayStatus({
-                        ...displayStatus,
-                        tableProjector: { online: true, currentScene: 'Flooded Crypt Map' },
-                      });
-                      if (serverUrl) {
-                        fetch(`${serverUrl}/api/display/table`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: 'map', src: '/static/media/tables/crypt.svg', title: 'Flooded Crypt Map' }),
-                        });
-                      }
-                    }}
-                    className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer"
-                  >
-                    🌊 Flooded Crypt Map
-                  </button>
+
+                {/* 3. Tabletop Projector */}
+                <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-xs flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-semibold text-sm text-stone-900 flex items-center gap-1.5">
+                        <Map className="w-4 h-4 text-emerald-500" />
+                        Table Projector
+                      </span>
+                      <span className="text-[10px] uppercase font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                        Active
+                      </span>
+                    </div>
+                    <div className="text-xs text-stone-500 mb-1.5 font-medium">Current Tabletop Map:</div>
+                    <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 font-medium text-xs text-stone-800 mb-4 flex items-center justify-between">
+                      <span className="truncate">{displayStatus.tableProjector.currentScene}</span>
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0 ml-2" />
+                    </div>
+
+                    {/* Custom Uploaded Battlemaps */}
+                    <div className="mb-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                          <UploadCloud className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Custom Battlemaps ({customTableMaps.length})</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setMainTab('media')}
+                          className="text-[11px] text-[#f16622] hover:underline font-semibold flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>Upload</span>
+                        </button>
+                      </div>
+
+                      {customTableMaps.length > 0 ? (
+                        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                          {customTableMaps.map((item: GameRoomMediaItem) => {
+                            const isCurrent = displayStatus.tableProjector.currentScene === item.title;
+                            return (
+                              <div
+                                key={item.id || item.fileId}
+                                className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
+                                  isCurrent
+                                    ? 'bg-emerald-50/70 border-emerald-400 shadow-2xs'
+                                    : 'bg-stone-50 hover:bg-stone-100/80 border-stone-200'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-stone-200 shrink-0 border border-stone-300 relative flex items-center justify-center">
+                                    {item.url ? (
+                                      <img
+                                        src={item.url}
+                                        alt={item.title}
+                                        className="w-full h-full object-cover"
+                                        crossOrigin="anonymous"
+                                        onError={(e) => {
+                                          (e.target as HTMLElement).style.display = 'none';
+                                        }}
+                                      />
+                                    ) : (
+                                      <Map className="w-5 h-5 text-stone-500" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <div className="font-semibold text-xs text-stone-900 truncate flex items-center gap-1.5">
+                                      <span className="truncate">{item.title}</span>
+                                      {item.visibility === 'private' ? (
+                                        <span className="text-[9px] text-amber-700 bg-amber-100/70 px-1 py-0.2 rounded font-medium shrink-0">
+                                          <Lock className="w-2.5 h-2.5 inline mr-0.5" />Me
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] text-emerald-700 bg-emerald-100/70 px-1 py-0.2 rounded font-medium shrink-0">
+                                          <Globe className="w-2.5 h-2.5 inline mr-0.5" />All
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div className="text-[10px] text-stone-500 truncate">
+                                      {item.uploaderName ? `By ${item.uploaderName}` : 'Custom Battlemap'}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="shrink-0">
+                                  {isCurrent ? (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                      <span>Active</span>
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => castMediaToScreen('table', item.title, item.url, item.type)}
+                                      className="py-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
+                                    >
+                                      <Play className="w-3 h-3 fill-current" />
+                                      <span>Cast</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-xl bg-stone-50 border border-dashed border-stone-300 text-center space-y-1">
+                          <div className="text-xs text-stone-500">No custom battlemaps uploaded yet.</div>
+                          <button
+                            type="button"
+                            onClick={() => setMainTab('media')}
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#f16622] hover:underline cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>Upload a Battlemap</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Expandable Other Uploads */}
+                      {otherTableMedia.length > 0 && (
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowOtherTable((prev) => !prev)}
+                            className="text-[11px] font-semibold text-stone-500 hover:text-stone-800 flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            {showOtherTable ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                            <span>{showOtherTable ? 'Hide other media' : `Show all uploaded media (${otherTableMedia.length})`}</span>
+                          </button>
+                          {showOtherTable && (
+                            <div className="mt-2 space-y-2 max-h-48 overflow-y-auto pr-1">
+                              {otherTableMedia.map((item: GameRoomMediaItem) => (
+                                <div
+                                  key={item.id || item.fileId}
+                                  className="p-2 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between gap-2 text-xs"
+                                >
+                                  <div className="truncate min-w-0">
+                                    <div className="font-semibold truncate text-stone-800">{item.title}</div>
+                                    <div className="text-[10px] text-stone-400 capitalize">{item.type}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => castMediaToScreen('table', item.title, item.url, item.type)}
+                                    className="py-1 px-2 rounded-lg bg-stone-200 hover:bg-stone-300 text-stone-800 font-semibold text-[10px] shrink-0 cursor-pointer"
+                                  >
+                                    Cast to Table
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Standard Table Presets */}
+                    <div className="pt-3 border-t border-stone-200">
+                      <div className="text-xs font-bold text-stone-700 mb-2">Chamber Battlemap Presets:</div>
+                      <div className="space-y-1.5 text-xs">
+                        <button
+                          onClick={() => castTablePreset('The Arcane Library Map', '/static/media/tables/library.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🗺️ The Arcane Library Map</span>
+                          {displayStatus.tableProjector.currentScene === 'The Arcane Library Map' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castTablePreset('Tavern Main Hall Map', '/static/media/tables/tavern.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🍻 Tavern Main Hall Map</span>
+                          {displayStatus.tableProjector.currentScene === 'Tavern Main Hall Map' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castTablePreset('Volcanic Caldera Arena', '/static/media/tables/volcano.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🌋 Volcanic Caldera Arena</span>
+                          {displayStatus.tableProjector.currentScene === 'Volcanic Caldera Arena' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => castTablePreset('Flooded Crypt Map', '/static/media/tables/crypt.svg')}
+                          className="w-full text-left p-2 rounded-lg hover:bg-stone-100 text-stone-700 transition-colors cursor-pointer flex items-center justify-between"
+                        >
+                          <span>🌊 Flooded Crypt Map</span>
+                          {displayStatus.tableProjector.currentScene === 'Flooded Crypt Map' && (
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1395,6 +1956,15 @@ export default function GameRoomPage() {
                 cardId={activeCardId}
                 userName={currentUserName}
                 isDevMode={isDevMode}
+                onDisplayChanged={(screen, title) => {
+                  setDisplayStatus((prev) => ({
+                    ...prev,
+                    ...(screen === 'table' ? { tableProjector: { online: true, currentScene: title } } : {}),
+                    ...(screen === 'window' ? { windowTv: { online: true, currentScene: title } } : {}),
+                    ...(screen === 'frame' ? { pictureFrame: { online: true, currentScene: title } } : {}),
+                  }));
+                }}
+                onMediaUpdated={() => loadCustomMedia(true)}
                 onNotification={(msg) => {
                   setTriggerNotice(msg);
                   setTimeout(() => setTriggerNotice(null), 3500);
@@ -1413,6 +1983,15 @@ export default function GameRoomPage() {
                 cardId={activeCardId}
                 userName={currentUserName}
                 isDevMode={isDevMode}
+                onDisplayChanged={(screen, title) => {
+                  setDisplayStatus((prev) => ({
+                    ...prev,
+                    ...(screen === 'table' ? { tableProjector: { online: true, currentScene: title } } : {}),
+                    ...(screen === 'window' ? { windowTv: { online: true, currentScene: title } } : {}),
+                    ...(screen === 'frame' ? { pictureFrame: { online: true, currentScene: title } } : {}),
+                  }));
+                }}
+                onMediaUpdated={() => loadCustomMedia(true)}
                 onNotification={(msg) => {
                   setTriggerNotice(msg);
                   setTimeout(() => setTriggerNotice(null), 3500);
@@ -1469,6 +2048,15 @@ export default function GameRoomPage() {
             cardId={activeCardId}
             userName={currentUserName}
             isDevMode={isDevMode}
+            onDisplayChanged={(screen, title) => {
+              setDisplayStatus((prev) => ({
+                ...prev,
+                ...(screen === 'table' ? { tableProjector: { online: true, currentScene: title } } : {}),
+                ...(screen === 'window' ? { windowTv: { online: true, currentScene: title } } : {}),
+                ...(screen === 'frame' ? { pictureFrame: { online: true, currentScene: title } } : {}),
+              }));
+            }}
+            onMediaUpdated={() => loadCustomMedia(true)}
             onNotification={(msg) => {
               setTriggerNotice(msg);
               setTimeout(() => setTriggerNotice(null), 3500);
