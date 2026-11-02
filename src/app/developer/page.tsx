@@ -49,6 +49,10 @@ import {
   setCostumeContestStatus,
   updateMemberStoreBalance,
   MAX_STORE_TAB_LIMIT,
+  fetchStoreItemsFromSheet,
+  fetchStoreItems,
+  STORE_BALANCE_FIELD_ID,
+  STORE_CAMPAIGN_CODE,
 } from '@/lib/neon';
 import { APP_VERSION } from '@/lib/version';
 
@@ -270,16 +274,44 @@ export default function DeveloperPage() {
   const [storeConfigSaved, setStoreConfigSaved] = useState(false);
   const [isUpdatingTestBalance, setIsUpdatingTestBalance] = useState(false);
   const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
+  const [sheetItemCount, setSheetItemCount] = useState<number | null>(null);
+  const [isSyncingSheetDev, setIsSyncingSheetDev] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      setBalanceFieldId(localStorage.getItem('sm_neon_balance_field_id') || '');
+      setBalanceFieldId(localStorage.getItem('sm_neon_balance_field_id') || STORE_BALANCE_FIELD_ID);
       setDonationBaseUrl(
         localStorage.getItem('sm_neon_donation_base_url') ||
           'https://socialmedium.z2systems.com/np/clients/socialmedium/donation.jsp'
       );
+      const fromSheet = localStorage.getItem('sm_store_sheet_items');
+      if (fromSheet) {
+        try {
+          const parsed = JSON.parse(fromSheet);
+          if (Array.isArray(parsed)) setSheetItemCount(parsed.length);
+        } catch (_) {}
+      }
     }
   }, []);
+
+  const handleDevSyncSheet = async () => {
+    setIsSyncingSheetDev(true);
+    setBalanceNotice(null);
+    try {
+      const items = await fetchStoreItemsFromSheet();
+      if (items && items.length > 0) {
+        setSheetItemCount(items.length);
+        setBalanceNotice(`Successfully synced ${items.length} items from Google Sheet "Store_Items"!`);
+      } else {
+        setBalanceNotice('Google Sheet tab "Store_Items" not found or has no active rows. Add tab to SM App Database.');
+      }
+    } catch (e: any) {
+      setBalanceNotice(`Error syncing sheet: ${e.message}`);
+    } finally {
+      setIsSyncingSheetDev(false);
+      setTimeout(() => setBalanceNotice(null), 4000);
+    }
+  };
 
   const handleSaveStoreConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1292,13 +1324,31 @@ export default function DeveloperPage() {
             <div className="lg:col-span-7 space-y-6">
               {/* Form 1: Neon One Custom Field Binding */}
               <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
-                <div>
-                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
-                    Neon One CRM Field Integration
-                  </h3>
-                  <p className="text-stone-500 text-xs mt-0.5">
-                    Connect the makerspace app to your Neon One account custom fields.
-                  </p>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                      Neon One CRM Field & Campaign Integration
+                    </h3>
+                    <p className="text-stone-500 text-xs mt-0.5">
+                      Connected to Neon One CRM custom account field and fundraising campaign.
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                    Connected
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-1">
+                    <span className="text-[11px] font-bold text-stone-500 block uppercase tracking-wider">Custom Account Field</span>
+                    <div className="font-bold text-stone-900">Store Balance (ID: 119)</div>
+                    <div className="text-[11px] text-emerald-700 font-medium">✓ Currency field in Neon CRM</div>
+                  </div>
+                  <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 space-y-1">
+                    <span className="text-[11px] font-bold text-stone-500 block uppercase tracking-wider">Donation Campaign</span>
+                    <div className="font-bold text-stone-900">Store (Code: STORE)</div>
+                    <div className="text-[11px] text-emerald-700 font-medium">✓ ID 1 active in Neon CRM</div>
+                  </div>
                 </div>
 
                 <form onSubmit={handleSaveStoreConfig} className="space-y-4 text-xs">
@@ -1310,11 +1360,11 @@ export default function DeveloperPage() {
                       type="text"
                       value={balanceFieldId}
                       onChange={(e) => setBalanceFieldId(e.target.value)}
-                      placeholder='e.g. 142 or Store_Balance (Leave empty for auto-discovery)'
+                      placeholder='119'
                       className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 font-mono text-xs focus:bg-white focus:border-[#3bc0cd]"
                     />
                     <p className="text-[11px] text-stone-500 mt-1">
-                      If left blank, the app scans member profiles for any field named <strong>&quot;Store Balance&quot;</strong>, <strong>&quot;Wallet&quot;</strong>, or <strong>&quot;Tab Balance&quot;</strong>. If no field is created yet, balances default safely to <strong>$0.00</strong> with local browser caching.
+                      Default is <strong>119</strong> (Store Balance). The app automatically reads and updates this custom field during self-checkout.
                     </p>
                   </div>
 
@@ -1330,7 +1380,7 @@ export default function DeveloperPage() {
                       className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs focus:bg-white focus:border-[#3bc0cd]"
                     />
                     <p className="text-[11px] text-stone-500 mt-1">
-                      When members top up their wallet or settle a tab debt, they are redirected to this form with their exact amount and account pre-filled.
+                      Campaign parameters (<code>campaign=STORE</code>, <code>campaign.id=1</code>) and account ID are appended automatically.
                     </p>
                   </div>
 
@@ -1344,20 +1394,78 @@ export default function DeveloperPage() {
                     </button>
                   </div>
                 </form>
+              </div>
 
-                {/* Setup Instructions */}
-                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-300/40 text-stone-800 text-xs space-y-2">
-                  <div className="font-bold flex items-center gap-1.5 text-amber-950">
-                    <Sliders className="w-4 h-4 text-amber-700" />
-                    <span>How to set up the field in Neon One:</span>
+              {/* Card: Google Sheet Database (Store_Items) */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center font-bold">
+                      <Database className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                        Google Sheet Inventory Database
+                      </h3>
+                      <p className="text-stone-500 text-xs">
+                        SM App Database spreadsheet &gt; tab <code>Store_Items</code>
+                      </p>
+                    </div>
                   </div>
-                  <ol className="list-decimal list-inside space-y-1 text-stone-700 pl-1">
-                    <li>Log into your Neon CRM admin portal.</li>
-                    <li>Go to <strong>Settings</strong> &gt; <strong>Custom Fields</strong> &gt; <strong>Accounts</strong>.</li>
-                    <li>Click <strong>New Custom Field</strong> with Name: <code>Store Balance</code>, Type: <code>Currency</code> or <code>Number</code>.</li>
-                    <li>Once saved, the app will automatically read and update members&apos; balances on checkout!</li>
-                  </ol>
+
+                  <a
+                    href="https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/edit"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-xs font-semibold text-stone-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <span>Open Sheet</span>
+                    <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
+                  </a>
                 </div>
+
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-600 font-semibold">Spreadsheet:</span>
+                    <span className="font-mono text-stone-800">SM App Database</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-600 font-semibold">Target Tab Name:</span>
+                    <code className="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-mono font-bold">Store_Items</code>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-stone-600 font-semibold">Live Status:</span>
+                    <span className={`font-semibold ${sheetItemCount ? 'text-emerald-700' : 'text-stone-500'}`}>
+                      {sheetItemCount ? `Connected (${sheetItemCount} items loaded)` : 'Standard Fallback Catalog'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/80 text-emerald-950 text-xs space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-emerald-900">
+                    <Sliders className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>How to set up your Store Items tab in the spreadsheet:</span>
+                  </div>
+                  <p className="text-[11px] text-emerald-900/90 leading-relaxed">
+                    Create a new tab named <strong>Store_Items</strong> in the SM App Database Google Sheet with these column headers in row 1:
+                  </p>
+                  <div className="p-2 rounded-xl bg-white border border-emerald-300 font-mono text-[10px] text-stone-800 overflow-x-auto">
+                    Name, Category, Price, Description, Icon, Active
+                  </div>
+                  <p className="text-[10px] text-stone-500">
+                    Categories: <code>drink</code>, <code>snack</code>, <code>electronics</code>, <code>materials</code>. Price is your suggested donation amount (e.g. 1.50, 7.00).
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleDevSyncSheet}
+                  disabled={isSyncingSheetDev}
+                  className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingSheetDev ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingSheetDev ? 'Fetching from Google Sheet...' : 'Sync from Google Sheet Now'}</span>
+                </button>
               </div>
 
               {/* Safety Architecture Box */}

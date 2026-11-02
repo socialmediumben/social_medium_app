@@ -19,12 +19,14 @@ import {
   Receipt,
   HelpCircle,
   Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
 import { getGreetingName, StoreItem, StoreCartItem } from '@/lib/types';
 import {
   fetchStoreItems,
+  fetchStoreItemsFromSheet,
   updateMemberStoreBalance,
   getNeonDonationUrl,
   MAX_STORE_TAB_LIMIT,
@@ -40,16 +42,57 @@ export default function StoreAndDonatePage() {
   const [cart, setCart] = useState<StoreCartItem[]>([]);
   const [isProcessingCheckout, setIsProcessingCheckout] = useState(false);
   const [checkoutNotice, setCheckoutNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [isSheetSynced, setIsSheetSynced] = useState(false);
+  const [isRefreshingSheet, setIsRefreshingSheet] = useState(false);
 
   // Custom Item Form
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [showCustomModal, setShowCustomModal] = useState(false);
 
-  // Load Store Items on mount
+  // Load Store Items on mount (cached first, then live from Google Sheet)
   useEffect(() => {
     setStoreItems(fetchStoreItems());
+    if (typeof window !== 'undefined' && localStorage.getItem('sm_store_sheet_items')) {
+      setIsSheetSynced(true);
+    }
+
+    // Background sync from SM App Database Google Sheet
+    fetchStoreItemsFromSheet().then((sheetItems) => {
+      if (sheetItems && sheetItems.length > 0) {
+        setStoreItems(sheetItems);
+        setIsSheetSynced(true);
+      }
+    });
   }, []);
+
+  const handleManualSheetSync = async () => {
+    setIsRefreshingSheet(true);
+    try {
+      const items = await fetchStoreItemsFromSheet();
+      if (items && items.length > 0) {
+        setStoreItems(items);
+        setIsSheetSynced(true);
+        setCheckoutNotice({
+          type: 'success',
+          text: `Successfully synced ${items.length} items from Google Sheet "Store_Items"!`,
+        });
+      } else {
+        setCheckoutNotice({
+          type: 'error',
+          text: 'Google Sheet "Store_Items" tab not found or has no active rows. Using standard catalog.',
+        });
+      }
+    } catch (_) {
+      setCheckoutNotice({
+        type: 'error',
+        text: 'Error connecting to Google Sheet. Check network connection.',
+      });
+    } finally {
+      setIsRefreshingSheet(false);
+      setTimeout(() => setCheckoutNotice(null), 4000);
+    }
+  };
 
   const balance = member?.storeBalance ?? 0;
   const isTab = balance < 0;
@@ -287,14 +330,14 @@ export default function StoreAndDonatePage() {
                       </a>
                     )}
                     <a
-                      href={getNeonDonationUrl('top_up', 20, member.accountId)}
+                      href={getNeonDonationUrl('top_up', 25, member.accountId)}
                       target="_blank"
                       rel="noreferrer"
                       className="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                      title="Add funds / buy gift card credit via Neon One"
+                      title="Add $25.00 funds / buy gift card credit via Neon One"
                     >
                       <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Top Up Wallet</span>
+                      <span>Top Up Wallet ($25.00)</span>
                       <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
                     </a>
                   </div>
@@ -397,6 +440,37 @@ export default function StoreAndDonatePage() {
                   <Plus className="w-3.5 h-3.5" />
                   <span>Custom Item</span>
                 </button>
+              </div>
+
+              {/* Inventory Sync Bar */}
+              <div className="flex items-center justify-between text-xs text-stone-500 px-1 pt-1">
+                <span className="font-medium text-stone-600">
+                  Showing {filteredItems.length} {filteredItems.length === 1 ? 'item' : 'items'}
+                </span>
+                {isSheetSynced ? (
+                  <button
+                    type="button"
+                    onClick={handleManualSheetSync}
+                    disabled={isRefreshingSheet}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer"
+                    title="Click to re-fetch live store items from Google Sheet"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    <span>SM App Database Live</span>
+                    <RefreshCw className={`w-3 h-3 ${isRefreshingSheet ? 'animate-spin' : ''}`} />
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleManualSheetSync}
+                    disabled={isRefreshingSheet}
+                    className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 border border-stone-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer"
+                    title="Check Google Sheet for Store_Items tab"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isRefreshingSheet ? 'animate-spin' : ''}`} />
+                    <span>Sync Google Sheet</span>
+                  </button>
+                )}
               </div>
 
               {/* Items Grid */}

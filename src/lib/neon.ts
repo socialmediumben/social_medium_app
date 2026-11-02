@@ -187,9 +187,10 @@ export async function fetchMemberProfileByAccountId(
       const fieldId = String(field.id);
       const fieldName = (field.name || '').toLowerCase();
 
-      // Store Balance / Wallet / Tab (Field matching name or configured ID)
+      // Store Balance / Wallet / Tab (Field matching ID 119, configured ID, or name)
       const configuredBalanceFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_balance_field_id') : null;
       if (
+        fieldId === '119' ||
         (configuredBalanceFieldId && fieldId === configuredBalanceFieldId) ||
         fieldName.includes('store balance') ||
         fieldName.includes('wallet') ||
@@ -197,6 +198,11 @@ export async function fetchMemberProfileByAccountId(
         fieldName.includes('tab balance') ||
         fieldName === 'balance'
       ) {
+        if (typeof window !== 'undefined' && fieldId) {
+          try {
+            localStorage.setItem('sm_neon_balance_field_id', fieldId);
+          } catch (_) {}
+        }
         if (field.value !== undefined && field.value !== null) {
           const num = parseFloat(String(field.value).replace(/[^0-9.-]/g, ''));
           if (!isNaN(num)) {
@@ -1245,10 +1251,13 @@ export async function fetchCostumeContest(
 
     if (data.visibility && typeof window !== 'undefined') {
       try {
-        const prev = localStorage.getItem('sm_contest_visibility');
-        if (prev !== data.visibility) {
-          localStorage.setItem('sm_contest_visibility', data.visibility);
-          window.dispatchEvent(new CustomEvent('contest_visibility_changed', { detail: data.visibility }));
+        const isLocked = localStorage.getItem('sm_contest_visibility_locked') === 'true';
+        if (!isLocked) {
+          const prev = localStorage.getItem('sm_contest_visibility');
+          if (prev !== data.visibility) {
+            localStorage.setItem('sm_contest_visibility', data.visibility);
+            window.dispatchEvent(new CustomEvent('contest_visibility_changed', { detail: data.visibility }));
+          }
         }
       } catch (_) {}
     }
@@ -1269,6 +1278,7 @@ export async function setCostumeContestVisibility(
   if (typeof window !== 'undefined') {
     try {
       localStorage.setItem('sm_contest_visibility', visibility);
+      localStorage.setItem('sm_contest_visibility_locked', 'true');
       window.dispatchEvent(new CustomEvent('contest_visibility_changed', { detail: visibility }));
     } catch (_) {}
   }
@@ -1548,12 +1558,141 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   },
 ];
 
+export const GOOGLE_SHEET_STORE_ITEMS_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Store_Items';
+
+export const STORE_BALANCE_FIELD_ID = '119';
+export const STORE_CAMPAIGN_ID = '1';
+export const STORE_CAMPAIGN_CODE = 'STORE';
+
 /**
- * Retrieves the store items, merging default catalog with any developer/staff customizations.
+ * Fetches store items directly from the permanent SM App Database Google Sheet ("Store_Items" tab).
+ * Supports columns: Name / Item_Name, Category, Price / Suggested_Donation, Description, Icon, Active
+ */
+export async function fetchStoreItemsFromSheet(): Promise<StoreItem[]> {
+  try {
+    const res = await fetch(`${GOOGLE_SHEET_STORE_ITEMS_CSV_URL}&_t=${Date.now()}`);
+    if (!res.ok) return [];
+    const text = await res.text();
+    const rows = parseCsv(text);
+    if (!rows || rows.length < 2) return [];
+
+    const header = rows[0].map((h) => String(h || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+    let nameIdx = -1;
+    let catIdx = -1;
+    let priceIdx = -1;
+    let descIdx = -1;
+    let iconIdx = -1;
+    let activeIdx = -1;
+
+    for (let i = 0; i < header.length; i++) {
+      const col = header[i];
+      if (col.includes('name') || col.includes('item') || col.includes('title')) nameIdx = i;
+      else if (col.includes('cat') || col.includes('type') || col.includes('section')) catIdx = i;
+      else if (
+        col.includes('price') ||
+        col.includes('donation') ||
+        col.includes('cost') ||
+        col.includes('amount') ||
+        col.includes('suggested')
+      )
+        priceIdx = i;
+      else if (col.includes('desc') || col.includes('detail') || col.includes('note')) descIdx = i;
+      else if (col.includes('icon') || col.includes('emoji')) iconIdx = i;
+      else if (col.includes('active') || col.includes('status') || col.includes('enabled')) activeIdx = i;
+    }
+
+    // If no price/donation or name column detected, the tab likely doesn't exist yet (Google Sheet returned default tab)
+    if (nameIdx === -1 || priceIdx === -1) {
+      return [];
+    }
+
+    const items: StoreItem[] = [];
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.length === 0) continue;
+
+      const name = String(row[nameIdx] || '').trim();
+      if (!name) continue;
+
+      if (activeIdx !== -1) {
+        const activeVal = String(row[activeIdx] || '').trim().toLowerCase();
+        if (
+          activeVal === 'false' ||
+          activeVal === 'no' ||
+          activeVal === '0' ||
+          activeVal === 'inactive' ||
+          activeVal === 'archived'
+        ) {
+          continue;
+        }
+      }
+
+      const rawPrice = String(row[priceIdx] || '').replace(/[^0-9.-]/g, '');
+      const priceNum = parseFloat(rawPrice);
+      if (isNaN(priceNum)) continue;
+
+      const rawCat = catIdx !== -1 ? String(row[catIdx] || '').trim().toLowerCase() : '';
+      let category: StoreItem['category'] = 'other';
+      if (rawCat.includes('drink') || rawCat.includes('beverage')) category = 'drink';
+      else if (rawCat.includes('snack') || rawCat.includes('food') || rawCat.includes('candy')) category = 'snack';
+      else if (
+        rawCat.includes('electro') ||
+        rawCat.includes('circuit') ||
+        rawCat.includes('arduino') ||
+        rawCat.includes('pico')
+      )
+        category = 'electronics';
+      else if (
+        rawCat.includes('mat') ||
+        rawCat.includes('supply') ||
+        rawCat.includes('acrylic') ||
+        rawCat.includes('filament') ||
+        rawCat.includes('art')
+      )
+        category = 'materials';
+
+      const desc = descIdx !== -1 ? String(row[descIdx] || '').trim() : '';
+      const icon = iconIdx !== -1 ? String(row[iconIdx] || '').trim() : '';
+
+      items.push({
+        id: `sheet-${r}-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+        name,
+        category,
+        price: Math.round(priceNum * 100) / 100,
+        description: desc || undefined,
+        icon: icon || undefined,
+      });
+    }
+
+    if (items.length > 0 && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('sm_store_sheet_items', JSON.stringify(items));
+        localStorage.setItem('sm_store_sheet_sync_time', new Date().toISOString());
+      } catch (_) {}
+    }
+
+    return items;
+  } catch (err) {
+    console.warn('[Store Sheet] Fetch error:', err);
+    return [];
+  }
+}
+
+/**
+ * Retrieves the store items, prioritizing Google Sheet items, then custom items, then defaults.
  */
 export function fetchStoreItems(): StoreItem[] {
   if (typeof window === 'undefined') return DEFAULT_STORE_ITEMS;
   try {
+    const fromSheet = localStorage.getItem('sm_store_sheet_items');
+    if (fromSheet) {
+      const parsed = JSON.parse(fromSheet);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
     const saved = localStorage.getItem('sm_store_custom_items');
     if (saved) {
       const parsed = JSON.parse(saved);
@@ -1608,11 +1747,11 @@ export async function updateMemberStoreBalance(
     } catch (_) {}
   }
 
-  // 3. Sync to Neon One if custom field ID is configured
+  // 3. Sync to Neon One (uses configured field ID or canonical field 119)
   const configuredFieldId =
-    typeof window !== 'undefined'
+    (typeof window !== 'undefined'
       ? localStorage.getItem('sm_neon_balance_field_id')
-      : null;
+      : null) || STORE_BALANCE_FIELD_ID;
 
   try {
     if (configuredFieldId && accountId) {
@@ -1654,7 +1793,7 @@ export async function updateMemberStoreBalance(
 }
 
 /**
- * Returns the official Neon One Donation or Checkout URL.
+ * Returns the official Neon One Donation or Checkout URL with Campaign Store (STORE, ID 1).
  */
 export function getNeonDonationUrl(
   purpose: 'general' | 'top_up' | 'tab_settle' = 'general',
@@ -1680,8 +1819,16 @@ export function getNeonDonationUrl(
   }
   if (purpose === 'tab_settle') {
     params.set('purpose', 'Store Tab Settlement');
+    params.set('campaign.id', STORE_CAMPAIGN_ID);
+    params.set('campaignId', STORE_CAMPAIGN_ID);
+    params.set('campaign', STORE_CAMPAIGN_CODE);
+    params.set('campaignCode', STORE_CAMPAIGN_CODE);
   } else if (purpose === 'top_up') {
     params.set('purpose', 'Store Gift Card Preload');
+    params.set('campaign.id', STORE_CAMPAIGN_ID);
+    params.set('campaignId', STORE_CAMPAIGN_ID);
+    params.set('campaign', STORE_CAMPAIGN_CODE);
+    params.set('campaignCode', STORE_CAMPAIGN_CODE);
   }
 
   const query = params.toString();

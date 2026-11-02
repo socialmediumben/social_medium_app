@@ -69,6 +69,12 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
 
     const syncVisibility = async () => {
       try {
+        // If developer has explicitly locked visibility locally, do not let an ephemeral Render reboot overwrite it
+        const isLocked = typeof window !== 'undefined' && localStorage.getItem('sm_contest_visibility_locked') === 'true';
+        if (isLocked) {
+          return;
+        }
+
         const data = await fetchCostumeContest();
         if (data?.visibility) {
           setContestVisibilityState(data.visibility);
@@ -100,6 +106,10 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
 
   const setContestVisibility = async (vis: CostumeContestVisibility): Promise<boolean> => {
     setContestVisibilityState(vis);
+    try {
+      localStorage.setItem('sm_contest_visibility', vis);
+      localStorage.setItem('sm_contest_visibility_locked', 'true');
+    } catch (_) {}
     return await updateContestVisibilityApi(vis);
   };
 
