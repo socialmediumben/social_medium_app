@@ -119,14 +119,14 @@ export function TapCardLogin() {
     <div className="max-w-md mx-auto my-12 p-6 sm:p-8 rounded-3xl bg-white border border-stone-200 shadow-lg text-center">
       {/* Brand Icon */}
       {brandLogo ? (
-        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white border border-stone-200 flex items-center justify-center p-1.5 shadow-md overflow-hidden">
+        <div className="h-16 max-w-[240px] mx-auto mb-4 flex items-center justify-center">
           {brandLogo.startsWith('<svg') ? (
             <div
-              className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+              className="h-full w-auto flex items-center justify-center [&>svg]:h-full [&>svg]:w-auto"
               dangerouslySetInnerHTML={{ __html: brandLogo }}
             />
           ) : (
-            <img src={brandLogo} alt="Social Medium Logo" className="w-full h-full object-contain" />
+            <img src={brandLogo} alt="Social Medium Logo" className="h-full w-auto max-w-[240px] object-contain" />
           )}
         </div>
       ) : (

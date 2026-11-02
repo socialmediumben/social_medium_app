@@ -99,30 +99,32 @@ export function Navbar() {
         {/* Brand Logo & Name (Clicking logo cycles modes easily as a shortcut) */}
         <Link href="/" className="flex items-center gap-2.5 group">
           {brandLogo ? (
-            <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-stone-200 shadow-xs group-hover:scale-105 transition-transform shrink-0">
+            <div className="h-10 sm:h-11 flex items-center justify-center group-hover:scale-105 transition-transform shrink-0">
               {brandLogo.startsWith('<svg') ? (
                 <div
-                  className="w-full h-full p-1 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-full"
+                  className="h-full w-auto max-w-[200px] sm:max-w-[260px] flex items-center justify-center [&>svg]:h-full [&>svg]:w-auto"
                   dangerouslySetInnerHTML={{ __html: brandLogo }}
                 />
               ) : (
                 <img
                   src={brandLogo}
                   alt="Social Medium Logo"
-                  className="w-full h-full object-contain p-0.5"
+                  className="h-10 sm:h-11 w-auto max-w-[200px] sm:max-w-[260px] object-contain"
                 />
               )}
             </div>
           ) : (
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              SM
-            </div>
+            <>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                SM
+              </div>
+              <div>
+                <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block">
+                  SOCIAL MEDIUM
+                </span>
+              </div>
+            </>
           )}
-          <div>
-            <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block">
-              SOCIAL MEDIUM
-            </span>
-          </div>
         </Link>
 
         {/* Desktop Navigation Links */}

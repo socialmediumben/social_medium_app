@@ -1938,32 +1938,34 @@ export default function DeveloperPage() {
                 </span>
                 <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-sm space-y-3">
                   <div className="text-[10px] text-stone-400 font-mono">Live Navigation Mockup:</div>
-                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 flex items-center min-h-[52px]">
                     {logoDraft ? (
-                      <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-stone-200 shadow-xs shrink-0">
+                      <div className="h-10 sm:h-11 flex items-center shrink-0">
                         {logoDraft.startsWith('<svg') ? (
                           <div
-                            className="w-full h-full p-1 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-full"
+                            className="h-full w-auto max-w-[200px] sm:max-w-[260px] flex items-center [&>svg]:h-full [&>svg]:w-auto"
                             dangerouslySetInnerHTML={{ __html: logoDraft }}
                           />
                         ) : (
                           <img
                             src={logoDraft}
                             alt="Social Medium Logo Preview"
-                            className="w-full h-full object-contain p-0.5"
+                            className="h-10 sm:h-11 w-auto max-w-[200px] sm:max-w-[260px] object-contain"
                           />
                         )}
                       </div>
                     ) : (
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
-                        SM
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
+                          SM
+                        </div>
+                        <div>
+                          <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block leading-none">
+                            SOCIAL MEDIUM
+                          </span>
+                        </div>
                       </div>
                     )}
-                    <div>
-                      <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block leading-none">
-                        SOCIAL MEDIUM
-                      </span>
-                    </div>
                   </div>
 
                   <div className="text-[11px] text-stone-500 leading-relaxed pt-1">
