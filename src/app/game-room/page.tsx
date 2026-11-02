@@ -112,8 +112,8 @@ export default function GameRoomPage() {
   const { activeCardId, member } = useAuth();
   const currentUserName = member?.preferredName || member?.name || null;
 
-  // Navigation: Main Tabs ('remote' vs 'reservations')
-  const [mainTab, setMainTab] = useState<'remote' | 'reservations'>('remote');
+  // Navigation: Main Tabs ('remote' vs 'media' vs 'reservations')
+  const [mainTab, setMainTab] = useState<'remote' | 'media' | 'reservations'>('remote');
 
   // Sub-tabs under Live Remote ('presets' | 'displays' | 'lights' | 'media' | 'devtools')
   const [remoteSubTab, setRemoteSubTab] = useState<'presets' | 'displays' | 'lights' | 'media' | 'devtools'>('presets');
@@ -589,10 +589,10 @@ export default function GameRoomPage() {
       </div>
 
       {/* Main Top Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-stone-200 pb-2">
+      <div className="flex items-center gap-2 border-b border-stone-200 pb-2 overflow-x-auto">
         <button
           onClick={() => setMainTab('remote')}
-          className={`py-2.5 px-5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer ${
+          className={`py-2.5 px-5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             mainTab === 'remote'
               ? 'bg-[#344ea2] text-white shadow-md'
               : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
@@ -606,8 +606,20 @@ export default function GameRoomPage() {
         </button>
 
         <button
+          onClick={() => setMainTab('media')}
+          className={`py-2.5 px-5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+            mainTab === 'media'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+          }`}
+        >
+          <Map className="w-4 h-4" />
+          <span>🗺️ Custom Media</span>
+        </button>
+
+        <button
           onClick={() => setMainTab('reservations')}
-          className={`py-2.5 px-5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer ${
+          className={`py-2.5 px-5 rounded-2xl font-bold text-sm transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
             mainTab === 'reservations'
               ? 'bg-[#f16622] text-white shadow-md'
               : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
@@ -1447,7 +1459,26 @@ export default function GameRoomPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 2: RESERVE GAME ROOM (Neon One Rental Booking)                         */}
+      {/* TAB 2: CUSTOM MEDIA LIBRARY (Google Drive & Sheets Cloud Sync)            */}
+      {/* ========================================================================= */}
+      {mainTab === 'media' && (
+        <div className="space-y-6 animate-fade-in">
+          <MediaLibraryManager
+            serverUrl={serverUrl}
+            wsRef={wsRef}
+            cardId={activeCardId}
+            userName={currentUserName}
+            isDevMode={isDevMode}
+            onNotification={(msg) => {
+              setTriggerNotice(msg);
+              setTimeout(() => setTriggerNotice(null), 3500);
+            }}
+          />
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 3: RESERVE GAME ROOM (Neon One Rental Booking)                         */}
       {/* ========================================================================= */}
       {mainTab === 'reservations' && (
         <div className="space-y-6">
