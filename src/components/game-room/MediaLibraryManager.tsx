@@ -151,6 +151,60 @@ export function MediaLibraryManager({
     }
   };
 
+  const optimizeImage = (file: File): Promise<{ dataUrl: string; mimeType: string }> => {
+    return new Promise((resolve, reject) => {
+      if (file.type.startsWith('video/')) {
+        const reader = new FileReader();
+        reader.onload = () => resolve({ dataUrl: reader.result as string, mimeType: file.type || 'video/mp4' });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        const maxDimension = 2560; // Crisp 2K+ resolution for overhead projectors & 4K screens
+
+        if (width > maxDimension || height > maxDimension) {
+          if (width > height) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          } else {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          const reader = new FileReader();
+          reader.onload = () => resolve({ dataUrl: reader.result as string, mimeType: file.type || 'image/jpeg' });
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.88);
+        resolve({ dataUrl, mimeType: 'image/jpeg' });
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        const reader = new FileReader();
+        reader.onload = () => resolve({ dataUrl: reader.result as string, mimeType: file.type || 'image/jpeg' });
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      };
+      img.src = url;
+    });
+  };
+
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadFile) {
@@ -162,50 +216,35 @@ export function MediaLibraryManager({
     setUploadError(null);
 
     try {
-      const reader = new FileReader();
-      reader.onload = async () => {
-        try {
-          const base64Data = reader.result as string;
-          const effectiveCardId = cleanUserCard || customCardId.trim() || 'guest';
-          const effectiveName = userName || customUploaderName.trim() || (cleanUserCard ? 'Member' : 'Guest');
+      const { dataUrl, mimeType } = await optimizeImage(uploadFile);
+      const effectiveCardId = cleanUserCard || customCardId.trim() || 'guest';
+      const effectiveName = userName || customUploaderName.trim() || (cleanUserCard ? 'Member' : 'Guest');
 
-          const res = await uploadGameRoomMedia({
-            cardId: effectiveCardId,
-            uploaderName: effectiveName,
-            title: uploadTitle.trim() || uploadFile.name,
-            type: uploadType,
-            targetScreen: uploadTargetScreen,
-            visibility: uploadVisibility,
-            fileData: base64Data,
-            fileName: uploadFile.name,
-            mimeType: uploadFile.type || 'image/jpeg',
-          });
+      const res = await uploadGameRoomMedia({
+        cardId: effectiveCardId,
+        uploaderName: effectiveName,
+        title: uploadTitle.trim() || uploadFile.name,
+        type: uploadType,
+        targetScreen: uploadTargetScreen,
+        visibility: uploadVisibility,
+        fileData: dataUrl,
+        fileName: uploadFile.name,
+        mimeType,
+      });
 
-          if (res.success && res.item) {
-            setItems((prev) => [res.item!, ...prev]);
-            onNotification?.(`Enchanted and saved '${res.item.title}' to the cloud!`);
-            setIsUploadModalOpen(false);
-            setUploadFile(null);
-            setUploadPreview(null);
-            setUploadTitle('');
-          } else {
-            setUploadError(res.error || 'Upload failed. Please try again.');
-          }
-        } catch (err: any) {
-          setUploadError(err.message || 'Error processing file.');
-        } finally {
-          setIsUploading(false);
-        }
-      };
-
-      reader.onerror = () => {
-        setUploadError('Failed to read file from your device.');
-        setIsUploading(false);
-      };
-
-      reader.readAsDataURL(uploadFile);
+      if (res.success && res.item) {
+        setItems((prev) => [res.item!, ...prev]);
+        onNotification?.(`Enchanted and saved '${res.item.title}' to the cloud!`);
+        setIsUploadModalOpen(false);
+        setUploadFile(null);
+        setUploadPreview(null);
+        setUploadTitle('');
+      } else {
+        setUploadError(res.error || 'Upload failed. Please try again.');
+      }
     } catch (err: any) {
-      setUploadError(err.message || 'Error uploading file.');
+      setUploadError(err.message || 'Error processing file.');
+    } finally {
       setIsUploading(false);
     }
   };

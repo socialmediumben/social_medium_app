@@ -1393,7 +1393,17 @@ export async function uploadGameRoomMedia(input: {
       }),
     });
 
-    const data = await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        error: `Server error (HTTP ${res.status}): ${text.substring(0, 150)}`,
+      };
+    }
+
     if (res.ok && data.success && data.item) {
       return { success: true, item: data.item };
     }
