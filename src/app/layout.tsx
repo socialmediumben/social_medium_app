@@ -6,6 +6,7 @@ import { AuthProvider } from "@/context/AuthContext";
 import { DevModeProvider } from "@/context/DevModeContext";
 import { ChangelogModal } from "@/components/ChangelogModal";
 import { CertificationManagerModal } from "@/components/CertificationManagerModal";
+import { ImpersonationBanner } from "@/components/ImpersonationBanner";
 
 const fredoka = Fredoka({
   variable: "--font-fredoka",
@@ -44,6 +45,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[#f4f4f4] text-stone-800 font-roboto pb-20 md:pb-8">
         <AuthProvider>
           <DevModeProvider>
+            <ImpersonationBanner />
             <Navbar />
             <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">
               {children}

@@ -73,6 +73,16 @@ export function Navbar() {
           },
         ]
       : []),
+    ...(isDevMode
+      ? [
+          {
+            href: '/developer',
+            label: 'Developer',
+            icon: Code2,
+            description: 'Developer Command Center & Tools',
+          },
+        ]
+      : []),
   ];
 
   const handleSelectMode = (newMode: AppMode) => {
@@ -133,15 +143,18 @@ export function Navbar() {
           {/* Developer Quick Buttons */}
           {isDevMode && (
             <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={openIconManager}
-                title="Manage SSOT Certification Icons"
-                className="px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-900 hover:bg-amber-500/25 font-semibold text-xs flex items-center gap-1 transition-colors cursor-pointer shadow-xs"
+              <Link
+                href="/developer"
+                title="Developer Module & SSOT Icon Registry"
+                className={`px-2.5 py-1 rounded-full border text-xs font-semibold flex items-center gap-1 transition-colors cursor-pointer shadow-xs ${
+                  pathname === '/developer'
+                    ? 'bg-amber-500 text-stone-950 border-amber-600 font-bold'
+                    : 'bg-amber-500/15 border-amber-500/40 text-amber-900 hover:bg-amber-500/25'
+                }`}
               >
-                <Sliders className="w-3.5 h-3.5 text-amber-800" />
-                <span className="hidden sm:inline">Icons</span>
-              </button>
+                <Code2 className="w-3.5 h-3.5 text-amber-800" />
+                <span className="hidden sm:inline">Developer</span>
+              </Link>
               <button
                 type="button"
                 onClick={openChangelog}
@@ -316,7 +329,7 @@ export function Navbar() {
 
 export function BottomNav() {
   const pathname = usePathname();
-  const { isStaffMode, isContestVisible } = useDevMode();
+  const { isStaffMode, isDevMode, isContestVisible } = useDevMode();
 
   const baseItems = useMemo(
     () => BASE_NAV_ITEMS.filter((item) => (item.href === '/costume-contest' ? isContestVisible : true)),
@@ -338,6 +351,16 @@ export function BottomNav() {
             label: 'Activity',
             icon: ClipboardList,
             description: 'Log Activity',
+          },
+        ]
+      : []),
+    ...(isDevMode
+      ? [
+          {
+            href: '/developer',
+            label: 'Dev',
+            icon: Code2,
+            description: 'Developer Tools',
           },
         ]
       : []),

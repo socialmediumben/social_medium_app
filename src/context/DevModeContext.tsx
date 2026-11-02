@@ -52,7 +52,7 @@ const DevModeContext = createContext<DevModeContextType>({
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
-  const { member } = useAuth();
+  const { member, isImpersonating } = useAuth();
   const [mode, setModeState] = useState<AppMode>('user');
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
@@ -104,10 +104,10 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Neon One CRM Role Permissions:
-  // - canAccessDev: Checked custom field 118 ("App Developer" = TRUE)
-  // - canAccessStaff: Neon One CRM System User OR App Developer
-  const canAccessDev = member?.isAppDeveloper === true;
-  const canAccessStaff = member?.isSystemUser === true || member?.isAppDeveloper === true;
+  // - canAccessDev: Checked custom field 118 ("App Developer" = TRUE) or Active Developer Impersonation
+  // - canAccessStaff: Neon One CRM System User OR App Developer or Active Developer Impersonation
+  const canAccessDev = member?.isAppDeveloper === true || isImpersonating;
+  const canAccessStaff = member?.isSystemUser === true || member?.isAppDeveloper === true || isImpersonating;
 
   useEffect(() => {
     try {

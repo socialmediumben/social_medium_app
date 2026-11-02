@@ -1,4 +1,4 @@
-export const APP_VERSION = '2.9';
+export const APP_VERSION = '3.0';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,19 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.0',
+    date: '2026-11-01',
+    title: 'Comprehensive Developer Module, Centralized Controls & User Impersonation',
+    changes: [
+      'Transformed the "Icons" tool into a full-featured "Developer" Module accessible via top and bottom navigation.',
+      'Added User Impersonation Engine: Search any Neon One constituent by name or tap card to view the entire app from their exact perspective.',
+      'Added persistent Impersonation Banner across all routes with one-click "Exit Impersonation" to safely restore developer mode.',
+      'Centralized Community Announcement management with live text/byline editor and instant Home page preview.',
+      'Centralized Module Visibility controls, including 3-way Costume Contest visibility (All / Staff / Dev Only) and Game Room mirror locks.',
+      'Retained the complete SSOT Certification & Icon Manager with tool slug editing, keyword matching, live SVG rendering, and exportable JSON.',
+    ],
+  },
   {
     version: '2.9',
     date: '2026-10-28',
