@@ -311,6 +311,7 @@ export function MediaLibraryManager({
     // 1. Send via WebSocket if connected
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'STOP_MIRROR', screen }));
       ws.send(JSON.stringify({ action: 'SET_DISPLAY', screen, display: payload }));
     }
 
@@ -318,6 +319,7 @@ export function MediaLibraryManager({
     const cleanUrl = serverUrl ? serverUrl.trim().replace(/\/+$/, '') : '';
     if (cleanUrl) {
       try {
+        fetch(`${cleanUrl}/api/mirror/stop/${screen}`, { method: 'POST' }).catch(() => {});
         await fetch(`${cleanUrl}/api/display/${screen}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

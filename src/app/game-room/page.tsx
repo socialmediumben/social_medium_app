@@ -230,10 +230,12 @@ export default function GameRoomPage() {
     }));
     const payload = { type: 'weather', effect_type: effectType, title };
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'STOP_MIRROR', screen: 'window' }));
       wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'window', display: payload }));
     }
     if (serverUrl) {
       const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+      fetch(`${cleanUrl}/api/mirror/stop/window`, { method: 'POST' }).catch(() => {});
       fetch(`${cleanUrl}/api/display/window`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -252,10 +254,12 @@ export default function GameRoomPage() {
     }));
     const payload = { type: 'portrait', src, title };
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'STOP_MIRROR', screen: 'frame' }));
       wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'frame', display: payload }));
     }
     if (serverUrl) {
       const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+      fetch(`${cleanUrl}/api/mirror/stop/frame`, { method: 'POST' }).catch(() => {});
       fetch(`${cleanUrl}/api/display/frame`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -274,10 +278,12 @@ export default function GameRoomPage() {
     }));
     const payload = { type: 'map', src, title, grid_enabled: true };
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ action: 'STOP_MIRROR', screen: 'table' }));
       wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'table', display: payload }));
     }
     if (serverUrl) {
       const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+      fetch(`${cleanUrl}/api/mirror/stop/table`, { method: 'POST' }).catch(() => {});
       fetch(`${cleanUrl}/api/display/table`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -335,6 +341,7 @@ export default function GameRoomPage() {
 
     const ws = wsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ action: 'STOP_MIRROR', screen }));
       ws.send(JSON.stringify({ action: 'SET_DISPLAY', screen, display: payload }));
     }
 
@@ -344,6 +351,7 @@ export default function GameRoomPage() {
     if (serverUrl) {
       const cleanUrl = sanitizeGameRoomUrl(serverUrl);
       try {
+        fetch(`${cleanUrl}/api/mirror/stop/${screen}`, { method: 'POST' }).catch(() => {});
         const res = await fetch(`${cleanUrl}/api/display/${screen}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
