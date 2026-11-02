@@ -17,6 +17,8 @@ import {
   X,
   ExternalLink,
   Layers,
+  Lock,
+  Globe,
 } from 'lucide-react';
 import { GameRoomMediaItem } from '@/lib/types';
 import {
@@ -55,6 +57,7 @@ export function MediaLibraryManager({
   const [uploadTitle, setUploadTitle] = useState<string>('');
   const [uploadType, setUploadType] = useState<'map' | 'video' | 'portrait'>('map');
   const [uploadTargetScreen, setUploadTargetScreen] = useState<'table' | 'window' | 'frame'>('table');
+  const [uploadVisibility, setUploadVisibility] = useState<'public' | 'private'>('public');
   const [customUploaderName, setCustomUploaderName] = useState<string>('');
   const [customCardId, setCustomCardId] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
@@ -71,7 +74,7 @@ export function MediaLibraryManager({
   const loadMedia = async (forceRefresh: boolean = false) => {
     setIsLoading(true);
     try {
-      const data = await fetchGameRoomMedia(undefined, forceRefresh);
+      const data = await fetchGameRoomMedia(cleanUserCard || undefined, forceRefresh, isDevMode);
       setItems(data);
     } catch (err: any) {
       console.warn('Error loading Game Room media:', err);
@@ -172,6 +175,7 @@ export function MediaLibraryManager({
             title: uploadTitle.trim() || uploadFile.name,
             type: uploadType,
             targetScreen: uploadTargetScreen,
+            visibility: uploadVisibility,
             fileData: base64Data,
             fileName: uploadFile.name,
             mimeType: uploadFile.type || 'image/jpeg',
@@ -232,26 +236,30 @@ export function MediaLibraryManager({
   ) => {
     const isVideo = item.type === 'video' || item.url.match(/\.(mp4|webm)$/i);
     const cleanTitle = item.title;
+    let directSrc = item.url;
+    if (isVideo && !directSrc.endsWith('.mp4') && !directSrc.endsWith('.webm')) {
+      directSrc += '#video.mp4';
+    }
 
     let payload: any = {};
     if (screen === 'table') {
       payload = {
         type: 'map',
         title: cleanTitle,
-        src: item.url,
+        src: directSrc,
         grid_enabled: true,
       };
     } else if (screen === 'window') {
       payload = {
         type: isVideo ? 'video' : 'image',
         title: cleanTitle,
-        src: item.url,
+        src: directSrc,
       };
     } else if (screen === 'frame') {
       payload = {
         type: 'portrait',
         title: cleanTitle,
-        src: item.url,
+        src: directSrc,
       };
     }
 
@@ -475,11 +483,22 @@ export function MediaLibraryManager({
                     />
                   )}
 
-                  {/* Badge indicating type */}
+                  {/* Badge indicating type and visibility */}
                   <div className="absolute top-2 left-2 flex items-center gap-1">
                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-black/60 text-white border border-white/10">
                       {item.type}
                     </span>
+                    {item.visibility === 'private' ? (
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-amber-500/80 text-white flex items-center gap-1 border border-amber-300/30" title="Only visible to you">
+                        <Lock className="w-2.5 h-2.5" />
+                        <span>Private</span>
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider backdrop-blur-md bg-emerald-600/70 text-white flex items-center gap-1 border border-emerald-300/30" title="Shared with everyone">
+                        <Globe className="w-2.5 h-2.5" />
+                        <span>Chamber</span>
+                      </span>
+                    )}
                   </div>
 
                   {/* Delete button (owner or dev) */}
@@ -676,6 +695,46 @@ export function MediaLibraryManager({
                   <ImageIcon className="w-4 h-4 mx-auto mb-1 text-amber-600" />
                   <div className="text-xs">Frame Art</div>
                 </button>
+              </div>
+
+              {/* Visibility / Privacy Selector */}
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                  Privacy & Audience
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUploadVisibility('public')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                      uploadVisibility === 'public'
+                        ? 'border-[#344ea2] bg-[#344ea2]/5 text-[#344ea2] shadow-xs'
+                        : 'border-stone-200 hover:border-stone-300 text-stone-600'
+                    }`}
+                  >
+                    <Globe className="w-4 h-4 shrink-0 mt-0.5 text-[#344ea2]" />
+                    <div>
+                      <div className="text-xs font-bold text-stone-900">Everyone (Chamber)</div>
+                      <div className="text-[10px] text-stone-500">Shared in the room library for all players</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setUploadVisibility('private')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-2.5 ${
+                      uploadVisibility === 'private'
+                        ? 'border-amber-600 bg-amber-50 text-amber-900 shadow-xs'
+                        : 'border-stone-200 hover:border-stone-300 text-stone-600'
+                    }`}
+                  >
+                    <Lock className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                    <div>
+                      <div className="text-xs font-bold text-stone-900">Just Me (Private)</div>
+                      <div className="text-[10px] text-stone-500">Only visible when your card is active</div>
+                    </div>
+                  </button>
+                </div>
               </div>
 
               {/* User Identity Info (if not logged in) */}

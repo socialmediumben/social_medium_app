@@ -1336,12 +1336,14 @@ export async function resetCostumeContest(): Promise<boolean> {
  */
 export async function fetchGameRoomMedia(
   cardId?: string,
-  refresh: boolean = false
+  refresh: boolean = false,
+  isDev: boolean = false
 ): Promise<GameRoomMediaItem[]> {
   try {
     const params = new URLSearchParams();
     if (cardId) params.set('cardId', cardId);
     if (refresh) params.set('refresh', 'true');
+    if (isDev) params.set('dev', 'true');
     params.set('_t', String(Date.now()));
 
     const qs = params.toString();
@@ -1369,6 +1371,7 @@ export async function uploadGameRoomMedia(input: {
   title: string;
   type: string;
   targetScreen?: string;
+  visibility?: 'private' | 'public';
   fileData: string;
   fileName: string;
   mimeType: string;
@@ -1383,6 +1386,7 @@ export async function uploadGameRoomMedia(input: {
         title: input.title,
         type: input.type,
         targetScreen: input.targetScreen || 'table',
+        visibility: input.visibility || 'public',
         file: input.fileData,
         fileName: input.fileName,
         mimeType: input.mimeType,

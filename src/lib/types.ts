@@ -77,6 +77,7 @@ export interface GameRoomMediaItem {
   title: string;
   type: 'map' | 'image' | 'video' | 'portrait';
   targetScreen: 'table' | 'window' | 'frame';
+  visibility?: 'private' | 'public';
   url: string;
   downloadUrl?: string;
   timestamp: string;
