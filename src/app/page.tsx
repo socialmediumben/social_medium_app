@@ -25,6 +25,7 @@ import {
   AlertCircle,
   EyeOff,
   Trophy,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
@@ -425,6 +426,45 @@ export default function HomePage() {
           </div>
           <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-emerald-600">
             <span>Browse Events</span>
+            <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        </Link>
+
+        {/* Module: Store & Donations */}
+        <Link
+          href="/store"
+          className="group p-5 rounded-2xl bg-white border border-stone-200 hover:border-amber-500 hover:shadow-md transition-all flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <span
+                className={`text-xs font-semibold px-2.5 py-1 rounded-full font-mono ${
+                  (member.storeBalance ?? 0) < 0
+                    ? 'bg-rose-100 text-rose-800'
+                    : (member.storeBalance ?? 0) > 0
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'bg-stone-100 text-stone-600'
+                }`}
+              >
+                {(member.storeBalance ?? 0) < 0
+                  ? `Tab: -$${Math.abs(member.storeBalance ?? 0).toFixed(2)}`
+                  : (member.storeBalance ?? 0) > 0
+                  ? `Credit: +$${(member.storeBalance ?? 0).toFixed(2)}`
+                  : 'Self-Checkout'}
+              </span>
+            </div>
+            <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-amber-700 transition-colors mb-1">
+              Store & Donations
+            </h2>
+            <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+              Snack Shack & Art Supplies self-checkout, safe tab tracking, and makerspace donation gifts.
+            </p>
+          </div>
+          <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-amber-700">
+            <span>Open Store & Wallet</span>
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>

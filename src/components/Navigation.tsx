@@ -21,6 +21,7 @@ import {
   Check,
   Lock,
   Trophy,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -28,6 +29,7 @@ import { APP_VERSION } from '@/lib/version';
 
 const BASE_NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
+  { href: '/store', label: 'Store', icon: ShoppingBag, description: 'Snack Shack, Supplies & Tab' },
   { href: '/events', label: 'Events', icon: Calendar, description: 'Upcoming events & RSVP' },
   { href: '/costume-contest', label: 'Costume Contest', icon: Trophy, description: 'Halloween photos & live voting' },
   { href: '/portal-media', label: 'Portal Media', icon: DoorOpen, description: 'Personal tap card media' },
@@ -36,7 +38,7 @@ const BASE_NAV_ITEMS = [
 
 export function Navbar() {
   const pathname = usePathname();
-  const { activeCardId, logout } = useAuth();
+  const { activeCardId, logout, member } = useAuth();
   const {
     mode,
     setMode,
@@ -298,6 +300,28 @@ export function Navbar() {
 
           {activeCardId ? (
             <div className="flex items-center gap-1.5">
+              {member && (
+                <Link
+                  href="/store"
+                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
+                    (member.storeBalance ?? 0) < 0
+                      ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                      : (member.storeBalance ?? 0) > 0
+                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                      : 'bg-stone-100 border-stone-200 text-stone-600 hover:bg-stone-200'
+                  }`}
+                  title="Makerspace Wallet & Tab Balance"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-[#344ea2]" />
+                  <span className="font-mono">
+                    {(member.storeBalance ?? 0) < 0
+                      ? `-$${Math.abs(member.storeBalance ?? 0).toFixed(2)}`
+                      : (member.storeBalance ?? 0) > 0
+                      ? `+$${(member.storeBalance ?? 0).toFixed(2)}`
+                      : '$0.00'}
+                  </span>
+                </Link>
+              )}
               <Link
                 href="/profile"
                 className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-stone-100 border border-stone-200 hover:border-[#3bc0cd] text-xs transition-colors"

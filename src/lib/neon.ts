@@ -6,6 +6,7 @@ import {
   NeonSystemUser,
   PortalPhotoRecord,
   GameRoomMediaItem,
+  StoreItem,
 } from './types';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
@@ -179,11 +180,30 @@ export async function fetchMemberProfileByAccountId(
     let interestsList: string[] = [];
     let customInterestsStr = '';
     let isAppDeveloper = false;
+    let parsedStoreBalance = 0.00;
 
     const customFields: any[] = ind.accountCustomFields || [];
     for (const field of customFields) {
       const fieldId = String(field.id);
       const fieldName = (field.name || '').toLowerCase();
+
+      // Store Balance / Wallet / Tab (Field matching name or configured ID)
+      const configuredBalanceFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_balance_field_id') : null;
+      if (
+        (configuredBalanceFieldId && fieldId === configuredBalanceFieldId) ||
+        fieldName.includes('store balance') ||
+        fieldName.includes('wallet') ||
+        fieldName.includes('store_balance') ||
+        fieldName.includes('tab balance') ||
+        fieldName === 'balance'
+      ) {
+        if (field.value !== undefined && field.value !== null) {
+          const num = parseFloat(String(field.value).replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num)) {
+            parsedStoreBalance = num;
+          }
+        }
+      }
 
       // Pronouns (Legacy Field 82)
       if (fieldId === '82' || fieldName.includes('pronoun')) {
@@ -259,6 +279,17 @@ export async function fetchMemberProfileByAccountId(
       isSystemUser = true; // All developers automatically have staff access
     }
 
+    // If no custom field exists in CRM yet, check local cache fallback
+    if (typeof window !== 'undefined' && accountId) {
+      const localCachedBal = localStorage.getItem(`sm_balance_${accountId}`);
+      if (localCachedBal !== null) {
+        const num = parseFloat(localCachedBal);
+        if (!isNaN(num)) {
+          parsedStoreBalance = num;
+        }
+      }
+    }
+
     const mappedGenderName = rawGenderCode
       ? NEON_GENDER_OPTIONS.find((g) => g.code.toUpperCase() === rawGenderCode.toUpperCase())?.name
       : undefined;
@@ -284,6 +315,7 @@ export async function fetchMemberProfileByAccountId(
       customInterests: customInterestsStr,
       isSystemUser,
       isAppDeveloper,
+      storeBalance: parsedStoreBalance,
     };
 
     return { success: true, member: memberProfile };
@@ -1425,4 +1457,236 @@ export async function deleteGameRoomMedia(idOrFileId: string): Promise<boolean> 
   } catch {
     return false;
   }
+}
+
+// ==============================================================================
+// STORE SELF-CHECKOUT, HYBRID WALLET & DONATIONS SYSTEM
+// ==============================================================================
+
+export const MAX_STORE_TAB_LIMIT = 25.00;
+
+export const DEFAULT_STORE_ITEMS: StoreItem[] = [
+  {
+    id: 'soda-cold',
+    name: 'Chilled Soda',
+    category: 'drink',
+    price: 2.00,
+    description: 'Coke, Diet Coke, Sprite, Dr. Pepper, or Sunkist from the fridge',
+    icon: '🥤',
+  },
+  {
+    id: 'sparkling-water',
+    name: 'Sparkling Water',
+    category: 'drink',
+    price: 1.50,
+    description: 'LaCroix or Bubly chilled can',
+    icon: '💧',
+  },
+  {
+    id: 'energy-drink',
+    name: 'Monster / Red Bull',
+    category: 'drink',
+    price: 3.00,
+    description: 'High caffeine energy booster for late-night makers',
+    icon: '⚡',
+  },
+  {
+    id: 'snack-chips',
+    name: 'Chips & Pretzels',
+    category: 'snack',
+    price: 1.50,
+    description: 'Individual snack bags from the pantry',
+    icon: '🥨',
+  },
+  {
+    id: 'candy-bar',
+    name: 'Candy Bar / Chocolate',
+    category: 'snack',
+    price: 1.00,
+    description: 'Assorted chocolate bars & sweets',
+    icon: '🍫',
+  },
+  {
+    id: 'arduino-nano',
+    name: 'Arduino Nano Microcontroller',
+    category: 'electronics',
+    price: 7.00,
+    description: 'Breadboard-friendly ATmega328P with USB connection',
+    icon: '🤖',
+  },
+  {
+    id: 'pi-pico',
+    name: 'Raspberry Pi Pico',
+    category: 'electronics',
+    price: 6.00,
+    description: 'RP2040 dual-core ARM Cortex-M0+ board',
+    icon: '🍓',
+  },
+  {
+    id: 'breadboard-half',
+    name: 'Solderless Breadboard',
+    category: 'electronics',
+    price: 3.00,
+    description: '400 tie-point prototyping breadboard',
+    icon: '🔌',
+  },
+  {
+    id: 'filament-100g',
+    name: 'PLA 3D Filament (100g)',
+    category: 'materials',
+    price: 3.00,
+    description: 'High quality 1.75mm PLA filament by weight',
+    icon: '🧵',
+  },
+  {
+    id: 'acrylic-sheet',
+    name: 'Laser Acrylic Scrap Sheet',
+    category: 'materials',
+    price: 2.50,
+    description: '1/8" cast acrylic scrap sheet for laser cutting',
+    icon: '✨',
+  },
+];
+
+/**
+ * Retrieves the store items, merging default catalog with any developer/staff customizations.
+ */
+export function fetchStoreItems(): StoreItem[] {
+  if (typeof window === 'undefined') return DEFAULT_STORE_ITEMS;
+  try {
+    const saved = localStorage.getItem('sm_store_custom_items');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_STORE_ITEMS;
+}
+
+/**
+ * Saves custom store inventory list (editable in Developer Studio).
+ */
+export function saveCustomStoreItems(items: StoreItem[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem('sm_store_custom_items', JSON.stringify(items));
+  } catch (_) {}
+}
+
+/**
+ * Updates a member's store balance in Neon One and local cache.
+ * Can be positive (prepaid credit) or negative (active tab up to -$25.00).
+ */
+export async function updateMemberStoreBalance(
+  accountId: string,
+  newBalance: number,
+  itemsPurchased?: Array<{ name: string; price: number; quantity: number }>
+): Promise<{ success: boolean; newBalance: number; error?: string }> {
+  const roundedBal = Math.round(newBalance * 100) / 100;
+
+  // 1. Enforce tab ceiling: Cannot exceed -$25.00 debt
+  if (roundedBal < -MAX_STORE_TAB_LIMIT) {
+    return {
+      success: false,
+      newBalance,
+      error: `Tab limit exceeded. Maximum allowable tab is $${MAX_STORE_TAB_LIMIT.toFixed(2)}. Please settle your tab via Neon One to continue.`,
+    };
+  }
+
+  // 2. Always persist locally for instant UI response and offline safety
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      localStorage.setItem(`sm_balance_${accountId}`, roundedBal.toFixed(2));
+      const cachedProf = localStorage.getItem(`sm_profile_${accountId}`);
+      if (cachedProf) {
+        const parsed = JSON.parse(cachedProf);
+        parsed.storeBalance = roundedBal;
+        localStorage.setItem(`sm_profile_${accountId}`, JSON.stringify(parsed));
+      }
+    } catch (_) {}
+  }
+
+  // 3. Sync to Neon One if custom field ID is configured
+  const configuredFieldId =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('sm_neon_balance_field_id')
+      : null;
+
+  try {
+    if (configuredFieldId && accountId) {
+      await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          individualAccount: {
+            accountCustomFields: [
+              {
+                id: configuredFieldId,
+                value: roundedBal.toFixed(2),
+              },
+            ],
+          },
+        }),
+      });
+    }
+
+    // 4. If items were purchased, log an audit activity in Neon One CRM
+    if (itemsPurchased && itemsPurchased.length > 0 && accountId) {
+      const summaryList = itemsPurchased
+        .map((i) => `${i.quantity}x ${i.name} ($${(i.price * i.quantity).toFixed(2)})`)
+        .join(', ');
+      const totalSpent = itemsPurchased.reduce((acc, curr) => acc + curr.price * curr.quantity, 0);
+
+      createNeonActivity({
+        subject: `Store Self-Checkout: $${totalSpent.toFixed(2)}`,
+        accountId,
+        priority: 'Normal',
+        note: `Purchased items: ${summaryList}. New Balance/Tab: $${roundedBal.toFixed(2)}.`,
+      }).catch(() => {});
+    }
+
+    return { success: true, newBalance: roundedBal };
+  } catch (err: any) {
+    return { success: true, newBalance: roundedBal, error: 'Saved locally; Neon sync pending.' };
+  }
+}
+
+/**
+ * Returns the official Neon One Donation or Checkout URL.
+ */
+export function getNeonDonationUrl(
+  purpose: 'general' | 'top_up' | 'tab_settle' = 'general',
+  amount?: number,
+  accountId?: string
+): string {
+  // Configured custom URL in Developer Studio or official Neon One page
+  const customUrl =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('sm_neon_donation_form_url')
+      : null;
+
+  let base =
+    customUrl ||
+    'https://socialmedium.app.neoncrm.com/forms/donate';
+
+  const params = new URLSearchParams();
+  if (amount && amount > 0) {
+    params.set('amount', amount.toFixed(2));
+  }
+  if (accountId) {
+    params.set('donor.accountId', accountId);
+  }
+  if (purpose === 'tab_settle') {
+    params.set('purpose', 'Store Tab Settlement');
+  } else if (purpose === 'top_up') {
+    params.set('purpose', 'Store Gift Card Preload');
+  }
+
+  const query = params.toString();
+  if (query) {
+    base += (base.includes('?') ? '&' : '?') + query;
+  }
+  return base;
 }

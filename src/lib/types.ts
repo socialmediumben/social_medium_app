@@ -18,6 +18,7 @@ export interface MemberProfile {
   customInterests?: string; // Single-line text field in Neon One: "Custom Interests" (ID 83)
   isSystemUser?: boolean;   // Active Neon One CRM System User (Staff access)
   isAppDeveloper?: boolean; // Neon One "App Developer" Custom Field 118 (Dev access)
+  storeBalance?: number;    // Neon One Store / Wallet Balance (Positive = prepaid credits, Negative = tab)
 }
 
 export interface CommunityAnnouncement {
@@ -121,4 +122,29 @@ export interface PortalPhotoRecord {
   fileId?: string;
   downloadUrl?: string;
   timestamp: string;
+}
+
+export interface StoreItem {
+  id: string;
+  name: string;
+  category: 'drink' | 'snack' | 'materials' | 'electronics' | 'other';
+  price: number;
+  description?: string;
+  icon?: string;
+}
+
+export interface StoreCartItem {
+  item: StoreItem;
+  quantity: number;
+}
+
+export interface StoreTransaction {
+  id: string;
+  timestamp: string;
+  accountId: string;
+  memberName: string;
+  items: Array<{ id: string; name: string; price: number; quantity: number }>;
+  totalAmount: number;
+  previousBalance: number;
+  newBalance: number;
 }

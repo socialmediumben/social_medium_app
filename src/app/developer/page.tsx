@@ -31,6 +31,10 @@ import {
   Database,
   Radio,
   StopCircle,
+  ShoppingBag,
+  DollarSign,
+  Wallet,
+  CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -43,6 +47,8 @@ import {
   fetchMemberProfileByAccountId,
   CostumeContestVisibility,
   setCostumeContestStatus,
+  updateMemberStoreBalance,
+  MAX_STORE_TAB_LIMIT,
 } from '@/lib/neon';
 import { APP_VERSION } from '@/lib/version';
 
@@ -59,12 +65,13 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'store' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
     member,
     activeCardId,
+    updateMember,
     isImpersonating,
     originalDeveloperUser,
     impersonateUser,
@@ -255,6 +262,71 @@ export default function DeveloperPage() {
   };
 
   // ==========================================
+  // STORE & WALLET DEV CONFIGURATION STATE
+  // ==========================================
+  const [balanceFieldId, setBalanceFieldId] = useState('');
+  const [donationBaseUrl, setDonationBaseUrl] = useState('');
+  const [customBalanceInput, setCustomBalanceInput] = useState('');
+  const [storeConfigSaved, setStoreConfigSaved] = useState(false);
+  const [isUpdatingTestBalance, setIsUpdatingTestBalance] = useState(false);
+  const [balanceNotice, setBalanceNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setBalanceFieldId(localStorage.getItem('sm_neon_balance_field_id') || '');
+      setDonationBaseUrl(
+        localStorage.getItem('sm_neon_donation_base_url') ||
+          'https://socialmedium.z2systems.com/np/clients/socialmedium/donation.jsp'
+      );
+    }
+  }, []);
+
+  const handleSaveStoreConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (typeof window !== 'undefined') {
+      if (balanceFieldId.trim()) {
+        localStorage.setItem('sm_neon_balance_field_id', balanceFieldId.trim());
+      } else {
+        localStorage.removeItem('sm_neon_balance_field_id');
+      }
+      if (donationBaseUrl.trim()) {
+        localStorage.setItem('sm_neon_donation_base_url', donationBaseUrl.trim());
+      }
+    }
+    setStoreConfigSaved(true);
+    setTimeout(() => setStoreConfigSaved(false), 3000);
+  };
+
+  const handleSetTestBalance = async (newAmount: number) => {
+    if (!member || !member.accountId) {
+      setBalanceNotice('No active member profile with account ID found to test.');
+      return;
+    }
+    setIsUpdatingTestBalance(true);
+    setBalanceNotice(null);
+    try {
+      const res = await updateMemberStoreBalance(member.accountId, newAmount, [
+        {
+          name: 'Dev Balance Adjustment',
+          price: 0,
+          quantity: 1,
+        },
+      ]);
+      if (res.success) {
+        updateMember({ storeBalance: res.newBalance });
+        setBalanceNotice(`Balance updated to ${res.newBalance >= 0 ? '+' : ''}$${res.newBalance.toFixed(2)}`);
+      } else {
+        setBalanceNotice(res.error || 'Failed to update balance');
+      }
+    } catch (err: any) {
+      setBalanceNotice(err.message || 'Error updating balance');
+    } finally {
+      setIsUpdatingTestBalance(false);
+      setTimeout(() => setBalanceNotice(null), 4000);
+    }
+  };
+
+  // ==========================================
   // 4. CERTIFICATION & ICON REGISTRY STATE
   // ==========================================
   const [tools, setTools] = useState<Record<string, ToolItem>>(SMCertifications.TOOLS || {});
@@ -424,6 +496,19 @@ export default function DeveloperPage() {
         >
           <Layers className="w-4 h-4 text-amber-400" />
           <span>Module Visibility</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('store')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'store'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4 text-amber-400" />
+          <span>Store & Wallet</span>
         </button>
 
         <button
@@ -1095,6 +1180,390 @@ export default function DeveloperPage() {
                 >
                   Log CRM Activity
                 </Link>
+              </div>
+            </div>
+
+            {/* Card 5: Store & Self-Checkout Wallet */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-700 flex items-center justify-center font-bold shrink-0">
+                  <ShoppingBag className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Store & Self-Checkout Wallet
+                  </h3>
+                  <p className="text-stone-500 text-xs">
+                    Snack Shack, consumables, -$25 tab limit, and external Neon One donation checkout.
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-600">Model:</span>
+                  <span className="font-semibold text-stone-900">Hybrid Wallet (Credit + $25 Tab Debt Cap)</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-600">Credit Card Processing:</span>
+                  <span className="font-mono text-emerald-700 font-bold">100% External Neon One Forms (Zero In-App Risk)</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-stone-600">Neon CRM Field:</span>
+                  <span className="font-mono text-stone-800">{balanceFieldId || 'Auto-Detect ("Store Balance")'}</span>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('store')}
+                  className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs text-center transition-colors cursor-pointer shadow-xs"
+                >
+                  Configure Wallet & Test
+                </button>
+                <Link
+                  href="/store"
+                  className="flex-1 py-2 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 font-semibold text-xs text-center transition-colors"
+                >
+                  Open Store Module
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: STORE, SNACK SHACK & WALLET CONFIGURATION                          */}
+      {/* ========================================================================= */}
+      {activeTab === 'store' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/15 text-amber-800 flex items-center justify-center shrink-0 shadow-xs">
+                <ShoppingBag className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                    Makerspace Store & Wallet Engine
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                    Safe Payments
+                  </span>
+                </div>
+                <p className="text-stone-500 text-xs sm:text-sm mt-0.5">
+                  Self-checkout for snacks and supplies with tab limits, Neon One field syncing, and zero in-app credit card handling.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                href="/store"
+                className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs"
+              >
+                <span>View User Store Page</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Feedback Notice */}
+          {balanceNotice && (
+            <div className="p-4 rounded-2xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>{balanceNotice}</span>
+            </div>
+          )}
+
+          {storeConfigSaved && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Neon One Store & Donation settings saved successfully!</span>
+            </div>
+          )}
+
+          {/* Two-Column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left 7 Cols: Neon One Field Settings & Safety Architecture */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Form 1: Neon One Custom Field Binding */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+                <div>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Neon One CRM Field Integration
+                  </h3>
+                  <p className="text-stone-500 text-xs mt-0.5">
+                    Connect the makerspace app to your Neon One account custom fields.
+                  </p>
+                </div>
+
+                <form onSubmit={handleSaveStoreConfig} className="space-y-4 text-xs">
+                  <div>
+                    <label className="text-stone-700 font-bold block mb-1">
+                      Neon One Account Custom Field ID for Store Balance
+                    </label>
+                    <input
+                      type="text"
+                      value={balanceFieldId}
+                      onChange={(e) => setBalanceFieldId(e.target.value)}
+                      placeholder='e.g. 142 or Store_Balance (Leave empty for auto-discovery)'
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 font-mono text-xs focus:bg-white focus:border-[#3bc0cd]"
+                    />
+                    <p className="text-[11px] text-stone-500 mt-1">
+                      If left blank, the app scans member profiles for any field named <strong>&quot;Store Balance&quot;</strong>, <strong>&quot;Wallet&quot;</strong>, or <strong>&quot;Tab Balance&quot;</strong>. If no field is created yet, balances default safely to <strong>$0.00</strong> with local browser caching.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="text-stone-700 font-bold block mb-1">
+                      Official Neon One Donation Form URL
+                    </label>
+                    <input
+                      type="url"
+                      value={donationBaseUrl}
+                      onChange={(e) => setDonationBaseUrl(e.target.value)}
+                      placeholder="https://socialmedium.z2systems.com/np/clients/socialmedium/donation.jsp"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs focus:bg-white focus:border-[#3bc0cd]"
+                    />
+                    <p className="text-[11px] text-stone-500 mt-1">
+                      When members top up their wallet or settle a tab debt, they are redirected to this form with their exact amount and account pre-filled.
+                    </p>
+                  </div>
+
+                  <div className="pt-2">
+                    <button
+                      type="submit"
+                      className="py-2.5 px-5 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save CRM Settings</span>
+                    </button>
+                  </div>
+                </form>
+
+                {/* Setup Instructions */}
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-300/40 text-stone-800 text-xs space-y-2">
+                  <div className="font-bold flex items-center gap-1.5 text-amber-950">
+                    <Sliders className="w-4 h-4 text-amber-700" />
+                    <span>How to set up the field in Neon One:</span>
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-stone-700 pl-1">
+                    <li>Log into your Neon CRM admin portal.</li>
+                    <li>Go to <strong>Settings</strong> &gt; <strong>Custom Fields</strong> &gt; <strong>Accounts</strong>.</li>
+                    <li>Click <strong>New Custom Field</strong> with Name: <code>Store Balance</code>, Type: <code>Currency</code> or <code>Number</code>.</li>
+                    <li>Once saved, the app will automatically read and update members&apos; balances on checkout!</li>
+                  </ol>
+                </div>
+              </div>
+
+              {/* Safety Architecture Box */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center gap-2.5">
+                  <Shield className="w-5 h-5 text-emerald-600" />
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Zero Credit Card Storage Architecture
+                  </h3>
+                </div>
+                <p className="text-stone-600 text-xs leading-relaxed">
+                  To protect member safety and eliminate PCI compliance liabilities, this app <strong>never handles or stores credit card numbers</strong>.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 space-y-1">
+                    <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> In-App Actions
+                    </span>
+                    <p className="text-[11px] text-stone-600">
+                      Item selection, cart calculation, tap card login, tab tracking, and -$25.00 limit enforcement.
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 space-y-1">
+                    <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                      <ExternalLink className="w-3.5 h-3.5 text-[#344ea2]" /> Neon One Processing
+                    </span>
+                    <p className="text-[11px] text-stone-600">
+                      Credit cards, Apple Pay, Google Pay, ACH, donor receipts, and financial reconciliation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right 5 Cols: Member Balance Diagnostic & Override Console */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Card: Active Account Balance Diagnostic */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Balance Testing & Diagnostic Console
+                  </h3>
+                  <p className="text-stone-500 text-xs">
+                    Test wallet balance states, debt warnings, and cap behaviors.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 space-y-3">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-500 font-medium">Active Account:</span>
+                    <span className="font-bold text-stone-900">{getGreetingName(member)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-stone-500 font-medium">Tap Card:</span>
+                    <span className="font-mono text-stone-700">#{activeCardId || member?.tapCard || 'N/A'}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs pt-2 border-t border-stone-200/60">
+                    <span className="text-stone-600 font-bold">Current Balance:</span>
+                    <span
+                      className={`text-base font-bold font-mono px-3 py-1 rounded-xl ${
+                        (member?.storeBalance ?? 0) < 0
+                          ? 'bg-rose-100 text-rose-800'
+                          : (member?.storeBalance ?? 0) > 0
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-stone-200 text-stone-800'
+                      }`}
+                    >
+                      {(member?.storeBalance ?? 0) < 0
+                        ? `-$${Math.abs(member?.storeBalance ?? 0).toFixed(2)}`
+                        : (member?.storeBalance ?? 0) > 0
+                        ? `+$${(member?.storeBalance ?? 0).toFixed(2)}`
+                        : '$0.00'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-[11px] text-stone-500">
+                    <span>Tab Cap Limit:</span>
+                    <span className="font-mono font-bold text-rose-700">-${MAX_STORE_TAB_LIMIT.toFixed(2)} Max Debt</span>
+                  </div>
+                </div>
+
+                {/* Quick Simulation Buttons */}
+                <div className="space-y-2">
+                  <span className="text-[11px] font-bold text-stone-500 block uppercase tracking-wider">
+                    Simulate Quick Adjustments
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      disabled={isUpdatingTestBalance}
+                      onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) + 10)}
+                      className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer text-left"
+                    >
+                      +$10.00 Credit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUpdatingTestBalance}
+                      onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) + 25)}
+                      className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer text-left"
+                    >
+                      +$25.00 Credit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUpdatingTestBalance}
+                      onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) - 2)}
+                      className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors cursor-pointer text-left"
+                    >
+                      -$2.00 (Drink)
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUpdatingTestBalance}
+                      onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) - 7)}
+                      className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors cursor-pointer text-left"
+                    >
+                      -$7.00 (Arduino)
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isUpdatingTestBalance}
+                    onClick={() => handleSetTestBalance(0)}
+                    className="w-full py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Reset Balance to $0.00
+                  </button>
+                </div>
+
+                {/* Custom Balance Setter */}
+                <div className="pt-2 border-t border-stone-100 space-y-2">
+                  <span className="text-[11px] font-bold text-stone-500 block uppercase tracking-wider">
+                    Set Specific Balance ($)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={customBalanceInput}
+                      onChange={(e) => setCustomBalanceInput(e.target.value)}
+                      placeholder="e.g. -24.50 or 50.00"
+                      className="flex-1 px-3 py-2 rounded-xl border border-stone-200 bg-stone-50 text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={isUpdatingTestBalance || !customBalanceInput}
+                      onClick={() => {
+                        const parsed = parseFloat(customBalanceInput);
+                        if (!isNaN(parsed)) {
+                          handleSetTestBalance(parsed);
+                          setCustomBalanceInput('');
+                        }
+                      }}
+                      className="py-2 px-3 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs cursor-pointer disabled:opacity-50"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Standard Inventory Catalog Preview */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-fredoka text-base font-bold text-stone-900">
+                    Standard Store Inventory
+                  </h3>
+                  <span className="text-[11px] font-mono text-stone-400">8 Items</span>
+                </div>
+                <div className="divide-y divide-stone-100 text-xs">
+                  <div className="py-2 flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-stone-800">Snack Shack Drinks</span>
+                      <span className="text-[10px] text-stone-400 block">Soda, sparkling water</span>
+                    </div>
+                    <span className="font-mono font-bold text-stone-900">$1.50</span>
+                  </div>
+                  <div className="py-2 flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-stone-800">Snack Shack Snacks</span>
+                      <span className="text-[10px] text-stone-400 block">Chips, candy bars</span>
+                    </div>
+                    <span className="font-mono font-bold text-stone-900">$1.00</span>
+                  </div>
+                  <div className="py-2 flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-stone-800">Arduino Nano (USB-C)</span>
+                      <span className="text-[10px] text-stone-400 block">Microcontroller module</span>
+                    </div>
+                    <span className="font-mono font-bold text-stone-900">$7.00</span>
+                  </div>
+                  <div className="py-2 flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-stone-800">Raspberry Pi Pico</span>
+                      <span className="text-[10px] text-stone-400 block">RP2040 dev board</span>
+                    </div>
+                    <span className="font-mono font-bold text-stone-900">$6.00</span>
+                  </div>
+                  <div className="py-2 flex items-center justify-between">
+                    <div>
+                      <span className="font-medium text-stone-800">3D Printer PLA Filament (1kg)</span>
+                      <span className="text-[10px] text-stone-400 block">Spool (assorted colors)</span>
+                    </div>
+                    <span className="font-mono font-bold text-stone-900">$20.00</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
