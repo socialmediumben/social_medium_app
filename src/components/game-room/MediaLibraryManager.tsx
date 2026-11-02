@@ -315,21 +315,24 @@ export function MediaLibraryManager({
     }
 
     // 2. Send via HTTP POST endpoint to Mini PC controller
-    try {
-      await fetch(`${serverUrl}/api/display/${screen}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+    const cleanUrl = serverUrl ? serverUrl.trim().replace(/\/+$/, '') : '';
+    if (cleanUrl) {
+      try {
+        await fetch(`${cleanUrl}/api/display/${screen}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
 
-      const displayLabel =
-        screen === 'table' ? 'Tabletop Projector' : screen === 'window' ? '53" Window TV' : 'Picture Frame';
-      setActiveCastNotice(`Casting '${cleanTitle}' onto ${displayLabel}!`);
-      setTimeout(() => setActiveCastNotice(null), 3500);
-      onDisplayChanged?.(screen, cleanTitle);
-      onNotification?.(`Casting '${cleanTitle}' to ${displayLabel}`);
-    } catch (err: any) {
-      console.warn('Cast error:', err);
+        const displayLabel =
+          screen === 'table' ? 'Tabletop Projector' : screen === 'window' ? '53" Window TV' : 'Picture Frame';
+        setActiveCastNotice(`Casting '${cleanTitle}' onto ${displayLabel}!`);
+        setTimeout(() => setActiveCastNotice(null), 3500);
+        onDisplayChanged?.(screen, cleanTitle);
+        onNotification?.(`Casting '${cleanTitle}' to ${displayLabel}`);
+      } catch (err: any) {
+        console.warn('Cast error:', err);
+      }
     }
   };
 

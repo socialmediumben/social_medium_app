@@ -213,6 +213,7 @@ export default function GameRoomPage() {
   const [showOtherWindow, setShowOtherWindow] = useState<boolean>(false);
   const [showOtherFrame, setShowOtherFrame] = useState<boolean>(false);
   const [showOtherTable, setShowOtherTable] = useState<boolean>(false);
+  const [activeCustomMedia, setActiveCustomMedia] = useState<{ table?: string; window?: string; frame?: string }>({});
 
   useEffect(() => {
     if (remoteSubTab === 'displays') {
@@ -222,6 +223,7 @@ export default function GameRoomPage() {
 
   // Preset Cast Handlers
   const castWindowPreset = (title: string, effectType: string) => {
+    setActiveCustomMedia((prev) => ({ ...prev, window: undefined }));
     setDisplayStatus((prev) => ({
       ...prev,
       windowTv: { online: true, currentScene: title },
@@ -231,7 +233,8 @@ export default function GameRoomPage() {
       wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'window', display: payload }));
     }
     if (serverUrl) {
-      fetch(`${serverUrl}/api/display/window`, {
+      const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+      fetch(`${cleanUrl}/api/display/window`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -242,6 +245,7 @@ export default function GameRoomPage() {
   };
 
   const castFramePreset = (title: string, src: string) => {
+    setActiveCustomMedia((prev) => ({ ...prev, frame: undefined }));
     setDisplayStatus((prev) => ({
       ...prev,
       pictureFrame: { online: true, currentScene: title },
@@ -251,7 +255,8 @@ export default function GameRoomPage() {
       wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'frame', display: payload }));
     }
     if (serverUrl) {
-      fetch(`${serverUrl}/api/display/frame`, {
+      const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+      fetch(`${cleanUrl}/api/display/frame`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -262,6 +267,7 @@ export default function GameRoomPage() {
   };
 
   const castTablePreset = (title: string, src: string) => {
+    setActiveCustomMedia((prev) => ({ ...prev, table: undefined }));
     setDisplayStatus((prev) => ({
       ...prev,
       tableProjector: { online: true, currentScene: title },
@@ -271,7 +277,8 @@ export default function GameRoomPage() {
       wsRef.current.send(JSON.stringify({ action: 'SET_DISPLAY', screen: 'table', display: payload }));
     }
     if (serverUrl) {
-      fetch(`${serverUrl}/api/display/table`, {
+      const cleanUrl = sanitizeGameRoomUrl(serverUrl);
+      fetch(`${cleanUrl}/api/display/table`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -286,8 +293,11 @@ export default function GameRoomPage() {
     screen: 'table' | 'window' | 'frame',
     title: string,
     src: string,
-    type: string = 'map'
+    type: string = 'map',
+    mediaId?: string
   ) => {
+    setActiveCustomMedia((prev) => ({ ...prev, [screen]: mediaId || src }));
+
     setDisplayStatus((prev) => ({
       ...prev,
       ...(screen === 'table' ? { tableProjector: { online: true, currentScene: title } } : {}),
@@ -328,21 +338,29 @@ export default function GameRoomPage() {
       ws.send(JSON.stringify({ action: 'SET_DISPLAY', screen, display: payload }));
     }
 
+    const screenLabel =
+      screen === 'table' ? 'Tabletop Projector' : screen === 'window' ? '53" Window TV' : 'Picture Frame';
+
     if (serverUrl) {
+      const cleanUrl = sanitizeGameRoomUrl(serverUrl);
       try {
-        await fetch(`${serverUrl}/api/display/${screen}`, {
+        const res = await fetch(`${cleanUrl}/api/display/${screen}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
-      } catch (err) {
+        if (res.ok) {
+          setTriggerNotice(`✨ Cast '${title}' onto ${screenLabel}!`);
+        } else {
+          setTriggerNotice(`⚠️ Controller returned HTTP ${res.status}`);
+        }
+      } catch (err: any) {
         console.warn('Cast error:', err);
+        setTriggerNotice(`✨ Cast '${title}' onto ${screenLabel} (Sent to room displays)`);
       }
+    } else {
+      setTriggerNotice(`✨ Cast '${title}' onto ${screenLabel}!`);
     }
-
-    const screenLabel =
-      screen === 'table' ? 'Tabletop Projector' : screen === 'window' ? '53" Window TV' : 'Picture Frame';
-    setTriggerNotice(`✨ Cast '${title}' onto ${screenLabel}!`);
     setTimeout(() => setTriggerNotice(null), 3500);
   };
 
@@ -1328,10 +1346,13 @@ export default function GameRoomPage() {
                       {customWindowScenes.length > 0 ? (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                           {customWindowScenes.map((item: GameRoomMediaItem) => {
-                            const isCurrent = displayStatus.windowTv.currentScene === item.title;
+                            const itemKey = item.id || item.fileId || item.url;
+                            const isCurrent = activeCustomMedia.window
+                              ? activeCustomMedia.window === itemKey
+                              : displayStatus.windowTv.currentScene === item.title;
                             return (
                               <div
-                                key={item.id || item.fileId}
+                                key={itemKey}
                                 className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
                                   isCurrent
                                     ? 'bg-emerald-50/70 border-emerald-400 shadow-2xs'
@@ -1373,22 +1394,26 @@ export default function GameRoomPage() {
                                   </div>
                                 </div>
 
-                                <div className="shrink-0">
-                                  {isCurrent ? (
-                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                  {isCurrent && (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1 shrink-0">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                       <span>Active</span>
                                     </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => castMediaToScreen('window', item.title, item.url, item.type)}
-                                      className="py-1 px-2.5 rounded-lg bg-[#344ea2] hover:bg-[#2b4085] text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                                    >
-                                      <Play className="w-3 h-3 fill-current" />
-                                      <span>Cast</span>
-                                    </button>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => castMediaToScreen('window', item.title, item.url, item.type, itemKey)}
+                                    className={`py-1 px-2.5 rounded-lg text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs ${
+                                      isCurrent
+                                        ? 'bg-[#2b4085] hover:bg-[#1e2d5f]'
+                                        : 'bg-[#344ea2] hover:bg-[#2b4085]'
+                                    }`}
+                                    title={isCurrent ? "Re-cast onto 53\" Window TV" : "Cast onto 53\" Window TV"}
+                                  >
+                                    <Play className="w-3 h-3 fill-current" />
+                                    <span>{isCurrent ? 'Re-cast' : 'Cast'}</span>
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -1528,10 +1553,13 @@ export default function GameRoomPage() {
                       {customFramePortraits.length > 0 ? (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                           {customFramePortraits.map((item: GameRoomMediaItem) => {
-                            const isCurrent = displayStatus.pictureFrame.currentScene === item.title;
+                            const itemKey = item.id || item.fileId || item.url;
+                            const isCurrent = activeCustomMedia.frame
+                              ? activeCustomMedia.frame === itemKey
+                              : displayStatus.pictureFrame.currentScene === item.title;
                             return (
                               <div
-                                key={item.id || item.fileId}
+                                key={itemKey}
                                 className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
                                   isCurrent
                                     ? 'bg-emerald-50/70 border-emerald-400 shadow-2xs'
@@ -1573,22 +1601,26 @@ export default function GameRoomPage() {
                                   </div>
                                 </div>
 
-                                <div className="shrink-0">
-                                  {isCurrent ? (
-                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                  {isCurrent && (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1 shrink-0">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                       <span>Active</span>
                                     </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => castMediaToScreen('frame', item.title, item.url, item.type)}
-                                      className="py-1 px-2.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                                    >
-                                      <Play className="w-3 h-3 fill-current" />
-                                      <span>Cast</span>
-                                    </button>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => castMediaToScreen('frame', item.title, item.url, item.type, itemKey)}
+                                    className={`py-1 px-2.5 rounded-lg text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs ${
+                                      isCurrent
+                                        ? 'bg-amber-700 hover:bg-amber-800'
+                                        : 'bg-amber-600 hover:bg-amber-700'
+                                    }`}
+                                    title={isCurrent ? "Re-cast onto Picture Frame" : "Cast onto Picture Frame"}
+                                  >
+                                    <Play className="w-3 h-3 fill-current" />
+                                    <span>{isCurrent ? 'Re-cast' : 'Cast'}</span>
+                                  </button>
                                 </div>
                               </div>
                             );
@@ -1728,10 +1760,13 @@ export default function GameRoomPage() {
                       {customTableMaps.length > 0 ? (
                         <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                           {customTableMaps.map((item: GameRoomMediaItem) => {
-                            const isCurrent = displayStatus.tableProjector.currentScene === item.title;
+                            const itemKey = item.id || item.fileId || item.url;
+                            const isCurrent = activeCustomMedia.table
+                              ? activeCustomMedia.table === itemKey
+                              : displayStatus.tableProjector.currentScene === item.title;
                             return (
                               <div
-                                key={item.id || item.fileId}
+                                key={itemKey}
                                 className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
                                   isCurrent
                                     ? 'bg-emerald-50/70 border-emerald-400 shadow-2xs'
@@ -1773,22 +1808,26 @@ export default function GameRoomPage() {
                                   </div>
                                 </div>
 
-                                <div className="shrink-0">
-                                  {isCurrent ? (
-                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1">
+                                <div className="shrink-0 flex items-center gap-1.5">
+                                  {isCurrent && (
+                                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-lg flex items-center gap-1 shrink-0">
                                       <CheckCircle2 className="w-3 h-3 text-emerald-600" />
                                       <span>Active</span>
                                     </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => castMediaToScreen('table', item.title, item.url, item.type)}
-                                      className="py-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs"
-                                    >
-                                      <Play className="w-3 h-3 fill-current" />
-                                      <span>Cast</span>
-                                    </button>
                                   )}
+                                  <button
+                                    type="button"
+                                    onClick={() => castMediaToScreen('table', item.title, item.url, item.type, itemKey)}
+                                    className={`py-1 px-2.5 rounded-lg text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer shadow-2xs ${
+                                      isCurrent
+                                        ? 'bg-emerald-700 hover:bg-emerald-800'
+                                        : 'bg-emerald-600 hover:bg-emerald-700'
+                                    }`}
+                                    title={isCurrent ? "Re-cast onto Tabletop Projector" : "Cast onto Tabletop Projector"}
+                                  >
+                                    <Play className="w-3 h-3 fill-current" />
+                                    <span>{isCurrent ? 'Re-cast' : 'Cast'}</span>
+                                  </button>
                                 </div>
                               </div>
                             );
