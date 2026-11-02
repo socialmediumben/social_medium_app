@@ -253,6 +253,28 @@ export default function PortalMediaPage() {
       finalList.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
       setPortalPhotos(finalList);
 
+      // Award daily photobooth XP if member has a snapshot today
+      const memberAccountId = member?.accountId;
+      if (memberAccountId && finalList.length > 0) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const hasTodayPhoto = finalList.some((p) => {
+          try {
+            return new Date(p.timestamp).toISOString().split('T')[0] === todayStr;
+          } catch {
+            return false;
+          }
+        });
+        if (hasTodayPhoto) {
+          import('@/lib/gamification').then(({ awardMemberXp }) => {
+            awardMemberXp({
+              accountId: memberAccountId,
+              ruleId: 'photobooth_snap',
+              note: 'Portal photobooth snapshot capture',
+            });
+          });
+        }
+      }
+
       // Cache back under canonical keys so next time it's instant
       localStorage.setItem(`sm_portal_photos_${cleanTarget}`, JSON.stringify(finalList));
       if (normalized && normalized !== cleanTarget) {

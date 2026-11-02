@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.0';
+export const APP_VERSION = '3.2';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,32 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.2',
+    date: '2026-11-02',
+    title: 'Gamification & XP System, Makerspace Ranks & Level Rewards',
+    changes: [
+      'Added XP & Gamification Engine tracking physical makerspace check-ins, club meetings, photobooth snapshots, store purchases, donations, and app visits.',
+      'Introduced 10 Makerspace Ranks with customizable titles (Novice Maker to Grand Architect), XP thresholds, and unlocked rewards/perks at each level.',
+      'Added interactive Level Tiers & Rewards Table in Developer Studio allowing full configuration of points required and perks unlocked.',
+      'Added Activity Points Mapping Matrix in Developer Studio with customizable XP rewards, daily/lifetime cooldowns, and activity toggles.',
+      'Added XP Testing & Diagnostic Console to simulate check-in awards, test level thresholds, and override points directly.',
+      'Integrated Level & XP Progress Card on Member Profile with progress bars, unlocked perks display, and activity history.',
+      'Added dynamic Level & XP Pill in top navigation and celebratory Level-Up celebration modal upon reaching new milestones.',
+      'Synchronized with Neon One CRM Custom Account Field "XP" with seamless local offline cache fallback.',
+    ],
+  },
+  {
+    version: '3.1',
+    date: '2026-11-02',
+    title: 'Makerspace Store & Tab Wallet System, Google Sheet DB & Brand Emblem',
+    changes: [
+      'Added self-checkout Snack Shack and supplies store with zero credit card entry in-app.',
+      'Integrated Neon One Wallet and Tab system with $25 tab cap, preload gift cards, and automated balance calculation.',
+      'Connected Google Sheets backend for live store inventory and suggested donation prices.',
+      'Custom Brand Emblem upload and header display in Developer Mode.',
+    ],
+  },
   {
     version: '3.0',
     date: '2026-11-01',

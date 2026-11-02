@@ -31,6 +31,7 @@ import {
   getNeonDonationUrl,
   MAX_STORE_TAB_LIMIT,
 } from '@/lib/neon';
+import { awardMemberXp } from '@/lib/gamification';
 
 export default function StoreAndDonatePage() {
   const { member, activeCardId, updateMember } = useAuth();
@@ -196,6 +197,14 @@ export default function StoreAndDonatePage() {
       setCheckoutNotice({
         type: 'success',
         text: `Checkout successful! $${cartTotal.toFixed(2)} charged. New balance: $${res.newBalance.toFixed(2)}.`,
+      });
+
+      // Award XP for store purchase (base reward + $1 per dollar spent)
+      awardMemberXp({
+        accountId: member.accountId,
+        ruleId: 'store_purchase',
+        customMultiplier: cartTotal,
+        note: `Store checkout of $${cartTotal.toFixed(2)} (${itemsSummary.length} items)`,
       });
     } else {
       setCheckoutNotice({

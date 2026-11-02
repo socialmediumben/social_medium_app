@@ -19,6 +19,11 @@ export interface MemberProfile {
   isSystemUser?: boolean;   // Active Neon One CRM System User (Staff access)
   isAppDeveloper?: boolean; // Neon One "App Developer" Custom Field 118 (Dev access)
   storeBalance?: number;    // Neon One Store / Wallet Balance (Positive = prepaid credits, Negative = tab)
+  xp?: number;              // Experience points (synced with Neon Custom Field "XP" or local storage)
+  level?: number;           // Current Level (1-10+)
+  levelTitle?: string;      // Current Title (e.g. "Novice Maker", "Craftsperson")
+  levelBadge?: string;      // Current Badge emoji (e.g. "🌱", "⚙️")
+  levelReward?: string;     // Reward / Perk unlocked at this level
 }
 
 export interface CommunityAnnouncement {
@@ -147,4 +152,48 @@ export interface StoreTransaction {
   totalAmount: number;
   previousBalance: number;
   newBalance: number;
+}
+
+export interface XpLevelTier {
+  level: number;
+  title: string;
+  minXp: number;
+  badgeEmoji: string;
+  reward: string;
+  description?: string;
+}
+
+export interface XpActivityRule {
+  id: string;
+  name: string;
+  description: string;
+  xpReward: number;
+  icon: string;
+  category: 'app' | 'space' | 'events' | 'community';
+  enabled: boolean;
+  cooldown?: 'once' | 'daily' | 'unlimited';
+}
+
+export interface XpAuditRecord {
+  id: string;
+  ruleId: string;
+  activityName: string;
+  xpEarned: number;
+  timestamp: string;
+  note?: string;
+}
+
+export interface XpAwardEventDetail {
+  accountId: string;
+  ruleId: string;
+  activityName: string;
+  xpEarned: number;
+  newTotalXp: number;
+  oldLevel: number;
+  newLevel: number;
+  leveledUp: boolean;
+  levelTitle: string;
+  levelBadge: string;
+  rewardUnlocked?: string;
+  note?: string;
 }

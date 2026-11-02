@@ -39,10 +39,15 @@ import {
   Image as ImageIcon,
   RotateCcw,
   FileCode,
+  Gift,
+  Award,
+  Star,
+  Save,
+  X,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
-import { getGreetingName, MemberProfile, CommunityAnnouncement } from '@/lib/types';
+import { getGreetingName, MemberProfile, CommunityAnnouncement, XpActivityRule, XpLevelTier } from '@/lib/types';
 import {
   fetchCommunityAnnouncement,
   updateCommunityAnnouncement,
@@ -58,6 +63,17 @@ import {
   STORE_BALANCE_FIELD_ID,
   STORE_CAMPAIGN_CODE,
 } from '@/lib/neon';
+import {
+  fetchXpActivityRules,
+  saveXpActivityRules,
+  resetXpActivityRules,
+  fetchXpLevelTiers,
+  saveXpLevelTiers,
+  resetXpLevelTiers,
+  awardMemberXp,
+  setMemberXpDirectly,
+  calculateLevelFromXp,
+} from '@/lib/gamification';
 import { APP_VERSION } from '@/lib/version';
 
 // Import canonical universal certification registry
@@ -73,7 +89,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'store' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -488,6 +504,145 @@ export default function DeveloperPage() {
     setTimeout(() => setCopiedJSON(false), 2500);
   };
 
+  // ==========================================
+  // 6. GAMIFICATION & XP STATE & HANDLERS
+  // ==========================================
+  const [xpRules, setXpRules] = useState<XpActivityRule[]>([]);
+  const [xpTiers, setXpTiers] = useState<XpLevelTier[]>([]);
+  const [neonXpFieldId, setNeonXpFieldId] = useState('');
+  const [xpNotice, setXpNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [testManualXp, setTestManualXp] = useState('');
+  const [isSimulatingXp, setIsSimulatingXp] = useState(false);
+
+  useEffect(() => {
+    setXpRules(fetchXpActivityRules());
+    setXpTiers(fetchXpLevelTiers());
+    if (typeof window !== 'undefined') {
+      setNeonXpFieldId(localStorage.getItem('sm_neon_xp_field_id') || '');
+    }
+  }, []);
+
+  const handleSaveNeonXpFieldId = () => {
+    if (typeof window !== 'undefined') {
+      const clean = neonXpFieldId.trim();
+      if (clean) {
+        localStorage.setItem('sm_neon_xp_field_id', clean);
+      } else {
+        localStorage.removeItem('sm_neon_xp_field_id');
+      }
+      setXpNotice({ message: 'Neon One XP Custom Field ID updated!', type: 'success' });
+      setTimeout(() => setXpNotice(null), 3000);
+    }
+  };
+
+  const handleUpdateRulePoint = (id: string, newPoints: number) => {
+    setXpRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, xpReward: Math.max(0, newPoints) } : r))
+    );
+  };
+
+  const handleUpdateRuleCooldown = (id: string, cooldown: 'once' | 'daily' | 'unlimited') => {
+    setXpRules((prev) => prev.map((r) => (r.id === id ? { ...r, cooldown } : r)));
+  };
+
+  const handleToggleRuleEnabled = (id: string) => {
+    setXpRules((prev) => prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)));
+  };
+
+  const handleSaveXpRules = () => {
+    saveXpActivityRules(xpRules);
+    setXpNotice({ message: 'Activity Points Mapping Matrix saved successfully!', type: 'success' });
+    setTimeout(() => setXpNotice(null), 3000);
+  };
+
+  const handleResetXpRules = () => {
+    const defaults = resetXpActivityRules();
+    setXpRules(defaults);
+    setXpNotice({ message: 'Activity rules restored to default values!', type: 'success' });
+    setTimeout(() => setXpNotice(null), 3000);
+  };
+
+  const handleUpdateTierField = (level: number, field: keyof XpLevelTier, value: any) => {
+    setXpTiers((prev) =>
+      prev.map((t) => (t.level === level ? { ...t, [field]: value } : t))
+    );
+  };
+
+  const handleSaveXpTiers = () => {
+    saveXpLevelTiers(xpTiers);
+    setXpNotice({ message: 'Level progression & rewards saved successfully!', type: 'success' });
+    setTimeout(() => setXpNotice(null), 3000);
+  };
+
+  const handleResetXpTiers = () => {
+    const defaults = resetXpLevelTiers();
+    setXpTiers(defaults);
+    setXpNotice({ message: 'Level tiers & rewards restored to defaults!', type: 'success' });
+    setTimeout(() => setXpNotice(null), 3000);
+  };
+
+  const handleSimulateAward = async (ruleId: string, multiplier: number = 0, note?: string) => {
+    if (!member?.accountId) {
+      setXpNotice({ message: 'Please sign in or impersonate an account first to test XP.', type: 'error' });
+      return;
+    }
+    setIsSimulatingXp(true);
+    try {
+      const res = await awardMemberXp({
+        accountId: member.accountId,
+        ruleId,
+        customMultiplier: multiplier,
+        note: note || 'Developer Test Simulation',
+        force: true, // Bypass cooldown for developer testing
+      });
+      if (res.success) {
+        updateMember({
+          xp: res.newTotalXp,
+          level: res.newLevel,
+          levelTitle: res.tier.title,
+          levelBadge: res.tier.badgeEmoji,
+          levelReward: res.tier.reward,
+        });
+        setXpNotice({
+          message: `Awarded +${res.xpEarned} XP! New Total: ${res.newTotalXp} XP (Level ${res.newLevel})`,
+          type: 'success',
+        });
+      } else {
+        setXpNotice({ message: res.error || 'Failed to award XP', type: 'error' });
+      }
+    } catch (e: any) {
+      setXpNotice({ message: e.message || 'Error simulating XP award', type: 'error' });
+    }
+    setIsSimulatingXp(false);
+    setTimeout(() => setXpNotice(null), 4000);
+  };
+
+  const handleDirectSetMemberXp = async (targetXp: number) => {
+    if (!member?.accountId) {
+      setXpNotice({ message: 'Please sign in or impersonate an account first to set XP.', type: 'error' });
+      return;
+    }
+    setIsSimulatingXp(true);
+    try {
+      const res = await setMemberXpDirectly(member.accountId, targetXp, 'Developer manual set');
+      updateMember({
+        xp: res.newTotalXp,
+        level: res.level,
+        levelTitle: res.title,
+        levelBadge: res.badgeEmoji,
+        levelReward: res.reward,
+      });
+      setXpNotice({
+        message: `Set member XP to ${res.newTotalXp} (Level ${res.level}: ${res.title})`,
+        type: 'success',
+      });
+    } catch (e: any) {
+      setXpNotice({ message: e.message || 'Error setting XP', type: 'error' });
+    }
+    setIsSimulatingXp(false);
+    setTimeout(() => setXpNotice(null), 4000);
+  };
+
   const resolvedTest = SMCertifications.resolve(testInput);
 
   return (
@@ -612,6 +767,19 @@ export default function DeveloperPage() {
         >
           <ShoppingBag className="w-4 h-4 text-amber-400" />
           <span>Store & Wallet</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('gamification')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'gamification'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <Trophy className="w-4 h-4 text-amber-400" />
+          <span>Gamification & XP</span>
         </button>
 
         <button
@@ -1744,6 +1912,448 @@ export default function DeveloperPage() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: GAMIFICATION & XP POINT SYSTEM                                       */}
+      {/* ========================================================================= */}
+      {activeTab === 'gamification' && (
+        <div className="space-y-6">
+          {/* Notification Alert Banner */}
+          {xpNotice && (
+            <div
+              className={`p-4 rounded-2xl border flex items-center justify-between text-xs font-semibold ${
+                xpNotice.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                  : 'bg-rose-50 border-rose-300 text-rose-800'
+              }`}
+            >
+              <span>{xpNotice.message}</span>
+              <button
+                type="button"
+                onClick={() => setXpNotice(null)}
+                className="text-stone-400 hover:text-stone-700 p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* 1. Neon One Custom Account Field Setup & Status */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-amber-100 text-amber-800">
+                    <Database className="w-4 h-4" />
+                  </span>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Neon One CRM "XP" Custom Field Integration
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-1">
+                  Experience points are synced with a Custom Account Field in Neon One CRM with local cache fallback.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {neonXpFieldId ? (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-mono text-xs font-bold border border-emerald-300 flex items-center gap-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                    Field ID: {neonXpFieldId}
+                  </span>
+                ) : (
+                  <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-mono text-xs font-bold border border-amber-300 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                    Local Fallback Mode
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 space-y-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <div className="flex-1">
+                  <label className="text-xs font-semibold text-stone-700 block mb-1">
+                    Neon Custom Field ID for XP (Optional Override)
+                  </label>
+                  <input
+                    type="text"
+                    value={neonXpFieldId}
+                    onChange={(e) => setNeonXpFieldId(e.target.value)}
+                    placeholder="e.g. 120 (Leave blank for auto-discovery by field name 'XP')"
+                    className="w-full p-2.5 rounded-xl border border-stone-200 bg-white font-mono text-xs text-stone-900"
+                  />
+                </div>
+                <div className="sm:self-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveNeonXpFieldId}
+                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Field ID</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-stone-500 leading-relaxed pt-1 border-t border-stone-200/60">
+                <strong>How to configure in Neon One CRM:</strong> Go to <em>Settings &gt; Custom Fields &gt; Accounts</em> &gt; <em>New Custom Field</em> with <strong>Field Name:</strong> <code>XP</code>, <strong>Data Type:</strong> <code>Whole Number</code> (or <code>OneLineText</code>). Once created, the app will auto-discover it on any member sign-in.
+              </div>
+            </div>
+          </div>
+
+          {/* 2. Interactive Level Tiers & Rewards Table */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-amber-100 text-amber-800">
+                    <Award className="w-4 h-4" />
+                  </span>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Level Tiers, Points Thresholds & Unlocked Rewards
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-1">
+                  Configure the RPG progression hierarchy, point requirements, badge emojis, and custom rewards unlocked at each rank.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetXpTiers}
+                  className="px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Defaults</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveXpTiers}
+                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Level Tiers</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-stone-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-stone-50 text-stone-500 font-bold uppercase tracking-wider text-[10px] border-b border-stone-200">
+                  <tr>
+                    <th className="py-3 px-3 w-16 text-center">Level</th>
+                    <th className="py-3 px-3 w-48">Rank Title</th>
+                    <th className="py-3 px-3 w-28">Min XP</th>
+                    <th className="py-3 px-3 w-20 text-center">Badge</th>
+                    <th className="py-3 px-3">Reward / Perk Unlocked</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {xpTiers.map((tier) => (
+                    <tr key={tier.level} className="hover:bg-stone-50/60 transition-colors">
+                      <td className="py-2.5 px-3 text-center font-mono font-bold text-stone-900">
+                        {tier.level}
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <input
+                          type="text"
+                          value={tier.title}
+                          onChange={(e) => handleUpdateTierField(tier.level, 'title', e.target.value)}
+                          className="w-full p-1.5 rounded-lg border border-stone-200 bg-white font-semibold text-xs text-stone-900 focus:border-amber-400 focus:outline-none"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <input
+                          type="number"
+                          min="0"
+                          value={tier.minXp}
+                          onChange={(e) =>
+                            handleUpdateTierField(tier.level, 'minXp', parseInt(e.target.value, 10) || 0)
+                          }
+                          className="w-full p-1.5 rounded-lg border border-stone-200 bg-white font-mono font-bold text-xs text-stone-900 focus:border-amber-400 focus:outline-none"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3 text-center">
+                        <input
+                          type="text"
+                          value={tier.badgeEmoji}
+                          onChange={(e) => handleUpdateTierField(tier.level, 'badgeEmoji', e.target.value)}
+                          className="w-12 p-1.5 rounded-lg border border-stone-200 bg-white text-center text-sm focus:border-amber-400 focus:outline-none mx-auto"
+                        />
+                      </td>
+                      <td className="py-2.5 px-3">
+                        <input
+                          type="text"
+                          value={tier.reward}
+                          onChange={(e) => handleUpdateTierField(tier.level, 'reward', e.target.value)}
+                          placeholder="e.g. Free 3D Print Test Token, Holographic Sticker Pack"
+                          className="w-full p-1.5 rounded-lg border border-stone-200 bg-white text-xs text-stone-800 focus:border-amber-400 focus:outline-none"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 3. Activity Points Mapping Matrix */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-xl bg-amber-100 text-amber-800">
+                    <Sparkles className="w-4 h-4" />
+                  </span>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Activity Points Mapping Matrix
+                  </h3>
+                </div>
+                <p className="text-xs text-stone-500 mt-1">
+                  Adjust points awarded for physical and digital actions, configure frequency cooldowns, or toggle individual activities.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetXpRules}
+                  className="px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset Defaults</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveXpRules}
+                  className="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>Save Activity Points</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-stone-200">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-stone-50 text-stone-500 font-bold uppercase tracking-wider text-[10px] border-b border-stone-200">
+                  <tr>
+                    <th className="py-3 px-3 w-12 text-center">Status</th>
+                    <th className="py-3 px-3 w-56">Activity Name</th>
+                    <th className="py-3 px-3">Description</th>
+                    <th className="py-3 px-3 w-28">Category</th>
+                    <th className="py-3 px-3 w-28">Cooldown</th>
+                    <th className="py-3 px-3 w-24">XP Reward</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100">
+                  {xpRules.map((rule) => (
+                    <tr
+                      key={rule.id}
+                      className={`hover:bg-stone-50/60 transition-colors ${
+                        !rule.enabled ? 'opacity-50 bg-stone-50/40' : ''
+                      }`}
+                    >
+                      <td className="py-3 px-3 text-center">
+                        <input
+                          type="checkbox"
+                          checked={rule.enabled}
+                          onChange={() => handleToggleRuleEnabled(rule.id)}
+                          className="w-4 h-4 rounded text-[#344ea2] cursor-pointer"
+                        />
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-base">{rule.icon}</span>
+                          <div>
+                            <span className="font-bold text-stone-900 block">{rule.name}</span>
+                            <span className="font-mono text-[10px] text-stone-400">{rule.id}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 text-stone-600 text-[11px]">
+                        {rule.description}
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-700 text-[10px] font-bold uppercase">
+                          {rule.category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <select
+                          value={rule.cooldown || 'unlimited'}
+                          onChange={(e) =>
+                            handleUpdateRuleCooldown(
+                              rule.id,
+                              e.target.value as 'once' | 'daily' | 'unlimited'
+                            )
+                          }
+                          className="p-1.5 rounded-lg border border-stone-200 bg-white text-xs text-stone-800 focus:outline-none"
+                        >
+                          <option value="once">Once (Lifetime)</option>
+                          <option value="daily">Daily</option>
+                          <option value="unlimited">Unlimited</option>
+                        </select>
+                      </td>
+                      <td className="py-3 px-3">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="number"
+                            min="0"
+                            value={rule.xpReward}
+                            onChange={(e) =>
+                              handleUpdateRulePoint(rule.id, parseInt(e.target.value, 10) || 0)
+                            }
+                            className="w-16 p-1.5 rounded-lg border border-stone-200 bg-white font-mono font-bold text-xs text-stone-900 focus:border-amber-400 focus:outline-none"
+                          />
+                          <span className="text-stone-500 font-semibold text-[11px]">XP</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 4. XP Testing & Diagnostic Console */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-xl bg-purple-100 text-purple-800">
+                <Star className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                  XP Testing & Diagnostic Console
+                </h3>
+                <p className="text-xs text-stone-500">
+                  Simulate activity awards, test level-up threshold animations, or directly manipulate points for the active account.
+                </p>
+              </div>
+            </div>
+
+            {/* Current Target Account Info */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-stone-900 to-stone-800 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-amber-400 mb-0.5">
+                  Target Account
+                </div>
+                <div className="font-bold text-base flex items-center gap-2">
+                  <span>{getGreetingName(member)}</span>
+                  <span className="text-xs font-mono text-stone-300">
+                    (ID: {member?.accountId || 'None'}, Card: {activeCardId || 'None'})
+                  </span>
+                </div>
+                <div className="text-xs text-stone-300 mt-1 flex items-center gap-2">
+                  <span>
+                    Current Level: <strong className="text-amber-300">Level {member?.level || 1} ({member?.levelTitle || 'Novice Maker'})</strong>
+                  </span>
+                  <span>•</span>
+                  <span>
+                    Total Points: <strong className="text-white">{member?.xp || 0} XP</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Reset to 0 button */}
+              <button
+                type="button"
+                onClick={() => handleDirectSetMemberXp(0)}
+                disabled={isSimulatingXp || !member?.accountId}
+                className="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-200 border border-rose-500/30 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset to 0 XP</span>
+              </button>
+            </div>
+
+            {/* Quick Action Simulation Buttons */}
+            <div>
+              <label className="text-xs font-semibold text-stone-700 block mb-2">
+                Simulate Activity Rewards (Bypasses Cooldown)
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleSimulateAward('kiosk_checkin', 0, 'Kiosk Check-In Simulation')}
+                  disabled={isSimulatingXp || !member?.accountId}
+                  className="p-3 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 text-left transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <div className="text-base mb-1">📍</div>
+                  <div className="text-xs font-bold text-stone-800">+20 XP</div>
+                  <div className="text-[10px] text-stone-500">Kiosk Check-In</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSimulateAward('club_checkin', 0, 'Club Meeting Check-In Simulation')}
+                  disabled={isSimulatingXp || !member?.accountId}
+                  className="p-3 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 text-left transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <div className="text-base mb-1">👥</div>
+                  <div className="text-xs font-bold text-stone-800">+25 XP</div>
+                  <div className="text-[10px] text-stone-500">Club Check-In</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSimulateAward('photobooth_snap', 0, 'Photobooth Snapshot Simulation')}
+                  disabled={isSimulatingXp || !member?.accountId}
+                  className="p-3 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 text-left transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <div className="text-base mb-1">📸</div>
+                  <div className="text-xs font-bold text-stone-800">+15 XP</div>
+                  <div className="text-[10px] text-stone-500">Portal Snapshot</div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleSimulateAward('store_purchase', 15, 'Store Checkout ($15.00) Simulation')}
+                  disabled={isSimulatingXp || !member?.accountId}
+                  className="p-3 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 text-left transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <div className="text-base mb-1">🛒</div>
+                  <div className="text-xs font-bold text-stone-800">+25 XP</div>
+                  <div className="text-[10px] text-stone-500">Store Checkout ($15)</div>
+                </button>
+              </div>
+            </div>
+
+            {/* Direct XP Value Setter */}
+            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80">
+              <label className="text-xs font-semibold text-stone-700 block mb-1">
+                Direct XP Override & Level Threshold Tester
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  value={testManualXp}
+                  onChange={(e) => setTestManualXp(e.target.value)}
+                  placeholder="Enter exact total XP (e.g. 50, 125, 250, 2500)..."
+                  className="flex-1 p-2.5 rounded-xl border border-stone-200 bg-white font-mono text-xs text-stone-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    const num = parseInt(testManualXp, 10);
+                    if (!isNaN(num)) handleDirectSetMemberXp(num);
+                  }}
+                  disabled={isSimulatingXp || !member?.accountId || !testManualXp}
+                  className="px-5 py-2.5 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-bold text-xs transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  Apply XP & Check Level Up
+                </button>
+              </div>
+              <p className="text-[10px] text-stone-500 mt-1.5">
+                Tip: Entering a value higher than the next level threshold will trigger the live Level-Up celebration modal!
+              </p>
             </div>
           </div>
         </div>

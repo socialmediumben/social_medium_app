@@ -8,6 +8,7 @@ import {
   GameRoomMediaItem,
   StoreItem,
 } from './types';
+import { calculateLevelFromXp } from './gamification';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
 
@@ -181,11 +182,34 @@ export async function fetchMemberProfileByAccountId(
     let customInterestsStr = '';
     let isAppDeveloper = false;
     let parsedStoreBalance = 0.00;
+    let parsedXp: number | undefined = undefined;
 
     const customFields: any[] = ind.accountCustomFields || [];
     for (const field of customFields) {
       const fieldId = String(field.id);
       const fieldName = (field.name || '').toLowerCase();
+
+      // XP / Experience Points (Field matching ID, configured ID, or name)
+      const configuredXpFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null;
+      if (
+        (configuredXpFieldId && fieldId === configuredXpFieldId) ||
+        fieldName === 'xp' ||
+        fieldName === 'experience points' ||
+        fieldName.includes('experience point') ||
+        fieldName.includes('xp points')
+      ) {
+        if (typeof window !== 'undefined' && fieldId) {
+          try {
+            localStorage.setItem('sm_neon_xp_field_id', fieldId);
+          } catch (_) {}
+        }
+        if (field.value !== undefined && field.value !== null) {
+          const num = parseInt(String(field.value).replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(num)) {
+            parsedXp = num;
+          }
+        }
+      }
 
       // Store Balance / Wallet / Tab (Field matching ID 119, configured ID, or name)
       const configuredBalanceFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_balance_field_id') : null;
@@ -294,7 +318,26 @@ export async function fetchMemberProfileByAccountId(
           parsedStoreBalance = num;
         }
       }
+
+      if (parsedXp === undefined) {
+        const localCachedXp = localStorage.getItem(`sm_xp_${accountId}`);
+        if (localCachedXp !== null) {
+          const num = parseInt(localCachedXp, 10);
+          if (!isNaN(num)) {
+            parsedXp = num;
+          }
+        }
+      }
     }
+
+    const finalXp = parsedXp !== undefined ? parsedXp : 0;
+    if (typeof window !== 'undefined' && accountId) {
+      try {
+        localStorage.setItem(`sm_xp_${accountId}`, String(finalXp));
+      } catch (_) {}
+    }
+
+    const levelState = calculateLevelFromXp(finalXp);
 
     const mappedGenderName = rawGenderCode
       ? NEON_GENDER_OPTIONS.find((g) => g.code.toUpperCase() === rawGenderCode.toUpperCase())?.name
@@ -322,6 +365,11 @@ export async function fetchMemberProfileByAccountId(
       isSystemUser,
       isAppDeveloper,
       storeBalance: parsedStoreBalance,
+      xp: finalXp,
+      level: levelState.level,
+      levelTitle: levelState.title,
+      levelBadge: levelState.badgeEmoji,
+      levelReward: levelState.reward,
     };
 
     return { success: true, member: memberProfile };
@@ -1836,4 +1884,109 @@ export function getNeonDonationUrl(
     base += (base.includes('?') ? '&' : '?') + query;
   }
   return base;
+}
+
+/**
+ * Updates member XP in Neon One CRM custom account field (or local storage fallback).
+ */
+export async function updateMemberXpInNeon(
+  accountId: string,
+  newXp: number
+): Promise<{ success: boolean; newXp: number; error?: string }> {
+  const safeXp = Math.max(0, Math.round(newXp));
+
+  // 1. Always persist locally
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      localStorage.setItem(`sm_xp_${accountId}`, String(safeXp));
+      const cachedProf = localStorage.getItem(`sm_profile_${accountId}`);
+      if (cachedProf) {
+        const parsed = JSON.parse(cachedProf);
+        parsed.xp = safeXp;
+        const state = calculateLevelFromXp(safeXp);
+        parsed.level = state.level;
+        parsed.levelTitle = state.title;
+        parsed.levelBadge = state.badgeEmoji;
+        parsed.levelReward = state.reward;
+        localStorage.setItem(`sm_profile_${accountId}`, JSON.stringify(parsed));
+      }
+    } catch (_) {}
+  }
+
+  // 2. Sync to Neon One if custom field ID is known
+  const configuredXpFieldId =
+    typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null;
+
+  try {
+    if (configuredXpFieldId && accountId) {
+      await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          individualAccount: {
+            accountCustomFields: [
+              {
+                id: configuredXpFieldId,
+                value: String(safeXp),
+              },
+            ],
+          },
+        }),
+      });
+    }
+    return { success: true, newXp: safeXp };
+  } catch (err: any) {
+    return { success: true, newXp: safeXp, error: 'Saved locally; Neon sync pending.' };
+  }
+}
+
+/**
+ * Checks recent Neon CRM activities for kiosk check-ins or club check-ins
+ * and awards XP if not already awarded.
+ */
+export async function syncRecentNeonActivitiesForXp(
+  accountId: string
+): Promise<{ awardedCount: number }> {
+  if (!accountId || typeof window === 'undefined') return { awardedCount: 0 };
+  let awardedCount = 0;
+
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/activities`);
+    if (!res.ok) return { awardedCount: 0 };
+    const data = await res.json();
+    const list: any[] = data.searchResults || [];
+
+    const { awardMemberXp } = await import('./gamification');
+
+    for (const act of list) {
+      const clientId = String(act['Client ID'] || act.clientId || '');
+      if (clientId !== String(accountId)) continue;
+
+      const subject = String(act['Activity Subject'] || act.subject || '').trim();
+      const lower = subject.toLowerCase();
+
+      // Kiosk check-in
+      if (lower === 'check-in' || lower.includes('kiosk check-in')) {
+        const res = await awardMemberXp({
+          accountId,
+          ruleId: 'kiosk_checkin',
+          note: `Physical check-in at kiosk (${act['Activity Date'] || 'Recent'})`,
+        });
+        if (res.success) awardedCount++;
+      }
+      // Club check-in
+      else if (lower.includes('club check-in') || (lower.includes('club') && lower.includes('check'))) {
+        const res = await awardMemberXp({
+          accountId,
+          ruleId: 'club_checkin',
+          note: `${subject} (${act['Activity Date'] || 'Recent'})`,
+        });
+        if (res.success) awardedCount++;
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to sync recent activities for XP:', err);
+  }
+
+  return { awardedCount };
 }

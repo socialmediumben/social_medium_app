@@ -26,6 +26,10 @@ import {
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
 import { APP_VERSION } from '@/lib/version';
+import LevelUpModal from '@/components/LevelUpModal';
+import { useEffect } from 'react';
+import { awardMemberXp } from '@/lib/gamification';
+import { syncRecentNeonActivitiesForXp } from '@/lib/neon';
 
 const BASE_NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
@@ -52,6 +56,32 @@ export function Navbar() {
     brandLogo,
   } = useDevMode();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+
+  // Automated gamification evaluation for active member (first login, daily streak, recent kiosk check-ins)
+  useEffect(() => {
+    if (!member?.accountId) return;
+    const accountId = member.accountId;
+
+    // Award first login bonus (if eligible) then daily login bonus (if eligible)
+    awardMemberXp({
+      accountId,
+      ruleId: 'first_app_login',
+      note: 'First-time setup and login to Companion App',
+    }).then(() => {
+      awardMemberXp({
+        accountId,
+        ruleId: 'daily_app_login',
+        note: 'Daily app sign-in reward',
+      });
+    });
+
+    // Background sync recent Neon CRM check-ins
+    const timer = setTimeout(() => {
+      syncRecentNeonActivitiesForXp(accountId);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [member?.accountId]);
 
   const baseItems = useMemo(
     () => BASE_NAV_ITEMS.filter((item) => (item.href === '/costume-contest' ? isContestVisible : true)),
@@ -321,26 +351,39 @@ export function Navbar() {
           {activeCardId ? (
             <div className="flex items-center gap-1.5">
               {member && (
-                <Link
-                  href="/store"
-                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
-                    (member.storeBalance ?? 0) < 0
-                      ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
-                      : (member.storeBalance ?? 0) > 0
-                      ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
-                      : 'bg-stone-100 border-stone-200 text-stone-600 hover:bg-stone-200'
-                  }`}
-                  title="Makerspace Wallet & Tab Balance"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5 text-[#344ea2]" />
-                  <span className="font-mono">
-                    {(member.storeBalance ?? 0) < 0
-                      ? `-$${Math.abs(member.storeBalance ?? 0).toFixed(2)}`
-                      : (member.storeBalance ?? 0) > 0
-                      ? `+$${(member.storeBalance ?? 0).toFixed(2)}`
-                      : '$0.00'}
-                  </span>
-                </Link>
+                <>
+                  {/* Level & XP Pill */}
+                  <Link
+                    href="/profile#xp"
+                    className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-semibold transition-colors shadow-xs"
+                    title={`${member.levelTitle || 'Novice Maker'} (${member.xp || 0} XP)`}
+                  >
+                    <span>{member.levelBadge || '⭐'}</span>
+                    <span>Lv.{member.level || 1}</span>
+                    <span className="text-amber-800/80 font-normal text-[11px]">• {member.xp || 0} XP</span>
+                  </Link>
+
+                  <Link
+                    href="/store"
+                    className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-semibold transition-colors ${
+                      (member.storeBalance ?? 0) < 0
+                        ? 'bg-amber-50 border-amber-300 text-amber-800 hover:bg-amber-100'
+                        : (member.storeBalance ?? 0) > 0
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                        : 'bg-stone-100 border-stone-200 text-stone-600 hover:bg-stone-200'
+                    }`}
+                    title="Makerspace Wallet & Tab Balance"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5 text-[#344ea2]" />
+                    <span className="font-mono">
+                      {(member.storeBalance ?? 0) < 0
+                        ? `-$${Math.abs(member.storeBalance ?? 0).toFixed(2)}`
+                        : (member.storeBalance ?? 0) > 0
+                        ? `+$${(member.storeBalance ?? 0).toFixed(2)}`
+                        : '$0.00'}
+                    </span>
+                  </Link>
+                </>
               )}
               <Link
                 href="/profile"
@@ -367,6 +410,7 @@ export function Navbar() {
           )}
         </div>
       </div>
+      <LevelUpModal />
     </header>
   );
 }
