@@ -28,7 +28,7 @@ export function TapCardLogin() {
   const [nfcError, setNfcError] = useState<string | null>(null);
   const [hasNfcSupport, setHasNfcSupport] = useState(false);
   const { login, loginError } = useAuth();
-  const { isDevMode, toggleDevMode, openChangelog } = useDevMode();
+  const { isDevMode, toggleDevMode, openChangelog, brandLogo } = useDevMode();
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'NDEFReader' in window) {
@@ -118,9 +118,22 @@ export function TapCardLogin() {
   return (
     <div className="max-w-md mx-auto my-12 p-6 sm:p-8 rounded-3xl bg-white border border-stone-200 shadow-lg text-center">
       {/* Brand Icon */}
-      <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#3bc0cd] via-[#344ea2] to-[#f16622] flex items-center justify-center text-white text-2xl font-fredoka font-bold shadow-md">
-        SM
-      </div>
+      {brandLogo ? (
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-white border border-stone-200 flex items-center justify-center p-1.5 shadow-md overflow-hidden">
+          {brandLogo.startsWith('<svg') ? (
+            <div
+              className="w-full h-full flex items-center justify-center [&>svg]:w-full [&>svg]:h-full"
+              dangerouslySetInnerHTML={{ __html: brandLogo }}
+            />
+          ) : (
+            <img src={brandLogo} alt="Social Medium Logo" className="w-full h-full object-contain" />
+          )}
+        </div>
+      ) : (
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#3bc0cd] via-[#344ea2] to-[#f16622] flex items-center justify-center text-white text-2xl font-fredoka font-bold shadow-md">
+          SM
+        </div>
+      )}
 
       <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f16622]/10 text-[#f16622] text-xs font-semibold uppercase tracking-wider mb-2">
         <Sparkles className="w-3.5 h-3.5" />

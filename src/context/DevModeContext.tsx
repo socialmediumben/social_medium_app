@@ -29,6 +29,8 @@ export interface DevModeContextType {
   contestVisibility: CostumeContestVisibility;
   setContestVisibility: (vis: CostumeContestVisibility) => Promise<boolean>;
   isContestVisible: boolean;
+  brandLogo: string | null;
+  setBrandLogo: (logo: string | null) => void;
 }
 
 const DevModeContext = createContext<DevModeContextType>({
@@ -49,6 +51,8 @@ const DevModeContext = createContext<DevModeContextType>({
   contestVisibility: 'all',
   setContestVisibility: async () => false,
   isContestVisible: true,
+  brandLogo: null,
+  setBrandLogo: () => {},
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
@@ -57,6 +61,37 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
   const [contestVisibility, setContestVisibilityState] = useState<CostumeContestVisibility>('all');
+  const [brandLogo, setBrandLogoState] = useState<string | null>(null);
+
+  // Load custom brand logo on mount
+  useEffect(() => {
+    try {
+      const savedLogo = localStorage.getItem('sm_brand_logo');
+      if (savedLogo) {
+        setBrandLogoState(savedLogo);
+      }
+    } catch (_) {}
+
+    const handleLogoChange = (e: any) => {
+      if (e.detail !== undefined) {
+        setBrandLogoState(e.detail);
+      }
+    };
+    window.addEventListener('brand_logo_changed', handleLogoChange);
+    return () => window.removeEventListener('brand_logo_changed', handleLogoChange);
+  }, []);
+
+  const setBrandLogo = (logo: string | null) => {
+    setBrandLogoState(logo);
+    try {
+      if (logo) {
+        localStorage.setItem('sm_brand_logo', logo);
+      } else {
+        localStorage.removeItem('sm_brand_logo');
+      }
+      window.dispatchEvent(new CustomEvent('brand_logo_changed', { detail: logo }));
+    } catch (_) {}
+  };
 
   // Load initial contest visibility & sync with backend/local events
   useEffect(() => {
@@ -217,6 +252,8 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
         contestVisibility,
         setContestVisibility,
         isContestVisible,
+        brandLogo,
+        setBrandLogo,
       }}
     >
       {children}

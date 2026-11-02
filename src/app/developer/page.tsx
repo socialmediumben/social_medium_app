@@ -35,6 +35,10 @@ import {
   DollarSign,
   Wallet,
   CreditCard,
+  Upload,
+  Image as ImageIcon,
+  RotateCcw,
+  FileCode,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -90,6 +94,8 @@ export default function DeveloperPage() {
     openChangelog,
     contestVisibility,
     setContestVisibility,
+    brandLogo,
+    setBrandLogo,
   } = useDevMode();
 
   const [activeTab, setActiveTab] = useState<DevSubTab>('impersonate');
@@ -361,6 +367,71 @@ export default function DeveloperPage() {
   // ==========================================
   // 4. CERTIFICATION & ICON REGISTRY STATE
   // ==========================================
+  // Brand Logo Customization State
+  const [logoInputType, setLogoInputType] = useState<'upload' | 'url' | 'svg'>('upload');
+  const [logoUrlInput, setLogoUrlInput] = useState('');
+  const [logoSvgInput, setLogoSvgInput] = useState('');
+  const [logoDraft, setLogoDraft] = useState<string | null>(brandLogo);
+  const [logoFeedback, setLogoFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLogoDraft(brandLogo);
+  }, [brandLogo]);
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/') && !file.name.endsWith('.svg')) {
+      setLogoFeedback('Please select a valid image file (PNG, JPG, SVG, WebP).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      if (result) {
+        setLogoDraft(result);
+        setLogoFeedback(null);
+      }
+    };
+    reader.onerror = () => {
+      setLogoFeedback('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplyLogoUrl = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (logoUrlInput.trim()) {
+      setLogoDraft(logoUrlInput.trim());
+      setLogoFeedback(null);
+    }
+  };
+
+  const handleApplyLogoSvg = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (logoSvgInput.trim()) {
+      setLogoDraft(logoSvgInput.trim());
+      setLogoFeedback(null);
+    }
+  };
+
+  const handleSaveBrandLogo = () => {
+    setBrandLogo(logoDraft);
+    setLogoFeedback(logoDraft ? 'Brand logo applied to top-left header!' : 'Brand logo reset to default SM badge.');
+    setTimeout(() => setLogoFeedback(null), 4000);
+  };
+
+  const handleResetBrandLogo = () => {
+    setLogoDraft(null);
+    setLogoUrlInput('');
+    setLogoSvgInput('');
+    setBrandLogo(null);
+    setLogoFeedback('Reset to default Social Medium badge.');
+    setTimeout(() => setLogoFeedback(null), 4000);
+  };
+
   const [tools, setTools] = useState<Record<string, ToolItem>>(SMCertifications.TOOLS || {});
   const [selectedToolId, setSelectedToolId] = useState<string | null>('3d-printing');
   const [testInput, setTestInput] = useState('3D Printing (Advanced)');
@@ -1679,10 +1750,237 @@ export default function DeveloperPage() {
       )}
 
       {/* ========================================================================= */}
-      {/* TAB 4: ICONS & SSOT CERTIFICATION REGISTRY (PREVIOUS "ICONS" MODULE)      */}
+      {/* TAB 4: ICONS & BRAND ASSET MANAGER                                       */}
       {/* ========================================================================= */}
       {activeTab === 'icons' && (
         <div className="space-y-6">
+          {/* Section 1: Brand Logo & Top-Left Header Emblem */}
+          <div className="bg-white rounded-3xl shadow-xs border border-stone-200 overflow-hidden">
+            <div className="p-5 sm:p-6 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-stone-50/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] text-white flex items-center justify-center font-bold shadow-xs shrink-0">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                      Brand Logo & Header Customization
+                    </h2>
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold uppercase tracking-wider">
+                      {brandLogo ? 'Custom Logo Active' : 'Default Badge'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500">
+                    Upload your actual logo to replace the default &quot;SM&quot; badge in the top-left navigation corner.
+                  </p>
+                </div>
+              </div>
+
+              {brandLogo && (
+                <button
+                  type="button"
+                  onClick={handleResetBrandLogo}
+                  className="px-3.5 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs self-start sm:self-auto"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset to Default SM</span>
+                </button>
+              )}
+            </div>
+
+            {logoFeedback && (
+              <div className="m-5 mb-0 p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>{logoFeedback}</span>
+              </div>
+            )}
+
+            <div className="p-5 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+              {/* Left Column: Upload / URL / SVG Input Form (7 cols) */}
+              <div className="lg:col-span-7 space-y-4">
+                {/* Method selector pills */}
+                <div className="flex items-center gap-2 p-1 rounded-2xl bg-stone-100 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => setLogoInputType('upload')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      logoInputType === 'upload'
+                        ? 'bg-white text-stone-900 shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    Upload File
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoInputType('url')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      logoInputType === 'url'
+                        ? 'bg-white text-stone-900 shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    Image Web URL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoInputType('svg')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                      logoInputType === 'svg'
+                        ? 'bg-white text-stone-900 shadow-xs'
+                        : 'text-stone-600 hover:text-stone-900'
+                    }`}
+                  >
+                    Raw SVG Vector
+                  </button>
+                </div>
+
+                {/* Upload File Input */}
+                {logoInputType === 'upload' && (
+                  <div className="p-6 rounded-2xl border-2 border-dashed border-stone-200 hover:border-[#3bc0cd] transition-colors text-center space-y-3 bg-stone-50/50">
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-[#3bc0cd]/10 text-[#344ea2] flex items-center justify-center">
+                      <Upload className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <label className="inline-block px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs cursor-pointer shadow-xs transition-colors">
+                        <span>Choose Logo Image / SVG</span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+                      <p className="text-[11px] text-stone-400 mt-2">
+                        Supports PNG with transparency, SVG vectors, JPG, or WebP.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* URL Input */}
+                {logoInputType === 'url' && (
+                  <form onSubmit={handleApplyLogoUrl} className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-stone-700 block mb-1">
+                        Hosted Logo Image Link
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="url"
+                          value={logoUrlInput}
+                          onChange={(e) => setLogoUrlInput(e.target.value)}
+                          placeholder="https://example.com/logo.png"
+                          className="flex-1 px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs focus:bg-white focus:border-[#3bc0cd]"
+                        />
+                        <button
+                          type="submit"
+                          className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs cursor-pointer transition-colors shadow-xs shrink-0"
+                        >
+                          Preview
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                )}
+
+                {/* SVG Code Input */}
+                {logoInputType === 'svg' && (
+                  <form onSubmit={handleApplyLogoSvg} className="space-y-3">
+                    <div>
+                      <label className="text-xs font-bold text-stone-700 block mb-1">
+                        Paste SVG Vector XML
+                      </label>
+                      <textarea
+                        rows={4}
+                        value={logoSvgInput}
+                        onChange={(e) => setLogoSvgInput(e.target.value)}
+                        placeholder='<svg viewBox="0 0 100 100" ...>...</svg>'
+                        className="w-full p-3 rounded-xl border border-stone-200 bg-stone-50 font-mono text-[11px] focus:bg-white focus:border-[#3bc0cd]"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="px-4 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs cursor-pointer transition-colors shadow-xs"
+                    >
+                      Preview SVG
+                    </button>
+                  </form>
+                )}
+
+                {/* Action Buttons */}
+                <div className="pt-2 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleSaveBrandLogo}
+                    disabled={logoDraft === brandLogo}
+                    className="px-5 py-2.5 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-bold text-xs transition-colors flex items-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>Apply Logo to Top-Left Header</span>
+                  </button>
+                  {logoDraft && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoDraft(null)}
+                      className="px-3.5 py-2 rounded-xl border border-stone-200 hover:bg-stone-100 text-stone-600 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      Clear Selection
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column: Live Header Mockup Preview (5 cols) */}
+              <div className="lg:col-span-5 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 block">
+                  Top-Left Header Preview
+                </span>
+                <div className="p-5 rounded-2xl bg-white border border-stone-200 shadow-sm space-y-3">
+                  <div className="text-[10px] text-stone-400 font-mono">Live Navigation Mockup:</div>
+                  <div className="p-3 rounded-xl bg-stone-50 border border-stone-200/80 flex items-center gap-2.5">
+                    {logoDraft ? (
+                      <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-stone-200 shadow-xs shrink-0">
+                        {logoDraft.startsWith('<svg') ? (
+                          <div
+                            className="w-full h-full p-1 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-full"
+                            dangerouslySetInnerHTML={{ __html: logoDraft }}
+                          />
+                        ) : (
+                          <img
+                            src={logoDraft}
+                            alt="Social Medium Logo Preview"
+                            className="w-full h-full object-contain p-0.5"
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
+                        SM
+                      </div>
+                    )}
+                    <div>
+                      <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block leading-none">
+                        SOCIAL MEDIUM
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] text-stone-500 leading-relaxed pt-1">
+                    {logoDraft ? (
+                      <span className="text-emerald-700 font-medium">
+                        ✓ Logo loaded! Click &quot;Apply Logo to Top-Left Header&quot; to save.
+                      </span>
+                    ) : (
+                      <span>Showing default gradient badge with &quot;SM&quot;.</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 2: Tool Certification & Icon Registry */}
           <div className="bg-white rounded-3xl shadow-xs border border-stone-200 overflow-hidden">
             {/* Header */}
             <div className="p-5 sm:p-6 border-b border-stone-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-stone-50/80">

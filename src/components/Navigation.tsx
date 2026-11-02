@@ -49,6 +49,7 @@ export function Navbar() {
     openChangelog,
     openIconManager,
     isContestVisible,
+    brandLogo,
   } = useDevMode();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
 
@@ -97,9 +98,26 @@ export function Navbar() {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
         {/* Brand Logo & Name (Clicking logo cycles modes easily as a shortcut) */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
-            SM
-          </div>
+          {brandLogo ? (
+            <div className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center bg-white border border-stone-200 shadow-xs group-hover:scale-105 transition-transform shrink-0">
+              {brandLogo.startsWith('<svg') ? (
+                <div
+                  className="w-full h-full p-1 flex items-center justify-center [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-full"
+                  dangerouslySetInnerHTML={{ __html: brandLogo }}
+                />
+              ) : (
+                <img
+                  src={brandLogo}
+                  alt="Social Medium Logo"
+                  className="w-full h-full object-contain p-0.5"
+                />
+              )}
+            </div>
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3bc0cd] to-[#344ea2] flex items-center justify-center text-white font-bold text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              SM
+            </div>
+          )}
           <div>
             <span className="font-fredoka text-xl font-bold tracking-tight text-[#344ea2] block">
               SOCIAL MEDIUM
