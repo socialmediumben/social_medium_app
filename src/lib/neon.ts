@@ -5,6 +5,7 @@ import {
   NeonPropertyItem,
   NeonSystemUser,
   PortalPhotoRecord,
+  GameRoomMediaItem,
 } from './types';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
@@ -1319,6 +1320,92 @@ export async function resetCostumeContest(): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({}),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================================
+// Game Room Media API (Google Drive & "Game_Room_Media" Google Sheets Tab)
+// ============================================================================
+
+/**
+ * Fetches Game Room custom media items from the cloud database.
+ */
+export async function fetchGameRoomMedia(
+  cardId?: string,
+  refresh: boolean = false
+): Promise<GameRoomMediaItem[]> {
+  try {
+    const params = new URLSearchParams();
+    if (cardId) params.set('cardId', cardId);
+    if (refresh) params.set('refresh', 'true');
+    params.set('_t', String(Date.now()));
+
+    const qs = params.toString();
+    const url = `${NEON_PROXY_URL}/api/gameroom-media${qs ? `?${qs}` : ''}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (data && Array.isArray(data.items)) {
+      return data.items;
+    }
+    return [];
+  } catch (err) {
+    console.warn('[Game Room Media] fetch error:', err);
+    return [];
+  }
+}
+
+/**
+ * Uploads a custom battlemap, scene, or portrait to Google Drive and links it
+ * to the user in the "Game_Room_Media" spreadsheet tab.
+ */
+export async function uploadGameRoomMedia(input: {
+  cardId: string;
+  uploaderName?: string;
+  title: string;
+  type: string;
+  targetScreen?: string;
+  fileData: string;
+  fileName: string;
+  mimeType: string;
+}): Promise<{ success: boolean; item?: GameRoomMediaItem; error?: string }> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/gameroom-media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cardId: input.cardId,
+        uploaderName: input.uploaderName || '',
+        title: input.title,
+        type: input.type,
+        targetScreen: input.targetScreen || 'table',
+        file: input.fileData,
+        fileName: input.fileName,
+        mimeType: input.mimeType,
+      }),
+    });
+
+    const data = await res.json();
+    if (res.ok && data.success && data.item) {
+      return { success: true, item: data.item };
+    }
+    return { success: false, error: data.error || 'Upload failed' };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Network error during upload' };
+  }
+}
+
+/**
+ * Deletes a Game Room media piece from the cloud database and Google Drive.
+ */
+export async function deleteGameRoomMedia(idOrFileId: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/gameroom-media/${encodeURIComponent(idOrFileId)}`, {
+      method: 'DELETE',
     });
     return res.ok;
   } catch {

@@ -69,6 +69,19 @@ export interface GameRoomDisplayStatus {
   tableProjector: { online: boolean; currentScene: string };
 }
 
+export interface GameRoomMediaItem {
+  id: string;
+  fileId?: string;
+  cardId: string;
+  uploaderName?: string;
+  title: string;
+  type: 'map' | 'image' | 'video' | 'portrait';
+  targetScreen: 'table' | 'window' | 'frame';
+  url: string;
+  downloadUrl?: string;
+  timestamp: string;
+}
+
 export interface NeonPropertyItem {
   id: string;
   name: string;

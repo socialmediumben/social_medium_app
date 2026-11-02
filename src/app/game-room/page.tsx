@@ -33,6 +33,7 @@ import {
 import { GAME_ROOM_PRESETS, INITIAL_GAME_ROOM_STATUS } from '@/lib/member-data';
 import { GameRoomPreset, GameRoomDisplayStatus } from '@/lib/types';
 import { useDevMode } from '@/context/DevModeContext';
+import { useAuth } from '@/context/AuthContext';
 import { ScreenMirrorModal } from '@/components/game-room/ScreenMirrorModal';
 import { MediaLibraryManager } from '@/components/game-room/MediaLibraryManager';
 import { GridCalibrationCard } from '@/components/game-room/GridCalibrationCard';
@@ -108,12 +109,14 @@ const RENTAL_SLOTS = [
 
 export default function GameRoomPage() {
   const { isDevMode } = useDevMode();
+  const { activeCardId, member } = useAuth();
+  const currentUserName = member?.preferredName || member?.name || null;
 
   // Navigation: Main Tabs ('remote' vs 'reservations')
   const [mainTab, setMainTab] = useState<'remote' | 'reservations'>('remote');
 
-  // Sub-tabs under Live Remote ('presets' | 'displays' | 'lights' | 'devtools')
-  const [remoteSubTab, setRemoteSubTab] = useState<'presets' | 'displays' | 'lights' | 'devtools'>('presets');
+  // Sub-tabs under Live Remote ('presets' | 'displays' | 'lights' | 'media' | 'devtools')
+  const [remoteSubTab, setRemoteSubTab] = useState<'presets' | 'displays' | 'lights' | 'media' | 'devtools'>('presets');
 
   // Controller State
   const [activePreset, setActivePreset] = useState<GameRoomPreset>(GAME_ROOM_PRESETS[0]);
@@ -924,6 +927,18 @@ export default function GameRoomPage() {
               <span>🕯️ Chamber Lights</span>
             </button>
 
+            <button
+              onClick={() => setRemoteSubTab('media')}
+              className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                remoteSubTab === 'media'
+                  ? 'bg-[#344ea2] text-white shadow-xs'
+                  : 'text-stone-600 hover:text-stone-900 hover:bg-stone-100'
+              }`}
+            >
+              <Map className="w-3.5 h-3.5" />
+              <span>🗺️ Custom Media</span>
+            </button>
+
             {/* Developer Mode Sub-Tab */}
             {isDevMode && (
               <button
@@ -1359,13 +1374,33 @@ export default function GameRoomPage() {
             </div>
           )}
 
-          {/* Sub-Tab 4: Developer Mode Studio */}
+          {/* Sub-Tab 4: Custom Media Library (Google Drive & Sheets Cloud Sync) */}
+          {remoteSubTab === 'media' && (
+            <div className="space-y-6 animate-fade-in">
+              <MediaLibraryManager
+                serverUrl={serverUrl}
+                wsRef={wsRef}
+                cardId={activeCardId}
+                userName={currentUserName}
+                isDevMode={isDevMode}
+                onNotification={(msg) => {
+                  setTriggerNotice(msg);
+                  setTimeout(() => setTriggerNotice(null), 3500);
+                }}
+              />
+            </div>
+          )}
+
+          {/* Sub-Tab 5: Developer Mode Studio */}
           {remoteSubTab === 'devtools' && isDevMode && (
             <div className="space-y-6 animate-fade-in">
               {/* Media Library Manager */}
               <MediaLibraryManager
                 serverUrl={serverUrl}
                 wsRef={wsRef}
+                cardId={activeCardId}
+                userName={currentUserName}
+                isDevMode={isDevMode}
                 onNotification={(msg) => {
                   setTriggerNotice(msg);
                   setTimeout(() => setTriggerNotice(null), 3500);
