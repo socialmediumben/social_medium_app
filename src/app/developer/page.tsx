@@ -99,6 +99,10 @@ import {
   formatCategoryLabel,
   awardBuddyBucks,
   loadMemberBuddyBucks,
+  getCategoryLayerOrder,
+  saveCategoryLayerOrder,
+  resetCategoryLayerOrder,
+  DEFAULT_CATEGORY_LAYER_ORDER,
 } from '@/lib/buddy';
 import { BuddyCanvas } from '@/components/buddy/BuddyCanvas';
 import { Palette, Shirt, Coins, Crown, Smile, Footprints } from 'lucide-react';
@@ -215,14 +219,91 @@ export default function DeveloperPage() {
   const [isSavingBuddyFields, setIsSavingBuddyFields] = useState(false);
   const [buddyFieldsNotice, setBuddyFieldsNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  // Category Layer Z-Index Stack Order State
+  const [categoryLayers, setCategoryLayers] = useState<Record<string, number>>(() => getCategoryLayerOrder());
+  const [isSavingLayers, setIsSavingLayers] = useState(false);
+  const [layerNotice, setLayerNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [newCategorySlug, setNewCategorySlug] = useState('');
+  const [newCategoryZ, setNewCategoryZ] = useState(50);
+
+  const handleUpdateCategoryZ = (cat: string, newZ: number) => {
+    setCategoryLayers((prev) => ({
+      ...prev,
+      [cat]: newZ,
+    }));
+  };
+
+  const handleSaveCategoryLayers = async () => {
+    setIsSavingLayers(true);
+    setLayerNotice(null);
+    try {
+      saveCategoryLayerOrder(categoryLayers);
+      setBuddyCatalog(getAllBuddyItems());
+      setLayerNotice({
+        message: 'Category layer stack order saved and published globally! All items now reflect these Z-Index values.',
+        type: 'success',
+      });
+    } catch (err: any) {
+      setLayerNotice({ message: err.message || 'Failed to save layer order.', type: 'error' });
+    } finally {
+      setIsSavingLayers(false);
+      setTimeout(() => setLayerNotice(null), 5000);
+    }
+  };
+
+  const handleResetCategoryLayers = () => {
+    const defaults = resetCategoryLayerOrder();
+    setCategoryLayers(defaults);
+    setBuddyCatalog(getAllBuddyItems());
+    setLayerNotice({
+      message: 'Category layer stack order reset to standard makerspace defaults.',
+      type: 'success',
+    });
+    setTimeout(() => setLayerNotice(null), 4000);
+  };
+
+  const handleAddCustomCategory = () => {
+    const cleanSlug = newCategorySlug.toLowerCase().trim().replace(/[^a-z0-9_]/g, '_');
+    if (!cleanSlug) {
+      setLayerNotice({ message: 'Please enter a valid category name.', type: 'error' });
+      return;
+    }
+    const updated = {
+      ...categoryLayers,
+      [cleanSlug]: newCategoryZ,
+    };
+    setCategoryLayers(updated);
+    saveCategoryLayerOrder(updated);
+    setNewCategorySlug('');
+    setLayerNotice({
+      message: `Added custom category "${cleanSlug}" with Z-Index ${newCategoryZ}.`,
+      type: 'success',
+    });
+    setTimeout(() => setLayerNotice(null), 4000);
+  };
+
+  const handleRemoveCategory = (cat: string) => {
+    const updated = { ...categoryLayers };
+    delete updated[cat];
+    setCategoryLayers(updated);
+    saveCategoryLayerOrder(updated);
+    setLayerNotice({
+      message: `Removed category "${cat}" from layer configuration.`,
+      type: 'success',
+    });
+    setTimeout(() => setLayerNotice(null), 4000);
+  };
+
   useEffect(() => {
     setBuddyCatalog(getAllBuddyItems());
+    setCategoryLayers(getCategoryLayerOrder());
     if (typeof window !== 'undefined') {
       setBuddyAvatarFieldId(localStorage.getItem('sm_neon_buddy_avatar_field_id') || '');
       setBuddyBucksFieldId(localStorage.getItem('sm_neon_buddy_bucks_field_id') || '');
     }
     const handleCatalogUpdate = () => {
       setBuddyCatalog(getAllBuddyItems());
+      setCategoryLayers(getCategoryLayerOrder());
     };
     window.addEventListener('sm_buddy_catalog_updated', handleCatalogUpdate);
     return () => window.removeEventListener('sm_buddy_catalog_updated', handleCatalogUpdate);
@@ -278,7 +359,7 @@ export default function DeveloperPage() {
         name: newBuddyName.trim(),
         category: newBuddyCategory,
         assetUrl: newBuddyAssetUrl.trim(),
-        zIndex: Number(newBuddyZIndex) || 60,
+        zIndex: categoryLayers[newBuddyCategory] !== undefined ? categoryLayers[newBuddyCategory] : 50,
         price: Math.max(0, Number(newBuddyPrice) || 0),
         description: newBuddyDescription.trim() || undefined,
         isCustom: true,
@@ -2328,15 +2409,16 @@ export default function DeveloperPage() {
               You can manage all accessories and prices directly in your Google Sheet! Add a new tab named <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-bold">Buddy_Items</code> to the <strong>SM App Database</strong> sheet with these exact column headers:
             </p>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {['Name', 'Category', 'Price', 'Asset_URL', 'Z_Index', 'Description', 'Active', 'Artist'].map((col) => (
+              {['Name', 'Category', 'Price', 'Asset_URL', 'Description', 'Active', 'Artist'].map((col) => (
                 <span key={col} className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 font-mono text-[11px] font-bold text-emerald-800">
                   {col}
                 </span>
               ))}
             </div>
-            <div className="text-[11px] text-emerald-800 pt-1">
-              &bull; <strong>Categories:</strong> <code>headwear</code>, <code>tops</code>, <code>props</code>, <code>capes</code>, <code>shoes</code>, <code>face_accessory</code>, <code>expression</code>, <code>hair</code>, <code>base_body</code><br/>
-              &bull; <strong>Asset_URL:</strong> Relative path (e.g. <code>/buddies/costume_wizard.png</code>) or public image URL (Google Drive direct link, GitHub, etc.)
+            <div className="text-[11px] text-emerald-800 pt-1 space-y-0.5">
+              <div>&bull; <strong>Categories:</strong> <code>headwear</code>, <code>tops</code>, <code>props</code>, <code>capes</code>, <code>shoes</code>, <code>face_accessory</code>, <code>mouth</code>, <code>hair</code>, <code>costume</code></div>
+              <div>&bull; <strong>Layer Order (Z-Index):</strong> <em>Removed from spreadsheet!</em> Everything in a category always shares the same Z-Index configured in the Category Layer Manager below.</div>
+              <div>&bull; <strong>Asset_URL:</strong> Direct Google Drive link or relative path (e.g. <code>/buddies/costume_wizard.png</code>).</div>
             </div>
           </div>
 
@@ -2395,6 +2477,192 @@ export default function DeveloperPage() {
             </div>
           )}
 
+          {/* ======================================================== */}
+          {/* CATEGORY LAYER STACK (Z-INDEX) MANAGER                   */}
+          {/* ======================================================== */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-indigo-500 to-purple-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-stone-900 text-base flex items-center gap-2">
+                    <span>Category Layer Manager (Z-Index Order)</span>
+                    <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold">
+                      SSOT
+                    </span>
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Assign the visual depth (Z-Index) for each category. Everything within a single category always shares the exact same Z-Index value!
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleResetCategoryLayers}
+                  className="px-3.5 py-2 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 text-xs font-bold transition-colors cursor-pointer"
+                  title="Reset category layers to standard defaults"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCategoryLayers}
+                  disabled={isSavingLayers}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  {isSavingLayers ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save Layer Order</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {layerNotice && (
+              <div
+                className={`p-3.5 rounded-2xl text-xs font-semibold flex items-center justify-between gap-2 ${
+                  layerNotice.type === 'success'
+                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                    : 'bg-red-50 text-red-800 border border-red-200'
+                }`}
+              >
+                <span>{layerNotice.message}</span>
+                <button
+                  onClick={() => setLayerNotice(null)}
+                  className="text-stone-400 hover:text-stone-600 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Visual Stack: Categories ordered by Z-Index ascending (back-to-front) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-stone-400 uppercase tracking-wider px-2">
+                <span>Category Stack (Back / Lowest Z &rarr; Front / Highest Z)</span>
+                <span className="text-right">Shared Category Z-Index</span>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2">
+                {Object.entries(categoryLayers)
+                  .sort(([, zA], [, zB]) => zA - zB)
+                  .map(([cat, z]) => {
+                    const itemsInCat = buddyCatalog.filter((i) => i.category === cat).length;
+                    const isStandard = DEFAULT_CATEGORY_LAYER_ORDER[cat] !== undefined;
+
+                    return (
+                      <div
+                        key={cat}
+                        className="p-3 rounded-2xl bg-stone-50/70 border border-stone-200 hover:border-indigo-300 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          {/* Z-Index Badge */}
+                          <div className="w-12 h-10 rounded-xl bg-white border border-stone-200 shadow-2xs flex flex-col items-center justify-center shrink-0">
+                            <span className="text-[9px] uppercase font-bold text-stone-400 leading-none">Z</span>
+                            <span className="font-mono font-black text-indigo-700 text-sm leading-tight">{z}</span>
+                          </div>
+
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-stone-900">
+                                {formatCategoryLabel(cat)}
+                              </span>
+                              <code className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-stone-200/60 text-stone-600">
+                                {cat}
+                              </code>
+                            </div>
+                            <p className="text-[11px] text-stone-500">
+                              {itemsInCat} {itemsInCat === 1 ? 'item' : 'items'} in catalog
+                              {cat === 'base_body' && ' • Base Character Body'}
+                              {cat === 'capes' && ' • Behind Mascot Body'}
+                              {cat === 'props' && ' • Foreground Handheld Accessory'}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Z-Index Steppers & Direct Input */}
+                        <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCategoryZ(cat, Math.max(0, z - 5))}
+                            className="w-7 h-7 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 font-bold text-xs text-stone-700 flex items-center justify-center cursor-pointer shadow-2xs"
+                            title="Nudge layer backward (-5 Z)"
+                          >
+                            -5
+                          </button>
+                          <input
+                            type="number"
+                            value={z}
+                            onChange={(e) => handleUpdateCategoryZ(cat, parseInt(e.target.value, 10) || 0)}
+                            className="w-16 text-center text-xs font-mono font-bold bg-white border border-stone-300 rounded-xl py-1.5 text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleUpdateCategoryZ(cat, z + 5)}
+                            className="w-7 h-7 rounded-lg bg-white border border-stone-200 hover:bg-stone-100 font-bold text-xs text-stone-700 flex items-center justify-center cursor-pointer shadow-2xs"
+                            title="Nudge layer forward (+5 Z)"
+                          >
+                            +5
+                          </button>
+
+                          {!isStandard && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveCategory(cat)}
+                              className="p-1.5 text-stone-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer ml-1"
+                              title="Delete custom category"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+
+            {/* Add Custom Category Row */}
+            <div className="pt-3 border-t border-stone-100 flex flex-col sm:flex-row items-center gap-2">
+              <input
+                type="text"
+                placeholder="Add custom category slug (e.g. wings, gloves, pets)"
+                value={newCategorySlug}
+                onChange={(e) => setNewCategorySlug(e.target.value)}
+                className="w-full sm:flex-1 text-xs bg-stone-50 border border-stone-300 rounded-xl px-3 py-2 text-stone-900 focus:bg-white focus:outline-hidden focus:border-indigo-500"
+              />
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 bg-stone-50 border border-stone-300 rounded-xl px-2.5 py-1.5 text-xs">
+                  <span className="text-stone-500 font-bold">Z:</span>
+                  <input
+                    type="number"
+                    value={newCategoryZ}
+                    onChange={(e) => setNewCategoryZ(parseInt(e.target.value, 10) || 50)}
+                    className="w-12 text-center bg-transparent font-mono font-bold text-stone-900 focus:outline-hidden"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddCustomCategory}
+                  className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-xs font-bold transition-colors cursor-pointer whitespace-nowrap"
+                >
+                  + Add Category
+                </button>
+              </div>
+            </div>
+          </div>
+
           {/* Top Row: In-App Upload Form & Neon One Custom Fields */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Upload Form Card */}
@@ -2436,19 +2704,6 @@ export default function DeveloperPage() {
                       onChange={(e) => {
                         const cat = e.target.value as BuddyLayerCategory;
                         setNewBuddyCategory(cat);
-                        const zMap: Record<BuddyLayerCategory, number> = {
-                          capes: 20,
-                          base_body: 30,
-                          expression: 40,
-                          tops: 60,
-                          bottoms: 65,
-                          shoes: 70,
-                          face_accessory: 80,
-                          headwear: 90,
-                          hair: 95,
-                          props: 110,
-                        };
-                        setNewBuddyZIndex(zMap[cat] || 60);
                       }}
                       className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
                     >
@@ -2491,14 +2746,12 @@ export default function DeveloperPage() {
                     <label className="text-xs font-bold text-stone-700 block mb-1">
                       Layer Z-Index Stack Order
                     </label>
-                    <input
-                      type="number"
-                      value={newBuddyZIndex}
-                      onChange={(e) => setNewBuddyZIndex(parseInt(e.target.value, 10) || 60)}
-                      className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
-                    />
+                    <div className="w-full text-xs bg-stone-100 border border-stone-200 rounded-xl p-2.5 text-stone-800 font-mono font-bold flex items-center justify-between">
+                      <span>Z-Index: {categoryLayers[newBuddyCategory] !== undefined ? categoryLayers[newBuddyCategory] : 50}</span>
+                      <span className="text-[10px] text-stone-500 font-sans font-normal">Auto-assigned</span>
+                    </div>
                     <span className="text-[10px] text-stone-500 mt-0.5 block">
-                      Determines front-to-back layer depth.
+                      Determined by Category Layer Manager above.
                     </span>
                   </div>
                 </div>

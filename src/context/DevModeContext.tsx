@@ -199,6 +199,14 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
             xpRules: settings.xpRules,
             levelTiers: settings.levelTiers,
           });
+
+          // 6. Buddy Builder Category Layer Order (Z-Index SSOT)
+          if (settings.buddyLayerOrder && typeof settings.buddyLayerOrder === 'object') {
+            try {
+              localStorage.setItem('sm_buddy_layer_order', JSON.stringify(settings.buddyLayerOrder));
+              window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
+            } catch (_) {}
+          }
         } else {
           // Fallback to fetchCostumeContest if app-settings endpoint not available yet
           const data = await fetchCostumeContest();

@@ -416,12 +416,10 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       // Clean asset URL: if relative path missing leading slash, add it
       if (assetUrl.startsWith('buddies/')) assetUrl = '/' + assetUrl;
 
-      // Z-Index resolution: 
-      // 1. If explicit positive Z_Index in spreadsheet (>0), use it
-      // 2. Otherwise use the layer order configured in Developer Mode
-      const parsedZ = zIdx !== -1 ? parseInt(String(row[zIdx] || '').replace(/[^0-9]/g, ''), 10) : NaN;
+      // Z-Index resolution: STRICTLY determined by the Category Layer Order configured in Developer Mode.
+      // Everything within a single category ALWAYS shares the exact same Z_Index value.
       const categoryZ = layerOrder[category];
-      const zIndex = !isNaN(parsedZ) && parsedZ > 0 ? parsedZ : (categoryZ !== undefined ? categoryZ : 50);
+      const zIndex = categoryZ !== undefined ? categoryZ : 50;
 
       const description = descIdx !== -1 ? String(row[descIdx] || '').trim() : undefined;
       const artist = artistIdx !== -1 ? String(row[artistIdx] || '').trim() : undefined;
@@ -470,11 +468,14 @@ export function getAllBuddyItems(): BuddyItem[] {
   if (sheetItems.length > 0) {
     return sheetItems.map((item) => ({
       ...item,
-      zIndex: layerOrder[item.category] !== undefined ? layerOrder[item.category] : item.zIndex,
+      zIndex: layerOrder[item.category] !== undefined ? layerOrder[item.category] : (item.zIndex || 50),
     }));
   }
 
-  return DEFAULT_BUDDY_ITEMS;
+  return DEFAULT_BUDDY_ITEMS.map((item) => ({
+    ...item,
+    zIndex: layerOrder[item.category] !== undefined ? layerOrder[item.category] : (item.zIndex || 50),
+  }));
 }
 
 /**
@@ -911,7 +912,6 @@ export async function uploadBuddyArtItem(
       description,
       artist,
       price,
-      zIndex,
       image: imageBase64,
       timestamp,
     };
