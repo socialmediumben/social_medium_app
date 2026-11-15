@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.4';
+export const APP_VERSION = '3.5';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,20 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.5',
+    date: '2026-11-14',
+    title: 'Global Developer Configuration Synchronization Across All Makerspace Users',
+    changes: [
+      'Connected Developer Mode configurations to the centralized backend proxy (/api/app-settings) so changes made by developers automatically update all users and devices without touching code.',
+      'Synchronized Custom Brand Logo / Emblem globally: uploading a new logo in Developer Mode displays across the app for every member and kiosk.',
+      'Synchronized Module Visibility (Costume Contest, Game Room, Store) globally with permanent backend state preservation and zero revert-on-update.',
+      'Synchronized Gamification Activity XP values, cooldowns, and rule names across all members.',
+      'Synchronized Level Tiers, XP thresholds, custom ranks, and unlocked rewards globally.',
+      'Synchronized Tool Certifications and keyword mappings across all constituent profiles.',
+      'Isolated Test Consoles: strictly guaranteed that the "Balance Testing & Diagnostic Console" and "XP Simulation Console" simulate and alter only the active/impersonated user account, leaving all other users untouched.',
+    ],
+  },
   {
     version: '3.4',
     date: '2026-11-14',

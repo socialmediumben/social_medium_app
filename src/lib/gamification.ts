@@ -192,20 +192,30 @@ export function fetchXpLevelTiers(): XpLevelTier[] {
 }
 
 /**
- * Persist modified level tiers to localStorage
+ * Persist modified level tiers to localStorage and sync globally to all users via backend
  */
 export function saveXpLevelTiers(tiers: XpLevelTier[]): void {
   if (typeof window === 'undefined') return;
   const sorted = [...tiers].sort((a, b) => (a.minXp || 0) - (b.minXp || 0));
   localStorage.setItem(STORAGE_KEY_TIERS, JSON.stringify(sorted));
+  window.dispatchEvent(new CustomEvent('sm_xp_tiers_updated'));
+
+  // Sync globally to backend proxy so it affects all users
+  import('./neon').then(({ updateGlobalAppSettings }) => {
+    updateGlobalAppSettings({ levelTiers: sorted }).catch(() => {});
+  }).catch(() => {});
 }
 
 /**
- * Reset level tiers to canonical defaults
+ * Reset level tiers to canonical defaults and sync globally
  */
 export function resetXpLevelTiers(): XpLevelTier[] {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY_TIERS);
+    window.dispatchEvent(new CustomEvent('sm_xp_tiers_updated'));
+    import('./neon').then(({ updateGlobalAppSettings }) => {
+      updateGlobalAppSettings({ levelTiers: DEFAULT_XP_LEVEL_TIERS }).catch(() => {});
+    }).catch(() => {});
   }
   return DEFAULT_XP_LEVEL_TIERS;
 }
@@ -278,21 +288,60 @@ export function fetchXpActivityRules(): XpActivityRule[] {
 }
 
 /**
- * Persist modified activity rules to localStorage
+ * Persist modified activity rules to localStorage and sync globally to all users via backend
  */
 export function saveXpActivityRules(rules: XpActivityRule[]): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(rules));
+  window.dispatchEvent(new CustomEvent('sm_xp_rules_updated'));
+
+  // Sync globally to backend proxy so it affects all users
+  import('./neon').then(({ updateGlobalAppSettings }) => {
+    updateGlobalAppSettings({ xpRules: rules }).catch(() => {});
+  }).catch(() => {});
 }
 
 /**
- * Reset activity rules to defaults
+ * Reset activity rules to defaults and sync globally
  */
 export function resetXpActivityRules(): XpActivityRule[] {
   if (typeof window !== 'undefined') {
     localStorage.removeItem(STORAGE_KEY_RULES);
+    window.dispatchEvent(new CustomEvent('sm_xp_rules_updated'));
+    import('./neon').then(({ updateGlobalAppSettings }) => {
+      updateGlobalAppSettings({ xpRules: DEFAULT_XP_RULES }).catch(() => {});
+    }).catch(() => {});
   }
   return DEFAULT_XP_RULES;
+}
+
+/**
+ * Synchronize gamification rules and tiers from the global app settings
+ */
+export function syncGamificationFromGlobalSettings(settings: {
+  xpRules?: XpActivityRule[] | null;
+  levelTiers?: XpLevelTier[] | null;
+}): void {
+  if (typeof window === 'undefined') return;
+  let updatedRules = false;
+  let updatedTiers = false;
+
+  if (Array.isArray(settings.xpRules) && settings.xpRules.length > 0) {
+    localStorage.setItem(STORAGE_KEY_RULES, JSON.stringify(settings.xpRules));
+    updatedRules = true;
+  }
+  if (Array.isArray(settings.levelTiers) && settings.levelTiers.length > 0) {
+    const sorted = [...settings.levelTiers].sort((a, b) => (a.minXp || 0) - (b.minXp || 0));
+    localStorage.setItem(STORAGE_KEY_TIERS, JSON.stringify(sorted));
+    updatedTiers = true;
+  }
+
+  if (updatedRules) {
+    window.dispatchEvent(new CustomEvent('sm_xp_rules_updated'));
+  }
+  if (updatedTiers) {
+    window.dispatchEvent(new CustomEvent('sm_xp_tiers_updated'));
+  }
 }
 
 /**

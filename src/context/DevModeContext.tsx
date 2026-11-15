@@ -7,7 +7,10 @@ import {
   canViewContest,
   fetchCostumeContest,
   setCostumeContestVisibility as updateContestVisibilityApi,
+  fetchGlobalAppSettings,
+  updateGlobalAppSettings,
 } from '@/lib/neon';
+import { syncGamificationFromGlobalSettings } from '@/lib/gamification';
 
 export type AppMode = 'user' | 'staff' | 'developer';
 
@@ -101,9 +104,12 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
       }
       window.dispatchEvent(new CustomEvent('brand_logo_changed', { detail: logo }));
     } catch (_) {}
+
+    // Synchronize to global backend settings so all users see the updated logo
+    updateGlobalAppSettings({ brandLogo: logo }).catch(() => {});
   };
 
-  // Load initial contest visibility & sync with backend/local events
+  // Synchronize global app & developer settings across all users
   useEffect(() => {
     try {
       const savedVis = localStorage.getItem('sm_contest_visibility');
@@ -112,30 +118,75 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
       }
     } catch (_) {}
 
-    const syncVisibility = async () => {
+    const syncGlobalSettings = async () => {
       try {
-        // If developer has explicitly chosen or saved visibility locally, honor it permanently
-        const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('sm_contest_visibility') : null;
-        if (savedLocal === 'none' || savedLocal === 'staff' || savedLocal === 'all') {
-          return;
-        }
+        const settings = await fetchGlobalAppSettings();
+        if (settings) {
+          // 1. Brand Logo
+          if (settings.brandLogo !== undefined) {
+            setBrandLogoState(settings.brandLogo);
+            try {
+              if (settings.brandLogo) {
+                localStorage.setItem('sm_brand_logo', settings.brandLogo);
+              } else {
+                localStorage.removeItem('sm_brand_logo');
+              }
+            } catch (_) {}
+          }
 
-        const data = await fetchCostumeContest();
-        if (data?.visibility) {
-          setContestVisibilityState(data.visibility);
-          try {
-            localStorage.setItem('sm_contest_visibility', data.visibility);
-          } catch (_) {}
+          // 2. Module Visibility (e.g. Costume Contest)
+          if (settings.moduleVisibility?.costumeContest) {
+            const vis = settings.moduleVisibility.costumeContest;
+            setContestVisibilityState(vis);
+            try {
+              localStorage.setItem('sm_contest_visibility', vis);
+            } catch (_) {}
+          }
+
+          // 3. Tool Certifications / Mappings
+          if (Array.isArray(settings.toolMappings) && settings.toolMappings.length > 0) {
+            try {
+              localStorage.setItem('sm_custom_tool_mappings', JSON.stringify(settings.toolMappings));
+              window.dispatchEvent(new CustomEvent('sm_tools_updated'));
+            } catch (_) {}
+          }
+
+          // 4. Store Global Settings
+          if (settings.storeSettings) {
+            try {
+              if (settings.storeSettings.donationFormUrl) {
+                localStorage.setItem('sm_neon_store_donation_form_url', settings.storeSettings.donationFormUrl);
+              }
+              if (settings.storeSettings.balanceFieldId) {
+                localStorage.setItem('sm_neon_balance_field_id', settings.storeSettings.balanceFieldId);
+              }
+              if (settings.storeSettings.xpFieldId) {
+                localStorage.setItem('sm_neon_xp_field_id', settings.storeSettings.xpFieldId);
+              }
+            } catch (_) {}
+          }
+
+          // 5. Gamification Activity XP Rules & Level Tiers
+          syncGamificationFromGlobalSettings({
+            xpRules: settings.xpRules,
+            levelTiers: settings.levelTiers,
+          });
+        } else {
+          // Fallback to fetchCostumeContest if app-settings endpoint not available yet
+          const data = await fetchCostumeContest();
+          if (data?.visibility) {
+            setContestVisibilityState(data.visibility);
+          }
         }
       } catch (_) {}
     };
 
-    syncVisibility();
+    syncGlobalSettings();
     const interval = setInterval(() => {
       if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
-        syncVisibility();
+        syncGlobalSettings();
       }
-    }, 6000);
+    }, 8000);
 
     const handleVisChange = (e: any) => {
       if (e.detail && (e.detail === 'all' || e.detail === 'staff' || e.detail === 'none')) {
@@ -153,9 +204,14 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
     setContestVisibilityState(vis);
     try {
       localStorage.setItem('sm_contest_visibility', vis);
-      localStorage.setItem('sm_contest_visibility_locked', 'true');
     } catch (_) {}
-    return await updateContestVisibilityApi(vis);
+
+    // Update both the costume contest endpoint and global app settings so all users sync
+    const res = await updateContestVisibilityApi(vis);
+    updateGlobalAppSettings({
+      moduleVisibility: { costumeContest: vis },
+    }).catch(() => {});
+    return res;
   };
 
   // Neon One CRM Role Permissions:

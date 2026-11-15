@@ -44,6 +44,7 @@ import {
   Star,
   Save,
   X,
+  Globe,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -64,6 +65,7 @@ import {
   fetchStoreItems,
   STORE_BALANCE_FIELD_ID,
   STORE_CAMPAIGN_CODE,
+  updateGlobalAppSettings,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -354,6 +356,15 @@ export default function DeveloperPage() {
         localStorage.setItem('sm_neon_donation_base_url', donationBaseUrl.trim());
       }
     }
+    // Synchronize store configuration across all users globally
+    updateGlobalAppSettings({
+      storeSettings: {
+        donationFormUrl: donationBaseUrl.trim(),
+        balanceFieldId: balanceFieldId.trim(),
+        xpFieldId: neonXpFieldId.trim(),
+      },
+    }).catch(() => {});
+
     setStoreConfigSaved(true);
     setTimeout(() => setStoreConfigSaved(false), 3000);
   };
@@ -528,6 +539,9 @@ export default function DeveloperPage() {
     setIsAddingNew(false);
     try {
       localStorage.setItem('sm_custom_tool_mappings', JSON.stringify(newTools));
+      window.dispatchEvent(new CustomEvent('sm_tools_updated'));
+      // Sync tool mapping globally so all members see updated tools
+      updateGlobalAppSettings({ toolMappings: Object.values(newTools) }).catch(() => {});
     } catch (_) {}
   };
 
@@ -744,6 +758,19 @@ export default function DeveloperPage() {
         {/* Decorative background glows */}
         <div className="absolute -right-10 -bottom-10 w-60 h-60 rounded-full bg-[#f16622]/15 blur-3xl pointer-events-none" />
         <div className="absolute left-1/3 -top-10 w-60 h-60 rounded-full bg-[#3bc0cd]/15 blur-3xl pointer-events-none" />
+      </div>
+
+      {/* Global Configuration Sync Info Pill */}
+      <div className="p-3.5 rounded-2xl bg-indigo-50/90 border border-indigo-200 text-indigo-950 text-xs flex items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <Globe className="w-4 h-4 text-indigo-600 shrink-0" />
+          <span>
+            <strong>Global Sync Active:</strong> Changes made here (Module Visibility, Logo, XP Point Values, Level Titles & Rewards, Tool Certifications, and Announcements) automatically synchronize across all users and devices in the makerspace.
+          </span>
+        </div>
+        <span className="hidden sm:inline-flex px-2 py-0.5 rounded-full bg-indigo-100 font-mono text-[10px] font-bold text-indigo-800 shrink-0">
+          Sync Engine Live
+        </span>
       </div>
 
       {/* Sub-Tab Navigation Pills */}
@@ -1778,11 +1805,16 @@ export default function DeveloperPage() {
               {/* Card: Active Account Balance Diagnostic */}
               <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
                 <div>
-                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
-                    Balance Testing & Diagnostic Console
-                  </h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                      Balance Testing & Diagnostic Console
+                    </h3>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 font-bold text-[10px] uppercase tracking-wider">
+                      Account-Specific
+                    </span>
+                  </div>
                   <p className="text-stone-500 text-xs">
-                    Test wallet balance states, debt warnings, and cap behaviors.
+                    Test wallet balance states, debt warnings, and cap behaviors. Simulates and alters only the active/impersonated member account (does not affect other users).
                   </p>
                 </div>
 

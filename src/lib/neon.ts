@@ -796,6 +796,63 @@ export async function updateCommunityAnnouncement(announcement: {
   }
 }
 
+export interface GlobalAppSettings {
+  updatedAt?: string;
+  brandLogo?: string | null;
+  moduleVisibility?: {
+    costumeContest?: CostumeContestVisibility;
+    gameRoom?: 'all' | 'staff' | 'none';
+    store?: 'all' | 'staff' | 'none';
+    [key: string]: any;
+  };
+  xpRules?: any[] | null;
+  levelTiers?: any[] | null;
+  toolMappings?: any[] | null;
+  storeSettings?: {
+    donationFormUrl?: string;
+    balanceFieldId?: string;
+    xpFieldId?: string;
+  };
+  [key: string]: any;
+}
+
+/**
+ * Fetches global app and developer settings synchronized across all users and devices.
+ */
+export async function fetchGlobalAppSettings(): Promise<GlobalAppSettings | null> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/app-settings?_t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.settings || null;
+  } catch (e) {
+    console.warn('[App Settings] Failed to fetch global settings:', e);
+    return null;
+  }
+}
+
+/**
+ * Updates global app and developer settings to affect all users across the makerspace.
+ */
+export async function updateGlobalAppSettings(
+  partial: Partial<GlobalAppSettings>
+): Promise<{ success: boolean; settings?: GlobalAppSettings; error?: string }> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/app-settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(partial),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Failed to update global settings.' };
+    }
+    return { success: true, settings: data.settings };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error updating global settings.' };
+  }
+}
+
 /**
  * Fetches available Neon One activity types (e.g. Invitation, Ask, Stewardship, Discovery, Other).
  */
