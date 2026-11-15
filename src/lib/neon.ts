@@ -425,6 +425,19 @@ export async function fetchMemberProfileByAccountId(
       }
     }
 
+    // Determine Buddy Avatar (resolve from Neon field 120 or local cache fallback)
+    let finalBuddyAvatar = parsedBuddyAvatar;
+    if (!finalBuddyAvatar && typeof window !== 'undefined' && accountId) {
+      try {
+        const cachedAvatar = localStorage.getItem(`sm_buddy_avatar_${accountId}`);
+        if (cachedAvatar && cachedAvatar.trim().startsWith('{')) {
+          finalBuddyAvatar = cachedAvatar.trim();
+          // If blank in Neon One CRM, automatically sync it so Kiosk and Portal Door get it immediately!
+          updateMemberBuddyConfigInNeon(accountId, finalBuddyAvatar).catch(() => {});
+        }
+      } catch (_) {}
+    }
+
     const levelState = calculateLevelFromXp(finalXp);
 
     const mappedGenderName = rawGenderCode
@@ -458,7 +471,7 @@ export async function fetchMemberProfileByAccountId(
       levelTitle: levelState.title,
       levelBadge: levelState.badgeEmoji,
       levelReward: levelState.reward,
-      buddyAvatar: parsedBuddyAvatar,
+      buddyAvatar: finalBuddyAvatar,
       buddyBucks: finalBuddyBucks,
     };
 

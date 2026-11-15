@@ -298,8 +298,8 @@ export default function DeveloperPage() {
     setBuddyCatalog(getAllBuddyItems());
     setCategoryLayers(getCategoryLayerOrder());
     if (typeof window !== 'undefined') {
-      setBuddyAvatarFieldId(localStorage.getItem('sm_neon_buddy_avatar_field_id') || '');
-      setBuddyBucksFieldId(localStorage.getItem('sm_neon_buddy_bucks_field_id') || '');
+      setBuddyAvatarFieldId(localStorage.getItem('sm_neon_buddy_avatar_field_id') || BUDDY_AVATAR_FIELD_ID);
+      setBuddyBucksFieldId(localStorage.getItem('sm_neon_buddy_bucks_field_id') || BUDDY_BUCKS_FIELD_ID);
     }
     const handleCatalogUpdate = () => {
       setBuddyCatalog(getAllBuddyItems());
@@ -1010,7 +1010,12 @@ export default function DeveloperPage() {
       } else {
         localStorage.removeItem('sm_neon_xp_field_id');
       }
-      setXpNotice({ message: 'Neon One XP Custom Field ID updated!', type: 'success' });
+      updateGlobalAppSettings({
+        storeSettings: {
+          xpFieldId: clean || XP_FIELD_ID,
+        },
+      }).catch(() => {});
+      setXpNotice({ message: 'Neon One XP Custom Field ID updated and synced globally!', type: 'success' });
       setTimeout(() => setXpNotice(null), 3000);
     }
   };
@@ -3568,7 +3573,7 @@ export default function DeveloperPage() {
                     type="text"
                     value={neonXpFieldId}
                     onChange={(e) => setNeonXpFieldId(e.target.value)}
-                    placeholder="e.g. 120 (Leave blank for auto-discovery by field name 'XP')"
+                    placeholder="e.g. 122 (Leave blank for auto-discovery by field name 'XP')"
                     className="w-full p-2.5 rounded-xl border border-stone-200 bg-white font-mono text-xs text-stone-900"
                   />
                 </div>

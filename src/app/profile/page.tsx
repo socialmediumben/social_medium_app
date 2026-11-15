@@ -69,6 +69,12 @@ export default function ProfilePage() {
   useEffect(() => {
     if (member?.accountId) {
       setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
+      try {
+        const localCachedAvatar = localStorage.getItem(`sm_buddy_avatar_${member.accountId}`);
+        if (localCachedAvatar && localCachedAvatar.trim().startsWith('{') && !member.buddyAvatar) {
+          updateMember({ buddyAvatar: localCachedAvatar.trim() });
+        }
+      } catch (_) {}
     }
     const handleBucksUpdate = () => {
       if (member?.accountId) {

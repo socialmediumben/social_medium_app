@@ -267,6 +267,43 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
   }, [member]);
 
+  // Auto-sync configuration to localStorage & Neon One whenever config changes
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isFirstMount = useRef(true);
+
+  useEffect(() => {
+    if (isFirstMount.current) {
+      isFirstMount.current = false;
+      return;
+    }
+    if (!accountId) return;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      const configStr = JSON.stringify(config);
+      try {
+        localStorage.setItem(`sm_buddy_avatar_${accountId}`, configStr);
+      } catch (_) {}
+
+      updateMemberBuddyConfigInNeon(accountId, configStr)
+        .then((res) => {
+          if (res.success && onBuddySaved) {
+            onBuddySaved(config);
+          }
+        })
+        .catch(() => {});
+    }, 500);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [config, accountId, onBuddySaved]);
+
   // Filter items by current active category (body_color renders custom palette)
   const categoryItems = useMemo(() => {
     if (activeCategory === 'body_color') return [];
