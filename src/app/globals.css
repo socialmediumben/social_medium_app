@@ -214,9 +214,9 @@ h1, h2, h3, h4, h5, h6 {
     max-width: none !important;
     aspect-ratio: auto !important;
     margin: 0 !important;
-    padding: 6pt 8pt !important;
-    border: 2.2pt solid #000000 !important;
-    border-radius: 7pt !important;
+    padding: 8pt 10pt !important;
+    border: none !important;
+    border-radius: 0 !important;
     box-sizing: border-box !important;
     display: flex !important;
     flex-direction: column !important;
