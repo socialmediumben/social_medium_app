@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.2';
+export const APP_VERSION = '3.3';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,19 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.3',
+    date: '2026-11-14',
+    title: 'Dedicated Store Form Routing, Debt-Canceling Top-Ups & Developer Settings Persistence',
+    changes: [
+      'Routed "Settle Tab" and "Top Up Wallet" buttons directly to dedicated Neon One Store Donation Form (forms/store-donation-form) while preserving standard donation form for general gifts.',
+      'Implemented Debt-First Top-Up logic: topping off a negative wallet tab first clears outstanding debt before allocating remaining funds to available prepaid balance.',
+      'Added interactive "Confirm Payment / Settle Tab" modal in the Store allowing members and staff to record settled tabs and top-ups with live debt-canceling breakdown.',
+      'Fixed local cache synchronization bug where stale negative balances could overwrite fresh Neon CRM updates.',
+      'Hardened Developer Module settings persistence across app updates, builds, and reloads (preventing Costume Contest and other modules from resetting visibility).',
+      'Added Top-Up diagnostic and simulation controls to the Developer Studio with real-time balance and debt calculation testing.',
+    ],
+  },
   {
     version: '3.2',
     date: '2026-11-02',

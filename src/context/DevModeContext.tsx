@@ -48,9 +48,9 @@ const DevModeContext = createContext<DevModeContextType>({
   isIconManagerOpen: false,
   openIconManager: () => {},
   closeIconManager: () => {},
-  contestVisibility: 'all',
+  contestVisibility: 'none',
   setContestVisibility: async () => false,
-  isContestVisible: true,
+  isContestVisible: false,
   brandLogo: null,
   setBrandLogo: () => {},
 });
@@ -60,7 +60,17 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   const [mode, setModeState] = useState<AppMode>('user');
   const [isChangelogOpen, setIsChangelogOpen] = useState<boolean>(false);
   const [isIconManagerOpen, setIsIconManagerOpen] = useState<boolean>(false);
-  const [contestVisibility, setContestVisibilityState] = useState<CostumeContestVisibility>('all');
+  const [contestVisibility, setContestVisibilityState] = useState<CostumeContestVisibility>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedVis = localStorage.getItem('sm_contest_visibility');
+        if (savedVis === 'all' || savedVis === 'staff' || savedVis === 'none') {
+          return savedVis as CostumeContestVisibility;
+        }
+      } catch (_) {}
+    }
+    return 'none';
+  });
   const [brandLogo, setBrandLogoState] = useState<string | null>(null);
 
   // Load custom brand logo on mount
@@ -104,9 +114,9 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
 
     const syncVisibility = async () => {
       try {
-        // If developer has explicitly locked visibility locally, do not let an ephemeral Render reboot overwrite it
-        const isLocked = typeof window !== 'undefined' && localStorage.getItem('sm_contest_visibility_locked') === 'true';
-        if (isLocked) {
+        // If developer has explicitly chosen or saved visibility locally, honor it permanently
+        const savedLocal = typeof window !== 'undefined' ? localStorage.getItem('sm_contest_visibility') : null;
+        if (savedLocal === 'none' || savedLocal === 'staff' || savedLocal === 'all') {
           return;
         }
 

@@ -57,6 +57,8 @@ import {
   CostumeContestVisibility,
   setCostumeContestStatus,
   updateMemberStoreBalance,
+  topUpMemberStoreBalance,
+  NEON_STORE_DONATION_FORM_URL,
   MAX_STORE_TAB_LIMIT,
   fetchStoreItemsFromSheet,
   fetchStoreItems,
@@ -303,8 +305,9 @@ export default function DeveloperPage() {
     if (typeof window !== 'undefined') {
       setBalanceFieldId(localStorage.getItem('sm_neon_balance_field_id') || STORE_BALANCE_FIELD_ID);
       setDonationBaseUrl(
+        localStorage.getItem('sm_neon_store_donation_form_url') ||
         localStorage.getItem('sm_neon_donation_base_url') ||
-          'https://socialmedium.z2systems.com/np/clients/socialmedium/donation.jsp'
+        NEON_STORE_DONATION_FORM_URL
       );
       const fromSheet = localStorage.getItem('sm_store_sheet_items');
       if (fromSheet) {
@@ -335,6 +338,9 @@ export default function DeveloperPage() {
     }
   };
 
+  const [devTopUpAmount, setDevTopUpAmount] = useState('25');
+  const [isApplyingDevTopUp, setIsApplyingDevTopUp] = useState(false);
+
   const handleSaveStoreConfig = (e: React.FormEvent) => {
     e.preventDefault();
     if (typeof window !== 'undefined') {
@@ -344,11 +350,39 @@ export default function DeveloperPage() {
         localStorage.removeItem('sm_neon_balance_field_id');
       }
       if (donationBaseUrl.trim()) {
+        localStorage.setItem('sm_neon_store_donation_form_url', donationBaseUrl.trim());
         localStorage.setItem('sm_neon_donation_base_url', donationBaseUrl.trim());
       }
     }
     setStoreConfigSaved(true);
     setTimeout(() => setStoreConfigSaved(false), 3000);
+  };
+
+  const handleDevTopUp = async (amount: number) => {
+    if (!member || !member.accountId || amount <= 0) {
+      setBalanceNotice('No active member profile with account ID found to test top-up.');
+      return;
+    }
+    setIsApplyingDevTopUp(true);
+    setBalanceNotice(null);
+    try {
+      const res = await topUpMemberStoreBalance(member.accountId, amount);
+      if (res.success) {
+        updateMember({ storeBalance: res.newBalance });
+        setBalanceNotice(
+          res.debtCleared > 0
+            ? `Top-Up successful! $${res.debtCleared.toFixed(2)} tab debt cancelled first. New available balance: $${res.newBalance.toFixed(2)}`
+            : `Top-Up successful! Added $${amount.toFixed(2)}. New available balance: $${res.newBalance.toFixed(2)}`
+        );
+      } else {
+        setBalanceNotice(res.error || 'Failed to apply top-up');
+      }
+    } catch (err: any) {
+      setBalanceNotice(err.message || 'Error applying top-up');
+    } finally {
+      setIsApplyingDevTopUp(false);
+      setTimeout(() => setBalanceNotice(null), 5000);
+    }
   };
 
   const handleSetTestBalance = async (newAmount: number) => {
@@ -1609,17 +1643,17 @@ export default function DeveloperPage() {
 
                   <div>
                     <label className="text-stone-700 font-bold block mb-1">
-                      Official Neon One Donation Form URL
+                      Official Neon One Store Donation & Top-Up Form URL
                     </label>
                     <input
                       type="url"
                       value={donationBaseUrl}
                       onChange={(e) => setDonationBaseUrl(e.target.value)}
-                      placeholder="https://socialmedium.z2systems.com/np/clients/socialmedium/donation.jsp"
+                      placeholder="https://socialmedium.app.neoncrm.com/forms/store-donation-form"
                       className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-xs focus:bg-white focus:border-[#3bc0cd]"
                     />
                     <p className="text-[11px] text-stone-500 mt-1">
-                      Campaign parameters (<code>campaign=STORE</code>, <code>campaign.id=1</code>) and account ID are appended automatically.
+                      Tab Settlement and Wallet Top-Up buttons redirect here. Campaign parameters (<code>campaign=STORE</code>, <code>campaign.id=1</code>) and account ID are appended automatically.
                     </p>
                   </div>
 
@@ -1793,11 +1827,20 @@ export default function DeveloperPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <button
                       type="button"
+                      disabled={isApplyingDevTopUp || isUpdatingTestBalance}
+                      onClick={() => handleDevTopUp(25)}
+                      className="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer flex items-center justify-between col-span-2 shadow-xs"
+                    >
+                      <span>Top Up Wallet ($25.00) (Cancels Debt First)</span>
+                      <Plus className="w-3.5 h-3.5 text-emerald-200" />
+                    </button>
+                    <button
+                      type="button"
                       disabled={isUpdatingTestBalance}
                       onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) + 10)}
                       className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer text-left"
                     >
-                      +$10.00 Credit
+                      +$10.00 Raw
                     </button>
                     <button
                       type="button"
@@ -1805,7 +1848,7 @@ export default function DeveloperPage() {
                       onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) + 25)}
                       className="py-2 px-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-colors cursor-pointer text-left"
                     >
-                      +$25.00 Credit
+                      +$25.00 Raw
                     </button>
                     <button
                       type="button"
@@ -1813,7 +1856,7 @@ export default function DeveloperPage() {
                       onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) - 2)}
                       className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors cursor-pointer text-left"
                     >
-                      -$2.00 (Drink)
+                      -$2.00 (Drink Tab)
                     </button>
                     <button
                       type="button"
@@ -1821,7 +1864,7 @@ export default function DeveloperPage() {
                       onClick={() => handleSetTestBalance((member?.storeBalance ?? 0) - 7)}
                       className="py-2 px-3 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold transition-colors cursor-pointer text-left"
                     >
-                      -$7.00 (Arduino)
+                      -$7.00 (Materials Tab)
                     </button>
                   </div>
                   <button
@@ -1834,10 +1877,44 @@ export default function DeveloperPage() {
                   </button>
                 </div>
 
+                {/* Custom Top-Up (Cancels debt first) */}
+                <div className="pt-2 border-t border-stone-100 space-y-2">
+                  <span className="text-[11px] font-bold text-stone-500 block uppercase tracking-wider">
+                    Simulate Top-Up (Debt Cleared First)
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={devTopUpAmount}
+                      onChange={(e) => setDevTopUpAmount(e.target.value)}
+                      placeholder="Top-up amount (e.g. 25.00)"
+                      className="flex-1 px-3 py-2 rounded-xl border border-stone-200 bg-stone-50 text-xs font-mono"
+                    />
+                    <button
+                      type="button"
+                      disabled={isApplyingDevTopUp || !devTopUpAmount || parseFloat(devTopUpAmount) <= 0}
+                      onClick={() => {
+                        const parsed = parseFloat(devTopUpAmount);
+                        if (!isNaN(parsed) && parsed > 0) handleDevTopUp(parsed);
+                      }}
+                      className="py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs cursor-pointer disabled:opacity-50"
+                    >
+                      Apply Top-Up
+                    </button>
+                  </div>
+                  {(member?.storeBalance ?? 0) < 0 && parseFloat(devTopUpAmount) > 0 && (
+                    <p className="text-[10px] text-stone-500">
+                      Cancels ${Math.min(Math.abs(member?.storeBalance ?? 0), parseFloat(devTopUpAmount)).toFixed(2)} debt first. Result: ${( (member?.storeBalance ?? 0) + parseFloat(devTopUpAmount) ).toFixed(2)} available.
+                    </p>
+                  )}
+                </div>
+
                 {/* Custom Balance Setter */}
                 <div className="pt-2 border-t border-stone-100 space-y-2">
                   <span className="text-[11px] font-bold text-stone-500 block uppercase tracking-wider">
-                    Set Specific Balance ($)
+                    Set Specific Absolute Balance ($)
                   </span>
                   <div className="flex items-center gap-2">
                     <input

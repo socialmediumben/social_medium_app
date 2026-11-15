@@ -20,6 +20,9 @@ import {
   HelpCircle,
   Lock,
   RefreshCw,
+  Check,
+  X,
+  DollarSign,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
@@ -28,6 +31,7 @@ import {
   fetchStoreItems,
   fetchStoreItemsFromSheet,
   updateMemberStoreBalance,
+  topUpMemberStoreBalance,
   getNeonDonationUrl,
   MAX_STORE_TAB_LIMIT,
 } from '@/lib/neon';
@@ -50,6 +54,22 @@ export default function StoreAndDonatePage() {
   const [customItemName, setCustomItemName] = useState('');
   const [customItemPrice, setCustomItemPrice] = useState('');
   const [showCustomModal, setShowCustomModal] = useState(false);
+
+  // Top-Up / Settle Payment Modal Form
+  const [showTopUpModal, setShowTopUpModal] = useState(false);
+  const [topUpInput, setTopUpInput] = useState('25');
+  const [isApplyingTopUp, setIsApplyingTopUp] = useState(false);
+
+  // Sync balance across tabs / components
+  useEffect(() => {
+    const handleBalanceUpdate = (e: any) => {
+      if (e.detail?.newBalance !== undefined && member) {
+        updateMember({ storeBalance: e.detail.newBalance });
+      }
+    };
+    window.addEventListener('sm_balance_updated', handleBalanceUpdate);
+    return () => window.removeEventListener('sm_balance_updated', handleBalanceUpdate);
+  }, [member, updateMember]);
 
   // Load Store Items on mount (cached first, then live from Google Sheet)
   useEffect(() => {
@@ -99,6 +119,37 @@ export default function StoreAndDonatePage() {
   const isTab = balance < 0;
   const tabDebt = Math.abs(balance);
   const remainingTabAllowance = Math.max(0, MAX_STORE_TAB_LIMIT - (isTab ? tabDebt : 0));
+
+  const handleApplyTopUp = async (amount: number) => {
+    if (!member?.accountId || amount <= 0) return;
+    setIsApplyingTopUp(true);
+    try {
+      const res = await topUpMemberStoreBalance(member.accountId, amount);
+      if (res.success) {
+        updateMember({ storeBalance: res.newBalance });
+        setShowTopUpModal(false);
+        setCheckoutNotice({
+          type: 'success',
+          text: res.debtCleared > 0
+            ? `Top-Up successful! $${res.debtCleared.toFixed(2)} tab debt paid off. Your available balance is now $${res.newBalance.toFixed(2)}.`
+            : `Top-Up successful! Added $${amount.toFixed(2)}. Your available balance is now $${res.newBalance.toFixed(2)}.`,
+        });
+      } else {
+        setCheckoutNotice({
+          type: 'error',
+          text: res.error || 'Failed to apply top-up.',
+        });
+      }
+    } catch (e: any) {
+      setCheckoutNotice({
+        type: 'error',
+        text: e.message || 'Error applying top-up.',
+      });
+    } finally {
+      setIsApplyingTopUp(false);
+      setTimeout(() => setCheckoutNotice(null), 5000);
+    }
+  };
 
   // Cart Computations
   const cartTotal = cart.reduce((sum, item) => sum + item.item.price * item.quantity, 0);
@@ -327,31 +378,59 @@ export default function StoreAndDonatePage() {
 
                   <div className="flex flex-col gap-1.5">
                     {isTab && (
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={getNeonDonationUrl('tab_settle', tabDebt, member.accountId)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                          title="Settle your active tab securely through Neon One Store Form"
+                        >
+                          <span>Settle Tab (${tabDebt.toFixed(2)})</span>
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5">
                       <a
-                        href={getNeonDonationUrl('tab_settle', tabDebt, member.accountId)}
+                        href={getNeonDonationUrl('top_up', 25, member.accountId)}
                         target="_blank"
                         rel="noreferrer"
-                        className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                        title="Settle your active tab securely through Neon One"
+                        className="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+                        title="Add $25.00 funds / buy gift card credit via Neon One Store Form"
                       >
-                        <span>Settle Tab (${tabDebt.toFixed(2)})</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
+                        <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>Top Up Wallet ($25.00)</span>
+                        <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
                       </a>
-                    )}
-                    <a
-                      href={getNeonDonationUrl('top_up', 25, member.accountId)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                      title="Add $25.00 funds / buy gift card credit via Neon One"
-                    >
-                      <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Top Up Wallet ($25.00)</span>
-                      <ExternalLink className="w-3.5 h-3.5 text-stone-400" />
-                    </a>
+                      <button
+                        type="button"
+                        onClick={() => setShowTopUpModal(true)}
+                        className="px-3 py-1.5 rounded-xl border border-stone-300 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+                        title="Record payment or adjust wallet after paying on Neon One"
+                      >
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>Confirm Payment</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Debt-canceling explanation banner when in tab debt */}
+              {isTab && (
+                <div className="mt-3.5 p-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 text-xs flex items-start gap-2.5">
+                  <span className="text-base mt-0.5">💡</span>
+                  <div>
+                    <span className="font-bold block">
+                      Topping off clears your tab debt first:
+                    </span>
+                    <span className="text-amber-800/90 leading-relaxed text-[11px]">
+                      A <strong>$25.00 Top-Up</strong> will first clear your <strong>${tabDebt.toFixed(2)} tab debt</strong>, leaving <strong>${Math.max(0, 25 - tabDebt).toFixed(2)}</strong> as your available prepaid balance.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Tab Allowance Progress Bar if in debt */}
               {isTab && (
@@ -765,6 +844,141 @@ export default function StoreAndDonatePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Confirm Payment & Top-Up Wallet (Debt cleared first) */}
+      {showTopUpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-white rounded-3xl p-6 sm:p-7 shadow-2xl border border-stone-200 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-stone-100">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-emerald-100 text-emerald-800">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Confirm Wallet Payment
+                  </h3>
+                  <p className="text-xs text-stone-500">
+                    Applied securely via Neon One Store Donation form
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTopUpModal(false)}
+                className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Current State Summary */}
+            <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-stone-500">Current Balance:</span>
+                <span className={`font-mono font-bold ${balance < 0 ? 'text-amber-800' : 'text-emerald-700'}`}>
+                  {balance < 0 ? `-$${tabDebt.toFixed(2)} (Tab Owed)` : `$${balance.toFixed(2)} (Available)`}
+                </span>
+              </div>
+              {isTab && (
+                <div className="flex items-center justify-between pt-1 border-t border-stone-200/60 text-amber-900">
+                  <span className="font-semibold">Tab to Cancel First:</span>
+                  <span className="font-mono font-bold">-${tabDebt.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Preset Options */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-stone-700 block">
+                Choose Payment / Top-Up Amount:
+              </label>
+
+              {isTab && (
+                <button
+                  type="button"
+                  disabled={isApplyingTopUp}
+                  onClick={() => handleApplyTopUp(tabDebt)}
+                  className="w-full p-3 rounded-2xl border-2 border-amber-400 bg-amber-50/60 hover:bg-amber-100/60 text-left transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <div>
+                    <div className="font-bold text-xs text-amber-950">
+                      Settle Exact Tab (${tabDebt.toFixed(2)})
+                    </div>
+                    <div className="text-[11px] text-amber-800">
+                      Cancels out your current tab. New balance: $0.00
+                    </div>
+                  </div>
+                  <span className="font-mono font-bold text-sm text-amber-900">
+                    ${tabDebt.toFixed(2)}
+                  </span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                disabled={isApplyingTopUp}
+                onClick={() => handleApplyTopUp(25)}
+                className="w-full p-3 rounded-2xl border-2 border-emerald-500 bg-emerald-50/60 hover:bg-emerald-100/60 text-left transition-colors flex items-center justify-between cursor-pointer"
+              >
+                <div>
+                  <div className="font-bold text-xs text-emerald-950">
+                    Standard $25.00 Top-Up
+                  </div>
+                  <div className="text-[11px] text-emerald-800">
+                    {isTab
+                      ? `Clears $${tabDebt.toFixed(2)} tab debt • $${Math.max(0, 25 - tabDebt).toFixed(2)} available`
+                      : `Adds $25.00 prepaid credits to your wallet`}
+                  </div>
+                </div>
+                <span className="font-mono font-bold text-sm text-emerald-900">
+                  $25.00
+                </span>
+              </button>
+            </div>
+
+            {/* Custom Amount Option */}
+            <div className="pt-2 border-t border-stone-100 space-y-2">
+              <label className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block">
+                Or Custom Top-Up Amount ($)
+              </label>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <span className="absolute left-3 top-2.5 text-stone-400 font-bold">$</span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="0.01"
+                    value={topUpInput}
+                    onChange={(e) => setTopUpInput(e.target.value)}
+                    placeholder="e.g. 50.00"
+                    className="w-full pl-7 pr-3 py-2 rounded-xl border border-stone-200 bg-stone-50 font-mono text-xs focus:bg-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  disabled={isApplyingTopUp || !topUpInput || parseFloat(topUpInput) <= 0}
+                  onClick={() => {
+                    const parsed = parseFloat(topUpInput);
+                    if (!isNaN(parsed) && parsed > 0) handleApplyTopUp(parsed);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {isApplyingTopUp ? 'Applying...' : 'Apply Top-Up'}
+                </button>
+              </div>
+              {parseFloat(topUpInput) > 0 && isTab && (
+                <p className="text-[11px] text-stone-500">
+                  Preview: Cancels <strong>${Math.min(tabDebt, parseFloat(topUpInput)).toFixed(2)}</strong> tab debt first. New balance:{' '}
+                  <strong className="text-emerald-700">
+                    ${(balance + parseFloat(topUpInput)).toFixed(2)}
+                  </strong>
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}

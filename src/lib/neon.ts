@@ -181,7 +181,7 @@ export async function fetchMemberProfileByAccountId(
     let interestsList: string[] = [];
     let customInterestsStr = '';
     let isAppDeveloper = false;
-    let parsedStoreBalance = 0.00;
+    let parsedStoreBalance: number | undefined = undefined;
     let parsedXp: number | undefined = undefined;
 
     const customFields: any[] = ind.accountCustomFields || [];
@@ -227,10 +227,16 @@ export async function fetchMemberProfileByAccountId(
             localStorage.setItem('sm_neon_balance_field_id', fieldId);
           } catch (_) {}
         }
-        if (field.value !== undefined && field.value !== null) {
+        if (field.value !== undefined && field.value !== null && String(field.value).trim() !== '') {
           const num = parseFloat(String(field.value).replace(/[^0-9.-]/g, ''));
           if (!isNaN(num)) {
             parsedStoreBalance = num;
+            // Update local cache with authoritative CRM balance
+            if (typeof window !== 'undefined' && accountId) {
+              try {
+                localStorage.setItem(`sm_balance_${accountId}`, num.toFixed(2));
+              } catch (_) {}
+            }
           }
         }
       }
@@ -310,7 +316,7 @@ export async function fetchMemberProfileByAccountId(
     }
 
     // If no custom field exists in CRM yet, check local cache fallback
-    if (typeof window !== 'undefined' && accountId) {
+    if (parsedStoreBalance === undefined && typeof window !== 'undefined' && accountId) {
       const localCachedBal = localStorage.getItem(`sm_balance_${accountId}`);
       if (localCachedBal !== null) {
         const num = parseFloat(localCachedBal);
@@ -318,7 +324,10 @@ export async function fetchMemberProfileByAccountId(
           parsedStoreBalance = num;
         }
       }
+    }
+    const finalStoreBalance = parsedStoreBalance !== undefined ? parsedStoreBalance : 0.00;
 
+    if (typeof window !== 'undefined' && accountId) {
       if (parsedXp === undefined) {
         const localCachedXp = localStorage.getItem(`sm_xp_${accountId}`);
         if (localCachedXp !== null) {
@@ -364,7 +373,7 @@ export async function fetchMemberProfileByAccountId(
       customInterests: customInterestsStr,
       isSystemUser,
       isAppDeveloper,
-      storeBalance: parsedStoreBalance,
+      storeBalance: finalStoreBalance,
       xp: finalXp,
       level: levelState.level,
       levelTitle: levelState.title,
@@ -1840,23 +1849,36 @@ export async function updateMemberStoreBalance(
   }
 }
 
+export const NEON_STORE_DONATION_FORM_URL =
+  'https://socialmedium.app.neoncrm.com/forms/store-donation-form';
+export const NEON_GENERAL_DONATION_FORM_URL =
+  'https://socialmedium.app.neoncrm.com/forms/donate';
+
 /**
  * Returns the official Neon One Donation or Checkout URL with Campaign Store (STORE, ID 1).
+ * Specifically routes Store Tab Settlement and Wallet Preloads to the store donation form.
  */
 export function getNeonDonationUrl(
   purpose: 'general' | 'top_up' | 'tab_settle' = 'general',
   amount?: number,
   accountId?: string
 ): string {
-  // Configured custom URL in Developer Studio or official Neon One page
-  const customUrl =
+  // Configured custom URLs in Developer Studio
+  const customStoreUrl =
     typeof window !== 'undefined'
-      ? localStorage.getItem('sm_neon_donation_form_url')
+      ? localStorage.getItem('sm_neon_store_donation_form_url') || localStorage.getItem('sm_neon_donation_form_url')
+      : null;
+  const customGeneralUrl =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('sm_neon_general_donation_form_url')
       : null;
 
-  let base =
-    customUrl ||
-    'https://socialmedium.app.neoncrm.com/forms/donate';
+  let base = NEON_GENERAL_DONATION_FORM_URL;
+  if (purpose === 'tab_settle' || purpose === 'top_up') {
+    base = customStoreUrl || NEON_STORE_DONATION_FORM_URL;
+  } else {
+    base = customGeneralUrl || customStoreUrl || NEON_GENERAL_DONATION_FORM_URL;
+  }
 
   const params = new URLSearchParams();
   if (amount && amount > 0) {
@@ -1864,6 +1886,7 @@ export function getNeonDonationUrl(
   }
   if (accountId) {
     params.set('donor.accountId', accountId);
+    params.set('accountId', accountId);
   }
   if (purpose === 'tab_settle') {
     params.set('purpose', 'Store Tab Settlement');
@@ -1884,6 +1907,109 @@ export function getNeonDonationUrl(
     base += (base.includes('?') ? '&' : '?') + query;
   }
   return base;
+}
+
+/**
+ * Tops up a member's store wallet balance.
+ * Cancels out any active debt first, and puts only the remaining money towards available balance.
+ * e.g., -$2.00 tab + $25.00 top-up = +$23.00 available balance.
+ */
+export async function topUpMemberStoreBalance(
+  accountId: string,
+  topUpAmount: number
+): Promise<{
+  success: boolean;
+  newBalance: number;
+  debtCleared: number;
+  creditRemaining: number;
+  error?: string;
+}> {
+  const roundedTopUp = Math.round(topUpAmount * 100) / 100;
+  if (!accountId || roundedTopUp <= 0) {
+    return {
+      success: false,
+      newBalance: 0,
+      debtCleared: 0,
+      creditRemaining: 0,
+      error: 'Invalid account ID or top-up amount.',
+    };
+  }
+
+  // Get current balance from local cache or 0
+  let currentBalance = 0;
+  if (typeof window !== 'undefined') {
+    const raw = localStorage.getItem(`sm_balance_${accountId}`);
+    if (raw !== null) {
+      const num = parseFloat(raw);
+      if (!isNaN(num)) currentBalance = num;
+    }
+  }
+
+  let debtCleared = 0;
+  let newBalance = 0;
+
+  if (currentBalance < 0) {
+    const debt = Math.abs(currentBalance);
+    debtCleared = Math.min(debt, roundedTopUp);
+    newBalance = Math.round((currentBalance + roundedTopUp) * 100) / 100;
+  } else {
+    newBalance = Math.round((currentBalance + roundedTopUp) * 100) / 100;
+  }
+
+  const creditRemaining = Math.max(0, newBalance);
+
+  // Update in CRM and local cache
+  const updateRes = await updateMemberStoreBalance(accountId, newBalance, [
+    {
+      name: debtCleared > 0 ? `Wallet Top-Up ($${debtCleared.toFixed(2)} tab debt cleared)` : 'Wallet Top-Up',
+      price: 0,
+      quantity: 1,
+    },
+  ]);
+
+  if (!updateRes.success) {
+    return {
+      success: false,
+      newBalance: currentBalance,
+      debtCleared: 0,
+      creditRemaining: Math.max(0, currentBalance),
+      error: updateRes.error,
+    };
+  }
+
+  // Award XP for Space Donation / Tab Settlement
+  try {
+    const { awardMemberXp } = await import('./gamification');
+    awardMemberXp({
+      accountId,
+      ruleId: 'donation',
+      customMultiplier: roundedTopUp,
+      note: debtCleared > 0
+        ? `Wallet top-up of $${roundedTopUp.toFixed(2)} ($${debtCleared.toFixed(2)} tab debt cleared)`
+        : `Wallet top-up of $${roundedTopUp.toFixed(2)}`,
+    }).catch(() => {});
+  } catch (_) {}
+
+  // Dispatch global balance updated event
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('sm_balance_updated', {
+        detail: {
+          accountId,
+          newBalance: updateRes.newBalance,
+          debtCleared,
+          creditRemaining,
+        },
+      })
+    );
+  }
+
+  return {
+    success: true,
+    newBalance: updateRes.newBalance,
+    debtCleared,
+    creditRemaining,
+  };
 }
 
 /**
