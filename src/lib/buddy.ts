@@ -830,7 +830,7 @@ export function randomizeBuddy(
 
 export interface BuddyArtSubmissionPayload {
   name: string;
-  category: string;
+  category?: string;
   description?: string;
   artist: string;
   price?: number;
@@ -842,11 +842,11 @@ export interface BuddyArtSubmissionPayload {
 export interface BuddyArtSubmissionRecord {
   id: string;
   name: string;
-  category: string;
+  category?: string;
   description?: string;
   artist: string;
-  price: number;
-  zIndex: number;
+  price?: number;
+  zIndex?: number;
   assetUrl: string;
   status: 'Pending' | 'Approved' | 'Rejected';
   timestamp: string;
@@ -885,11 +885,11 @@ export async function uploadBuddyArtItem(
 }> {
   const {
     name,
-    category,
+    category = '',
     description = '',
     artist,
-    price = 0,
-    zIndex = 50,
+    price,
+    zIndex,
     imageBase64,
     accountId,
   } = payload;

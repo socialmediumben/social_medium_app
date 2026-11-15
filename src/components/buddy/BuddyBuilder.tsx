@@ -86,19 +86,16 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
   // Upload Custom Art Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [artName, setArtName] = useState('');
-  const [artCategory, setArtCategory] = useState('props');
   const [artDescription, setArtDescription] = useState('');
   const [artArtist, setArtArtist] = useState(() =>
     member?.preferredName || (member?.firstName ? `${member.firstName} ${member.lastName || ''}`.trim() : '')
   );
-  const [artPrice, setArtPrice] = useState(0);
   const [artFile, setArtFile] = useState<File | null>(null);
   const [artPreviewUrl, setArtPreviewUrl] = useState<string | null>(null);
   const [isSubmittingArt, setIsSubmittingArt] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<{
     name: string;
-    category: string;
     artist: string;
     xp: number;
     bucks: number;
@@ -123,8 +120,6 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setUploadSuccess(null);
     setArtName('');
     setArtDescription('');
-    setArtCategory('props');
-    setArtPrice(0);
     setArtFile(null);
     setArtPreviewUrl(null);
     setArtArtist(
@@ -171,14 +166,14 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setUploadError(null);
 
     try {
-      const zIndex = DEFAULT_CATEGORY_LAYER_ORDER[artCategory] || 50;
+      // Category, Price, and Z-Index will be assigned by the admin during review in the spreadsheet
       const res = await uploadBuddyArtItem({
         name: artName.trim(),
-        category: artCategory,
+        category: '', // Set by admin upon review
         description: artDescription.trim() || undefined,
         artist: artArtist.trim() || 'Maker Community',
-        price: artPrice,
-        zIndex,
+        price: 0,     // Set by admin upon review
+        zIndex: 50,   // Set by admin upon review
         imageBase64: artPreviewUrl,
         accountId: member?.accountId,
       });
@@ -188,7 +183,6 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
         setPendingSubmissions(getMyPendingBuddyArtSubmissions());
         setUploadSuccess({
           name: artName.trim(),
-          category: artCategory,
           artist: artArtist.trim() || 'Maker Community',
           xp: res.xpAwarded || 20,
           bucks: res.bucksAwarded || 10,
@@ -1102,44 +1096,20 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   </div>
                 )}
 
-                {/* 1. Item Name */}
-                <div>
-                  <label className="text-xs font-bold text-stone-700 block mb-1">
-                    Item Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={artName}
-                    onChange={(e) => setArtName(e.target.value)}
-                    placeholder="e.g. Celestial Wizard Cape, Steampunk Goggles..."
-                    className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                  />
-                </div>
-
-                {/* 2. Category Dropdown & Artist Attribution Grid */}
+                {/* 1. Item Name & Artist Attribution Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-stone-700 block mb-1">
-                      Category <span className="text-red-500">*</span>
+                      Item Name <span className="text-red-500">*</span>
                     </label>
-                    <select
-                      value={artCategory}
-                      onChange={(e) => setArtCategory(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 bg-white focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
-                    >
-                      <option value="headwear">Headwear / Hats</option>
-                      <option value="hair">Hair / Wigs</option>
-                      <option value="face_accessory">Face Accessory / Eyewear</option>
-                      <option value="mouth">Mouth / Expression</option>
-                      <option value="tops">Tops / Shirts / Bowties</option>
-                      <option value="bottoms">Bottoms / Pants / Skirts</option>
-                      <option value="shoes">Shoes / Footwear</option>
-                      <option value="capes">Capes / Wings / Back</option>
-                      <option value="props">Props / Handheld Items</option>
-                      <option value="costume">Full Costumes / Outfits</option>
-                      <option value="other">Other Accessory</option>
-                    </select>
+                    <input
+                      type="text"
+                      required
+                      value={artName}
+                      onChange={(e) => setArtName(e.target.value)}
+                      placeholder="e.g. Celestial Cape, Wizard Hat..."
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    />
                   </div>
 
                   <div>
@@ -1157,7 +1127,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   </div>
                 </div>
 
-                {/* 3. Description */}
+                {/* 2. Description */}
                 <div>
                   <label className="text-xs font-bold text-stone-700 block mb-1">
                     Description <span className="text-stone-400 font-normal">(Optional)</span>
@@ -1166,30 +1136,9 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                     rows={2}
                     value={artDescription}
                     onChange={(e) => setArtDescription(e.target.value)}
-                    placeholder="Short description or lore about this item..."
+                    placeholder="Short description or notes about this piece..."
                     className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
                   />
-                </div>
-
-                {/* 4. Suggested Price in Buddy Bucks */}
-                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs">
-                  <span className="font-bold text-stone-700">Suggested Wardrobe Price:</span>
-                  <div className="flex items-center gap-1.5">
-                    {[0, 10, 15, 25, 50].map((p) => (
-                      <button
-                        key={p}
-                        type="button"
-                        onClick={() => setArtPrice(p)}
-                        className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                          artPrice === p
-                            ? 'bg-amber-500 text-stone-950 shadow-2xs'
-                            : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
-                        }`}
-                      >
-                        {p === 0 ? 'Free' : `${p} BB`}
-                      </button>
-                    ))}
-                  </div>
                 </div>
 
                 {/* 5. PNG Art File Picker & Live Transparency Preview */}
@@ -1357,7 +1306,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   <div className="flex-1 min-w-0">
                     <div className="text-xs font-bold text-stone-900 truncate">{sub.name}</div>
                     <div className="text-[10px] text-stone-500 capitalize">
-                      {formatCategoryLabel(sub.category)} • 🎨 by {sub.artist}
+                      {sub.category ? formatCategoryLabel(sub.category) : 'Custom Art'} • 🎨 by {sub.artist}
                     </div>
                     <div className="text-[10px] text-stone-400 mt-0.5">
                       {new Date(sub.timestamp).toLocaleDateString()}
