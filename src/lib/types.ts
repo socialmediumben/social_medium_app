@@ -21,7 +21,7 @@ export interface MemberProfile {
   storeBalance?: number;    // Neon One Store / Wallet Balance (Positive = prepaid credits, Negative = tab)
   xp?: number;              // Experience points (synced with Neon Custom Field "XP" or local storage)
   level?: number;           // Current Level (1-10+)
-  levelTitle?: string;      // Current Title (e.g. "Novice Maker", "Craftsperson")
+  levelTitle?: string;      // Current Title (configured via Level Tiers module, e.g. "Level 1", "Level 2")
   levelBadge?: string;      // Current Badge emoji (e.g. "🌱", "⚙️")
   levelReward?: string;     // Reward / Perk unlocked at this level
   buddyAvatar?: string;     // Neon One Buddy Avatar JSON config string

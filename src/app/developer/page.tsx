@@ -3836,7 +3836,7 @@ export default function DeveloperPage() {
                 </div>
                 <div className="text-xs text-stone-300 mt-1 flex items-center gap-2">
                   <span>
-                    Current Level: <strong className="text-amber-300">Level {member?.level || 1} ({member?.levelTitle || 'Novice Maker'})</strong>
+                    Current Level: <strong className="text-amber-300">{member?.levelTitle ? member.levelTitle : `Level ${member?.level || 1}`}</strong>
                   </span>
                   <span>•</span>
                   <span>

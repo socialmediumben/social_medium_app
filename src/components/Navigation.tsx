@@ -356,7 +356,7 @@ export function Navbar() {
                   <Link
                     href="/profile#xp"
                     className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-amber-300 bg-amber-50 hover:bg-amber-100 text-amber-950 text-xs font-semibold transition-colors shadow-xs"
-                    title={`${member.levelTitle || 'Novice Maker'} (${member.xp || 0} XP)`}
+                    title={`${member.levelTitle || `Level ${member.level || 1}`} (${member.xp || 0} XP)`}
                   >
                     <span>{member.levelBadge || '⭐'}</span>
                     <span>Lv.{member.level || 1}</span>
