@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.8';
+export const APP_VERSION = '3.9';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,20 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.9',
+    date: '2026-11-14',
+    title: 'Buddy Builder Avatar Studio, Buddy Bucks Economy & Developer Asset Manager',
+    changes: [
+      'Added "Buddy Builder" sub-module to Member Profile allowing creators to customize their own personal mascot avatar ("Buddy") with dress-up layers (hats, clothes, capes, props, expressions, footwear).',
+      'Introduced "Buddy Buck" / "Buddy Bucks" (🪙 BB) in-app currency with starter balance grants (50 BB) and configurable accessory shop prices.',
+      'Re-engineered Gamification XP Tier Rewards: milestone rank promotions now award Buddy Bucks (e.g. Apprentice: 25 BB, Craftsperson: 50 BB, Grand Architect: 500 BB) directly to the member wallet.',
+      'Added "Buddy Assets" studio to Developer Mode: enables uploading PNG/WebP/SVG transparent accessory graphics with custom z-index layer ordering and price tags in Buddy Bucks.',
+      'Global Asset Synchronization: developer-uploaded accessories sync globally through the centralized backend proxy (/api/app-settings) to all users and devices.',
+      'Neon One Persistence: member avatar configurations and Buddy Bucks balances are saved to Neon One account custom fields ("Buddy Avatar" & "Buddy Bucks") with full developer field ID override support.',
+      'Added live Buddy Avatar Badges across the Member Profile pass, greeting card, and navigation bar with instant dress-up studio shortcuts.',
+    ],
+  },
   {
     version: '3.8',
     date: '2026-11-14',

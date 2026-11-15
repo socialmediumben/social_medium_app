@@ -184,6 +184,8 @@ export async function fetchMemberProfileByAccountId(
     let isAppDeveloper = false;
     let parsedStoreBalance: number | undefined = undefined;
     let parsedXp: number | undefined = undefined;
+    let parsedBuddyAvatar: string | undefined = undefined;
+    let parsedBuddyBucks: number | undefined = undefined;
 
     const customFields: any[] = ind.accountCustomFields || [];
     for (const field of customFields) {
@@ -232,12 +234,51 @@ export async function fetchMemberProfileByAccountId(
           const num = parseFloat(String(field.value).replace(/[^0-9.-]/g, ''));
           if (!isNaN(num)) {
             parsedStoreBalance = num;
-            // Update local cache with authoritative CRM balance
             if (typeof window !== 'undefined' && accountId) {
               try {
                 localStorage.setItem(`sm_balance_${accountId}`, num.toFixed(2));
               } catch (_) {}
             }
+          }
+        }
+      }
+
+      // Buddy Avatar Config Field
+      const configuredAvatarFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null;
+      if (
+        (configuredAvatarFieldId && fieldId === configuredAvatarFieldId) ||
+        fieldName.includes('buddy avatar') ||
+        fieldName.includes('buddy_avatar') ||
+        fieldName === 'avatar' ||
+        fieldName === 'buddy'
+      ) {
+        if (typeof window !== 'undefined' && fieldId) {
+          try {
+            localStorage.setItem('sm_neon_buddy_avatar_field_id', fieldId);
+          } catch (_) {}
+        }
+        if (field.value && typeof field.value === 'string' && field.value.trim().startsWith('{')) {
+          parsedBuddyAvatar = field.value.trim();
+        }
+      }
+
+      // Buddy Bucks In-App Currency Field
+      const configuredBucksFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null;
+      if (
+        (configuredBucksFieldId && fieldId === configuredBucksFieldId) ||
+        fieldName.includes('buddy bucks') ||
+        fieldName.includes('buddy buck') ||
+        fieldName.includes('buddy_bucks')
+      ) {
+        if (typeof window !== 'undefined' && fieldId) {
+          try {
+            localStorage.setItem('sm_neon_buddy_bucks_field_id', fieldId);
+          } catch (_) {}
+        }
+        if (field.value !== undefined && field.value !== null && String(field.value).trim() !== '') {
+          const num = parseInt(String(field.value).replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(num)) {
+            parsedBuddyBucks = num;
           }
         }
       }
@@ -2194,4 +2235,110 @@ export async function syncRecentNeonActivitiesForXp(
   }
 
   return { awardedCount };
+}
+
+/**
+ * Updates a member's Buddy Avatar configuration in local storage and Neon One.
+ */
+export async function updateMemberBuddyConfigInNeon(
+  accountId: string,
+  configJsonStr: string
+): Promise<{ success: boolean; configJson: string; error?: string }> {
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      localStorage.setItem(`sm_buddy_avatar_${accountId}`, configJsonStr);
+      const cachedProf = localStorage.getItem(`sm_profile_${accountId}`);
+      if (cachedProf) {
+        const parsed = JSON.parse(cachedProf);
+        parsed.buddyAvatar = configJsonStr;
+        localStorage.setItem(`sm_profile_${accountId}`, JSON.stringify(parsed));
+      }
+      window.dispatchEvent(new CustomEvent('sm_buddy_updated', { detail: configJsonStr }));
+    } catch (_) {}
+  }
+
+  const configuredFieldId =
+    typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null;
+
+  try {
+    if (configuredFieldId && accountId) {
+      const payload = {
+        individualAccount: {
+          accountCustomFields: [
+            {
+              id: configuredFieldId,
+              value: configJsonStr,
+            },
+          ],
+        },
+      };
+
+      const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        return { success: false, configJson: configJsonStr, error: 'Saved locally, but failed to sync with Neon One.' };
+      }
+    }
+    return { success: true, configJson: configJsonStr };
+  } catch (err: any) {
+    return { success: false, configJson: configJsonStr, error: err.message };
+  }
+}
+
+/**
+ * Updates a member's Buddy Bucks balance in local storage and Neon One.
+ */
+export async function updateMemberBuddyBucksInNeon(
+  accountId: string,
+  newAmount: number
+): Promise<{ success: boolean; newAmount: number; error?: string }> {
+  const safeAmount = Math.max(0, Math.round(newAmount));
+
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      localStorage.setItem(`sm_buddy_bucks_${accountId}`, String(safeAmount));
+      const cachedProf = localStorage.getItem(`sm_profile_${accountId}`);
+      if (cachedProf) {
+        const parsed = JSON.parse(cachedProf);
+        parsed.buddyBucks = safeAmount;
+        localStorage.setItem(`sm_profile_${accountId}`, JSON.stringify(parsed));
+      }
+      window.dispatchEvent(new CustomEvent('sm_buddy_bucks_updated', { detail: safeAmount }));
+    } catch (_) {}
+  }
+
+  const configuredFieldId =
+    typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null;
+
+  try {
+    if (configuredFieldId && accountId) {
+      const payload = {
+        individualAccount: {
+          accountCustomFields: [
+            {
+              id: configuredFieldId,
+              value: String(safeAmount),
+            },
+          ],
+        },
+      };
+
+      const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        return { success: false, newAmount: safeAmount, error: 'Saved locally, but failed to sync with Neon One.' };
+      }
+    }
+    return { success: true, newAmount: safeAmount };
+  } catch (err: any) {
+    return { success: false, newAmount: safeAmount, error: err.message };
+  }
 }

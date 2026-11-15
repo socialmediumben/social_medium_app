@@ -84,6 +84,20 @@ import {
   calculateLevelFromXp,
 } from '@/lib/gamification';
 import { APP_VERSION } from '@/lib/version';
+import {
+  BuddyItem,
+  BuddyLayerCategory,
+} from '@/lib/types';
+import {
+  getAllBuddyItems,
+  saveCustomBuddyItem,
+  deleteCustomBuddyItem,
+  BUDDY_CATEGORIES,
+  awardBuddyBucks,
+  loadMemberBuddyBucks,
+} from '@/lib/buddy';
+import { BuddyCanvas } from '@/components/buddy/BuddyCanvas';
+import { Palette, Shirt, Coins, Crown, Smile, Footprints } from 'lucide-react';
 
 // Import canonical universal certification registry
 // @ts-ignore
@@ -98,7 +112,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'portal-door' | 'store' | 'gamification' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'portal-door' | 'buddy-assets' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -136,6 +150,163 @@ export default function DeveloperPage() {
   const [isUpdatingPortalSetting, setIsUpdatingPortalSetting] = useState<string | null>(null);
   const [isRefreshingPortal, setIsRefreshingPortal] = useState(false);
   const [portalNotice, setPortalNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // ==========================================
+  // BUDDY BUILDER ASSETS & NEON FIELDS STATE
+  // ==========================================
+  const [buddyCatalog, setBuddyCatalog] = useState<BuddyItem[]>([]);
+  const [buddyCategoryFilter, setBuddyCategoryFilter] = useState<string>('all');
+  const [newBuddyName, setNewBuddyName] = useState('');
+  const [newBuddyCategory, setNewBuddyCategory] = useState<BuddyLayerCategory>('tops');
+  const [newBuddyPrice, setNewBuddyPrice] = useState<number>(25);
+  const [newBuddyZIndex, setNewBuddyZIndex] = useState<number>(60);
+  const [newBuddyAssetUrl, setNewBuddyAssetUrl] = useState('');
+  const [newBuddyDescription, setNewBuddyDescription] = useState('');
+  const [isSavingBuddyAsset, setIsSavingBuddyAsset] = useState(false);
+  const [buddyAssetNotice, setBuddyAssetNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Neon One Custom Field IDs for Buddy
+  const [buddyAvatarFieldId, setBuddyAvatarFieldId] = useState<string>('');
+  const [buddyBucksFieldId, setBuddyBucksFieldId] = useState<string>('');
+  const [isSavingBuddyFields, setIsSavingBuddyFields] = useState(false);
+  const [buddyFieldsNotice, setBuddyFieldsNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    setBuddyCatalog(getAllBuddyItems());
+    if (typeof window !== 'undefined') {
+      setBuddyAvatarFieldId(localStorage.getItem('sm_neon_buddy_avatar_field_id') || '');
+      setBuddyBucksFieldId(localStorage.getItem('sm_neon_buddy_bucks_field_id') || '');
+    }
+    const handleCatalogUpdate = () => {
+      setBuddyCatalog(getAllBuddyItems());
+    };
+    window.addEventListener('sm_buddy_catalog_updated', handleCatalogUpdate);
+    return () => window.removeEventListener('sm_buddy_catalog_updated', handleCatalogUpdate);
+  }, []);
+
+  const handleBuddyFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.includes('png') && !file.type.includes('svg') && !file.type.includes('webp')) {
+      setBuddyAssetNotice({
+        message: 'Please select a PNG, WebP, or SVG file with transparent background.',
+        type: 'error',
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      setNewBuddyAssetUrl(dataUrl);
+      if (!newBuddyName) {
+        const cleanName = file.name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/[-_]/g, ' ')
+          .replace(/\b\w/g, (c) => c.toUpperCase());
+        setNewBuddyName(cleanName);
+      }
+      setBuddyAssetNotice({
+        message: `Asset "${file.name}" loaded ready for publishing!`,
+        type: 'success',
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePublishBuddyItem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBuddyName.trim()) {
+      setBuddyAssetNotice({ message: 'Please provide an item name.', type: 'error' });
+      return;
+    }
+    if (!newBuddyAssetUrl.trim()) {
+      setBuddyAssetNotice({ message: 'Please upload an image asset file or enter a valid URL.', type: 'error' });
+      return;
+    }
+
+    setIsSavingBuddyAsset(true);
+    try {
+      const newItemId = `custom_${Date.now()}_${newBuddyName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      const newItem: BuddyItem = {
+        id: newItemId,
+        name: newBuddyName.trim(),
+        category: newBuddyCategory,
+        assetUrl: newBuddyAssetUrl.trim(),
+        zIndex: Number(newBuddyZIndex) || 60,
+        price: Math.max(0, Number(newBuddyPrice) || 0),
+        description: newBuddyDescription.trim() || undefined,
+        isCustom: true,
+      };
+
+      const updated = saveCustomBuddyItem(newItem);
+      setBuddyCatalog(updated);
+
+      // Reset form
+      setNewBuddyName('');
+      setNewBuddyAssetUrl('');
+      setNewBuddyDescription('');
+      setNewBuddyPrice(25);
+      setBuddyAssetNotice({
+        message: `"${newItem.name}" published successfully! Available to all members in Buddy Builder.`,
+        type: 'success',
+      });
+    } catch (err: any) {
+      setBuddyAssetNotice({
+        message: err.message || 'Failed to save accessory.',
+        type: 'error',
+      });
+    } finally {
+      setIsSavingBuddyAsset(false);
+    }
+  };
+
+  const handleDeleteBuddyItem = (itemId: string, itemName: string) => {
+    if (!window.confirm(`Are you sure you want to delete the accessory "${itemName}"?`)) {
+      return;
+    }
+    const updated = deleteCustomBuddyItem(itemId);
+    setBuddyCatalog(updated);
+    setBuddyAssetNotice({
+      message: `Deleted accessory "${itemName}".`,
+      type: 'success',
+    });
+  };
+
+  const handleSaveBuddyFields = async () => {
+    setIsSavingBuddyFields(true);
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('sm_neon_buddy_avatar_field_id', buddyAvatarFieldId.trim());
+        localStorage.setItem('sm_neon_buddy_bucks_field_id', buddyBucksFieldId.trim());
+      }
+      await updateGlobalAppSettings({
+        buddyAvatarFieldId: buddyAvatarFieldId.trim(),
+        buddyBucksFieldId: buddyBucksFieldId.trim(),
+      });
+      setBuddyFieldsNotice({
+        message: 'Neon One Buddy Custom Field IDs updated and synchronized across all users!',
+        type: 'success',
+      });
+    } catch (err: any) {
+      setBuddyFieldsNotice({
+        message: err.message || 'Failed to save Neon custom field IDs.',
+        type: 'error',
+      });
+    } finally {
+      setIsSavingBuddyFields(false);
+    }
+  };
+
+  const handleGrantTestBuddyBucks = async (amount: number) => {
+    if (!member?.accountId) return;
+    await awardBuddyBucks(member.accountId, amount, 'Developer Test Grant');
+    setBuddyAssetNotice({
+      message: `Granted +${amount} Buddy Bucks to your test account!`,
+      type: 'success',
+    });
+  };
 
   // Poll live settings from Portal Door installation
   useEffect(() => {

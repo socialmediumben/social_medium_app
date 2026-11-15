@@ -24,6 +24,8 @@ export interface MemberProfile {
   levelTitle?: string;      // Current Title (e.g. "Novice Maker", "Craftsperson")
   levelBadge?: string;      // Current Badge emoji (e.g. "🌱", "⚙️")
   levelReward?: string;     // Reward / Perk unlocked at this level
+  buddyAvatar?: string;     // Neon One Buddy Avatar JSON config string
+  buddyBucks?: number;      // Neon One Buddy Bucks in-app currency balance
 }
 
 export interface CommunityAnnouncement {
@@ -205,4 +207,53 @@ export interface PortalDoorSettings {
   photoboothMode: boolean;
   updatedAt?: string;
   updatedBy?: string;
+}
+
+// ==========================================
+// BUDDY BUILDER & BUDDY BUCKS TYPES
+// ==========================================
+
+export type BuddyLayerCategory =
+  | 'base_body'
+  | 'expression'
+  | 'headwear'
+  | 'hair'
+  | 'tops'
+  | 'bottoms'
+  | 'capes'
+  | 'props'
+  | 'face_accessory'
+  | 'shoes';
+
+export interface BuddyItem {
+  id: string;
+  name: string;
+  category: BuddyLayerCategory;
+  assetUrl: string;          // Transparent PNG / SVG (relative or data URL)
+  thumbnailUrl?: string;     // Small thumbnail icon
+  zIndex: number;            // Layer stack order
+  price: number;             // In Buddy Bucks (0 = Free Starter item)
+  requiredLevel?: number;    // Optional XP rank unlock milestone
+  description?: string;
+  isCustom?: boolean;        // Uploaded via Developer Module
+}
+
+export interface BuddyEquippedLayers {
+  base_body?: string;
+  expression?: string;
+  headwear?: string;
+  hair?: string;
+  tops?: string;
+  bottoms?: string;
+  capes?: string;
+  props?: string;
+  face_accessory?: string;
+  shoes?: string;
+}
+
+export interface BuddyConfig {
+  baseColor: string;         // 'cyan' | 'orange' | 'dark-blue' | 'green' | 'purple' | hex
+  equipped: BuddyEquippedLayers;
+  unlockedItemIds: string[]; // List of unlocked / purchased item IDs
+  updatedAt?: string;
 }

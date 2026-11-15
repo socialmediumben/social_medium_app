@@ -8,7 +8,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Novice Maker',
     minXp: 0,
     badgeEmoji: '🌱',
-    reward: 'Welcome to Social Medium & Community Access',
+    reward: '50 Buddy Bucks (Welcome Starter)',
     description: 'Beginner steps into the makerspace community',
   },
   {
@@ -16,7 +16,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Apprentice Tinkerer',
     minXp: 50,
     badgeEmoji: '🔨',
-    reward: 'Custom Member Profile Badge & Avatar Frame',
+    reward: '25 Buddy Bucks',
     description: 'Learning the tools and building familiarity',
   },
   {
@@ -24,7 +24,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Craftsperson',
     minXp: 125,
     badgeEmoji: '⚙️',
-    reward: 'Social Medium Holographic Laptop Sticker',
+    reward: '50 Buddy Bucks',
     description: 'Regular participant creating great projects',
   },
   {
@@ -32,7 +32,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Journeyman Builder',
     minXp: 250,
     badgeEmoji: '🧰',
-    reward: '10% Off First Snack Shack Purchase',
+    reward: '75 Buddy Bucks',
     description: 'Skilled collaborator familiar with makerspace workshops',
   },
   {
@@ -40,7 +40,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Artisan Specialist',
     minXp: 450,
     badgeEmoji: '🎨',
-    reward: 'Free Laser Cutter / 3D Print Test Token',
+    reward: '100 Buddy Bucks',
     description: 'Experienced creator with specialized fabrication skills',
   },
   {
@@ -48,7 +48,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Senior Fabricator',
     minXp: 700,
     badgeEmoji: '🚀',
-    reward: 'Feature Highlight on Space Projector & Wall',
+    reward: '150 Buddy Bucks',
     description: 'Pillar of the shop helping others succeed',
   },
   {
@@ -56,7 +56,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Master Engineer',
     minXp: 1000,
     badgeEmoji: '⚡',
-    reward: 'Exclusive Social Medium Enamel Pin',
+    reward: '200 Buddy Bucks',
     description: 'Accomplished technical mastery across space domains',
   },
   {
@@ -64,7 +64,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Visionary Inventor',
     minXp: 1400,
     badgeEmoji: '💡',
-    reward: 'VIP Access to Guest Workshops & Masterclasses',
+    reward: '250 Buddy Bucks',
     description: 'Innovator creating advanced, inspiring community works',
   },
   {
@@ -72,7 +72,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Mythic Artificer',
     minXp: 1850,
     badgeEmoji: '🔮',
-    reward: 'Custom Makerspace Merch / T-Shirt Voucher',
+    reward: '350 Buddy Bucks',
     description: 'Legendary maker whose crafts inspire everyone',
   },
   {
@@ -80,7 +80,7 @@ export const DEFAULT_XP_LEVEL_TIERS: XpLevelTier[] = [
     title: 'Grand Architect',
     minXp: 2500,
     badgeEmoji: '👑',
-    reward: 'Name on Makerspace Wall of Fame & Golden Badge',
+    reward: '500 Buddy Bucks',
     description: 'Highest echelon of makerspace mastery and leadership',
   },
 ];
@@ -519,6 +519,25 @@ export async function awardMemberXp(params: {
   const oldLevelState = calculateLevelFromXp(oldTotalXp, tiers);
   const newLevelState = calculateLevelFromXp(newTotalXp, tiers);
   const leveledUp = newLevelState.level > oldLevelState.level;
+
+  // Award Buddy Bucks on Level-Up milestone!
+  if (leveledUp) {
+    const tierBucksMap: Record<number, number> = {
+      2: 25,
+      3: 50,
+      4: 75,
+      5: 100,
+      6: 150,
+      7: 200,
+      8: 250,
+      9: 350,
+      10: 500,
+    };
+    const bucksAward = tierBucksMap[newLevelState.level] || 50;
+    import('./buddy').then(({ awardBuddyBucks }) => {
+      awardBuddyBucks(accountId, bucksAward, `Milestone Level ${newLevelState.level}: ${newLevelState.title}`);
+    }).catch(console.warn);
+  }
 
   // Persist locally
   setLocalMemberXp(accountId, newTotalXp);

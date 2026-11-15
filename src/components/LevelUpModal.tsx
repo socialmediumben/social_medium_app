@@ -119,7 +119,7 @@ export default function LevelUpModal() {
                   {levelUpData.rewardUnlocked}
                 </div>
                 <p className="text-xs text-zinc-400">
-                  Claim your reward perk with makerspace staff at the front desk or snack shack!
+                  {levelUpData.rewardUnlocked?.includes('Buddy Buck') ? '🪙 Credited to your Buddy Builder wallet! Visit your Profile to dress up your mascot.' : 'Claim your reward perk with makerspace staff at the front desk or snack shack!'}
                 </p>
               </div>
             )}

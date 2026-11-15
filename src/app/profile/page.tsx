@@ -43,6 +43,10 @@ import {
 // Single Source of Truth for tool icons and certification deduplication
 // @ts-ignore
 import SMCertifications from '../../../public/shared/sm-certifications.js';
+import { BuddyBuilder } from '@/components/buddy/BuddyBuilder';
+import { BuddyAvatarBadge } from '@/components/buddy/BuddyAvatarBadge';
+import { loadMemberBuddyBucks } from '@/lib/buddy';
+import { Palette, Sparkles as SparklesIcon, Coins } from 'lucide-react';
 
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
@@ -57,6 +61,25 @@ export default function ProfilePage() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeProfileTab, setActiveProfileTab] = useState<'passport' | 'buddy'>('passport');
+  const [buddyBucks, setBuddyBucks] = useState<number>(() => loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
+
+  useEffect(() => {
+    if (member?.accountId) {
+      setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
+    }
+    const handleBucksUpdate = () => {
+      if (member?.accountId) {
+        setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
+      }
+    };
+    window.addEventListener('sm_buddy_bucks_updated', handleBucksUpdate);
+    window.addEventListener('sm_buddy_updated', handleBucksUpdate);
+    return () => {
+      window.removeEventListener('sm_buddy_bucks_updated', handleBucksUpdate);
+      window.removeEventListener('sm_buddy_updated', handleBucksUpdate);
+    };
+  }, [member?.accountId, member?.buddyBucks]);
 
   // Editable Interests state
   const [isEditingInterests, setIsEditingInterests] = useState(false);
@@ -214,15 +237,50 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+      {/* Header & Sub-Module Tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-stone-900">
-            Member Profile
+            {activeProfileTab === 'buddy' ? 'Buddy Builder' : 'Member Profile'}
           </h1>
           <p className="text-stone-600 text-sm">
-            Account details and authorized tool Certifications for Tap Card <strong>{member.tapCard}</strong>.
+            {activeProfileTab === 'buddy'
+              ? 'Customize your personal Social Medium mascot avatar with dress-up accessories and outfits.'
+              : <>Account details and authorized tool Certifications for Tap Card <strong>{member.tapCard}</strong>.</>}
           </p>
+        </div>
+
+        {/* Sub-Module Switcher */}
+        <div className="flex items-center gap-2 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs">
+          <button
+            onClick={() => setActiveProfileTab('passport')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+              activeProfileTab === 'passport'
+                ? 'bg-white text-stone-900 shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <User className="w-4 h-4 text-[#344ea2]" />
+            <span>Passport & Stats</span>
+          </button>
+          <button
+            onClick={() => setActiveProfileTab('buddy')}
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+              activeProfileTab === 'buddy'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Palette className="w-4 h-4" />
+            <span>Buddy Builder</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-bold ${
+              activeProfileTab === 'buddy'
+                ? 'bg-black/20 text-white'
+                : 'bg-amber-100 text-amber-900 border border-amber-200'
+            }`}>
+              🪙 {buddyBucks} BB
+            </span>
+          </button>
         </div>
       </div>
 
@@ -233,7 +291,20 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Main Digital Pass & Tap Card Card */}
+      {activeProfileTab === 'buddy' ? (
+        <div className="space-y-4">
+          <BuddyBuilder
+            member={member}
+            onBuddySaved={(newConfig) => {
+              if (updateMember) {
+                updateMember({ buddyAvatar: JSON.stringify(newConfig) });
+              }
+            }}
+          />
+        </div>
+      ) : (
+        <div className="space-y-6">
+        {/* Main Digital Pass & Tap Card Card */}
       <div className="rounded-2xl bg-gradient-to-br from-[#344ea2] via-[#2a3f85] to-[#1e2e66] text-white p-6 sm:p-8 shadow-md relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-3">
@@ -253,18 +324,44 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-            <div>
-              <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-white tracking-tight">
-                {greetingName}
-              </h2>
-              {member.preferredName && (member.firstName || member.lastName) && (
-                <p className="text-stone-300 text-xs font-medium">
-                  Legal Name: {member.firstName} {member.lastName}
-                </p>
-              )}
-              <p className="text-stone-300 text-sm font-medium mt-0.5">
-                {member.membershipTier || "Active Member"}
-              </p>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setActiveProfileTab('buddy')}
+                className="group relative focus:outline-none shrink-0"
+                title="Click to customize your Buddy Mascot!"
+              >
+                <BuddyAvatarBadge
+                  accountId={member.accountId}
+                  avatarJson={member.buddyAvatar}
+                  size={68}
+                  borderClassName="border-2 border-white/30 bg-white/10 group-hover:border-amber-400 group-hover:scale-105 transition-all shadow-md"
+                />
+                <div className="absolute -bottom-1 -right-1 p-1 rounded-full bg-amber-500 text-white shadow-sm ring-2 ring-stone-900 text-[10px]">
+                  <Palette className="w-3.5 h-3.5" />
+                </div>
+              </button>
+              <div>
+                <h2 className="font-fredoka text-2xl sm:text-3xl font-bold text-white tracking-tight">
+                  {greetingName}
+                </h2>
+                {member.preferredName && (member.firstName || member.lastName) && (
+                  <p className="text-stone-300 text-xs font-medium">
+                    Legal Name: {member.firstName} {member.lastName}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2 mt-1">
+                  <p className="text-stone-300 text-sm font-medium">
+                    {member.membershipTier || "Active Member"}
+                  </p>
+                  <button
+                    onClick={() => setActiveProfileTab('buddy')}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-400/20 border border-amber-300/40 text-amber-200 text-xs font-bold hover:bg-amber-400/30 transition-colors"
+                  >
+                    <span>🪙 {buddyBucks} Buddy Bucks</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1172,6 +1269,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      </div>
+      )}
     </div>
   );
 }
