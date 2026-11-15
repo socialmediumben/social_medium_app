@@ -2328,7 +2328,7 @@ export default function DeveloperPage() {
               You can manage all accessories and prices directly in your Google Sheet! Add a new tab named <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-bold">Buddy_Items</code> to the <strong>SM App Database</strong> sheet with these exact column headers:
             </p>
             <div className="flex flex-wrap gap-1.5 pt-1">
-              {['Name', 'Category', 'Price', 'Asset_URL', 'Z_Index', 'Description', 'Active'].map((col) => (
+              {['Name', 'Category', 'Price', 'Asset_URL', 'Z_Index', 'Description', 'Active', 'Artist'].map((col) => (
                 <span key={col} className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 font-mono text-[11px] font-bold text-emerald-800">
                   {col}
                 </span>

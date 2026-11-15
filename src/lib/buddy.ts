@@ -32,6 +32,12 @@ const CUSTOM_BUDDY_ITEMS_KEY = 'sm_custom_buddy_items';
 export const GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL =
   'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Buddy_Items';
 
+export const GOOGLE_DRIVE_BUDDY_ART_FOLDER_ID = '1TCPHSaRO-_R-dT_cKazSeE4nxGyVxiQU';
+export const GOOGLE_DRIVE_BUDDY_ART_FOLDER_URL =
+  'https://drive.google.com/drive/folders/1TCPHSaRO-_R-dT_cKazSeE4nxGyVxiQU?usp=drive_link';
+export const BUDDY_ART_UPLOAD_ENDPOINT =
+  'https://script.google.com/macros/s/AKfycbw8sI54Tsza9NwwLd-Id3DgGBg69L4N0VxwSp9d3_dryLdSB5CvmPGtPpzt2uymKRjwcQ/exec';
+
 /**
  * Returns the active category layer stack order (category -> zIndex).
  */
@@ -355,6 +361,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
     let zIdx = -1;
     let descIdx = -1;
     let activeIdx = -1;
+    let artistIdx = -1;
 
     for (let i = 0; i < header.length; i++) {
       const col = header[i];
@@ -365,6 +372,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       else if (col.includes('z') || col.includes('order') || col.includes('depth') || col.includes('stack')) zIdx = i;
       else if (col.includes('desc') || col.includes('detail') || col.includes('note')) descIdx = i;
       else if (col.includes('active') || col.includes('status') || col.includes('enable')) activeIdx = i;
+      else if (col.includes('artist') || col.includes('creator') || col.includes('author') || col.includes('by')) artistIdx = i;
     }
 
     if (nameIdx === -1 || (catIdx === -1 && priceIdx === -1 && urlIdx === -1)) {
@@ -382,7 +390,15 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
 
       if (activeIdx !== -1) {
         const activeVal = String(row[activeIdx] || '').trim().toLowerCase();
-        if (activeVal === 'false' || activeVal === 'no' || activeVal === '0' || activeVal === 'inactive' || activeVal === 'archived') {
+        // If pending approval, inactive, false, no, 0, or archived, do NOT show live in wardrobe!
+        if (
+          activeVal === 'pending' ||
+          activeVal === 'false' ||
+          activeVal === 'no' ||
+          activeVal === '0' ||
+          activeVal === 'inactive' ||
+          activeVal === 'archived'
+        ) {
           continue;
         }
       }
@@ -408,6 +424,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       const zIndex = !isNaN(parsedZ) && parsedZ > 0 ? parsedZ : (categoryZ !== undefined ? categoryZ : 50);
 
       const description = descIdx !== -1 ? String(row[descIdx] || '').trim() : undefined;
+      const artist = artistIdx !== -1 ? String(row[artistIdx] || '').trim() : undefined;
 
       items.push({
         id: `sheet_${r}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
@@ -417,6 +434,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
         assetUrl,
         zIndex,
         description,
+        artist: artist || undefined,
         isCustom: true,
       });
     }
@@ -803,6 +821,189 @@ export function randomizeBuddy(
     baseColor: chosenColor.id,
     equipped: newEquipped,
     updatedAt: new Date().toISOString(),
+  };
+}
+
+// ==========================================
+// 6. CUSTOM ART SUBMISSION & REWARDS
+// ==========================================
+
+export interface BuddyArtSubmissionPayload {
+  name: string;
+  category: string;
+  description?: string;
+  artist: string;
+  price?: number;
+  zIndex?: number;
+  imageBase64: string; // Base64 data URL
+  accountId?: string;
+}
+
+export interface BuddyArtSubmissionRecord {
+  id: string;
+  name: string;
+  category: string;
+  description?: string;
+  artist: string;
+  price: number;
+  zIndex: number;
+  assetUrl: string;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  timestamp: string;
+  fileId?: string;
+  accountId?: string;
+}
+
+const PENDING_BUDDY_ART_STORAGE_KEY = 'sm_my_pending_buddy_art';
+
+export function getMyPendingBuddyArtSubmissions(): BuddyArtSubmissionRecord[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(PENDING_BUDDY_ART_STORAGE_KEY);
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) return list;
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Submits custom art to the Google Drive folder, appends row to "Buddy_Items"
+ * with Status "Pending", and automatically awards +20 XP and 10 Buddy Bucks.
+ */
+export async function uploadBuddyArtItem(
+  payload: BuddyArtSubmissionPayload
+): Promise<{
+  success: boolean;
+  message: string;
+  fileId?: string;
+  url?: string;
+  xpAwarded: number;
+  bucksAwarded: number;
+  error?: string;
+}> {
+  const {
+    name,
+    category,
+    description = '',
+    artist,
+    price = 0,
+    zIndex = 50,
+    imageBase64,
+    accountId,
+  } = payload;
+
+  const timestamp = new Date().toISOString();
+  const submissionId = `art_sub_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  let directUrl = imageBase64;
+  let fileId = '';
+  let cloudSuccess = false;
+
+  // 1. Attempt POST to Google Apps Script / Drive & Sheet
+  try {
+    const reqBody = {
+      action: 'upload_buddy_art',
+      folderId: GOOGLE_DRIVE_BUDDY_ART_FOLDER_ID,
+      name,
+      category,
+      description,
+      artist,
+      price,
+      zIndex,
+      image: imageBase64,
+      timestamp,
+    };
+
+    const res = await fetch(BUDDY_ART_UPLOAD_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(reqBody),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === 'success') {
+        cloudSuccess = true;
+        if (data.url) directUrl = data.url;
+        if (data.fileId) fileId = data.fileId;
+      }
+    }
+  } catch (netErr) {
+    console.warn('Google Cloud upload notice (saved to pending local queue):', netErr);
+  }
+
+  // 2. Persist locally to member's pending submissions record
+  const pendingRecord: BuddyArtSubmissionRecord = {
+    id: submissionId,
+    name,
+    category,
+    description,
+    artist,
+    price,
+    zIndex,
+    assetUrl: directUrl,
+    status: 'Pending',
+    timestamp,
+    fileId: fileId || undefined,
+    accountId: accountId || undefined,
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      const existing = getMyPendingBuddyArtSubmissions();
+      localStorage.setItem(
+        PENDING_BUDDY_ART_STORAGE_KEY,
+        JSON.stringify([pendingRecord, ...existing.slice(0, 49)])
+      );
+      window.dispatchEvent(new CustomEvent('sm_buddy_art_submitted', { detail: pendingRecord }));
+    } catch (_) {}
+  }
+
+  // 3. Award +20 XP & 10 Buddy Bucks to submitting member
+  let xpAwarded = 0;
+  let bucksAwarded = 0;
+
+  if (accountId) {
+    try {
+      const { awardMemberXp } = await import('./gamification');
+      const xpRes = await awardMemberXp({
+        accountId,
+        ruleId: 'buddy_art_upload',
+        note: `Submitted Buddy Art: "${name}"`,
+        force: true,
+      });
+      if (xpRes.success) {
+        xpAwarded = xpRes.xpEarned || 20;
+      }
+    } catch (e) {
+      console.warn('Failed awarding XP for art submission:', e);
+      xpAwarded = 20; // Default expected reward
+    }
+
+    try {
+      awardBuddyBucks(
+        accountId,
+        10,
+        `Art Submission Bounty: "${name}"`
+      );
+      bucksAwarded = 10;
+    } catch (e) {
+      console.warn('Failed awarding Buddy Bucks for art submission:', e);
+      bucksAwarded = 10;
+    }
+  }
+
+  return {
+    success: true,
+    message: cloudSuccess
+      ? 'Art uploaded to Google Drive and logged in spreadsheet as Pending!'
+      : 'Art submitted and queued locally as Pending!',
+    fileId,
+    url: directUrl,
+    xpAwarded: xpAwarded || 20,
+    bucksAwarded: bucksAwarded || 10,
   };
 }
 

@@ -225,7 +225,8 @@ export interface BuddyItem {
   price: number;             // In Buddy Bucks (0 = Free Starter item)
   requiredLevel?: number;    // Optional XP rank unlock milestone
   description?: string;
-  isCustom?: boolean;        // Uploaded via Developer Module
+  artist?: string;           // Artist attribution / creator name
+  isCustom?: boolean;        // Uploaded via Developer Module or community
 }
 
 export interface BuddyEquippedLayers {

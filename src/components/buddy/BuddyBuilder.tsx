@@ -5,8 +5,13 @@ import {
   Sparkles,
   RotateCcw,
   Download,
+  Upload,
   Save,
   Check,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Image as ImageIcon,
   Lock,
   Coins,
   ChevronRight,
@@ -37,6 +42,11 @@ import {
   unequipBuddyCategory,
   randomizeBuddy,
   purchaseBuddyItem,
+  uploadBuddyArtItem,
+  getMyPendingBuddyArtSubmissions,
+  BuddyArtSubmissionRecord,
+  GOOGLE_DRIVE_BUDDY_ART_FOLDER_URL,
+  DEFAULT_CATEGORY_LAYER_ORDER,
 } from '@/lib/buddy';
 import { updateMemberBuddyConfigInNeon } from '@/lib/neon';
 import { BuddyCanvas } from './BuddyCanvas';
@@ -73,8 +83,125 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // Upload Custom Art Modal State
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [artName, setArtName] = useState('');
+  const [artCategory, setArtCategory] = useState('props');
+  const [artDescription, setArtDescription] = useState('');
+  const [artArtist, setArtArtist] = useState(() =>
+    member?.preferredName || (member?.firstName ? `${member.firstName} ${member.lastName || ''}`.trim() : '')
+  );
+  const [artPrice, setArtPrice] = useState(0);
+  const [artFile, setArtFile] = useState<File | null>(null);
+  const [artPreviewUrl, setArtPreviewUrl] = useState<string | null>(null);
+  const [isSubmittingArt, setIsSubmittingArt] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<{
+    name: string;
+    category: string;
+    artist: string;
+    xp: number;
+    bucks: number;
+  } | null>(null);
+  const [pendingSubmissions, setPendingSubmissions] = useState<BuddyArtSubmissionRecord[]>([]);
+  const [showPendingDrawer, setShowPendingDrawer] = useState(false);
+
   // Master Items Catalog
   const [items, setItems] = useState<BuddyItem[]>([]);
+
+  useEffect(() => {
+    setPendingSubmissions(getMyPendingBuddyArtSubmissions());
+    const handleSubmissionsUpdated = () => {
+      setPendingSubmissions(getMyPendingBuddyArtSubmissions());
+    };
+    window.addEventListener('sm_buddy_art_submitted', handleSubmissionsUpdated);
+    return () => window.removeEventListener('sm_buddy_art_submitted', handleSubmissionsUpdated);
+  }, []);
+
+  const openUploadModal = () => {
+    setUploadError(null);
+    setUploadSuccess(null);
+    setArtName('');
+    setArtDescription('');
+    setArtCategory('props');
+    setArtPrice(0);
+    setArtFile(null);
+    setArtPreviewUrl(null);
+    setArtArtist(
+      member?.preferredName || (member?.firstName ? `${member.firstName} ${member.lastName || ''}`.trim() : '') || 'Maker Community'
+    );
+    setIsUploadModalOpen(true);
+  };
+
+  const handleArtFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.toLowerCase().endsWith('.png') && file.type !== 'image/png') {
+      setUploadError('Please select a PNG file (.png) with a transparent background.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError('Artwork file must be under 5MB.');
+      return;
+    }
+
+    setUploadError(null);
+    setArtFile(file);
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setArtPreviewUrl(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleArtSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!artName.trim()) {
+      setUploadError('Please give your artwork a name.');
+      return;
+    }
+    if (!artPreviewUrl) {
+      setUploadError('Please select a transparent PNG image file of your artwork.');
+      return;
+    }
+
+    setIsSubmittingArt(true);
+    setUploadError(null);
+
+    try {
+      const zIndex = DEFAULT_CATEGORY_LAYER_ORDER[artCategory] || 50;
+      const res = await uploadBuddyArtItem({
+        name: artName.trim(),
+        category: artCategory,
+        description: artDescription.trim() || undefined,
+        artist: artArtist.trim() || 'Maker Community',
+        price: artPrice,
+        zIndex,
+        imageBase64: artPreviewUrl,
+        accountId: member?.accountId,
+      });
+
+      if (res.success) {
+        setBuddyBucks((prev) => prev + (res.bucksAwarded || 10));
+        setPendingSubmissions(getMyPendingBuddyArtSubmissions());
+        setUploadSuccess({
+          name: artName.trim(),
+          category: artCategory,
+          artist: artArtist.trim() || 'Maker Community',
+          xp: res.xpAwarded || 20,
+          bucks: res.bucksAwarded || 10,
+        });
+      } else {
+        setUploadError(res.error || 'Failed to submit art. Please try again.');
+      }
+    } catch (err: any) {
+      setUploadError(err.message || 'An unexpected error occurred during submission.');
+    } finally {
+      setIsSubmittingArt(false);
+    }
+  };
 
   useEffect(() => {
     setItems(getAllBuddyItems());
@@ -487,18 +614,60 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
           {/* Category Tabs / Pills */}
           <div>
             <label className="text-xs font-bold text-stone-700 block mb-2">Wardrobe Rack</label>
-            <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
               <label className="text-xs font-bold text-stone-700">Wardrobe Categories</label>
-              <button
-                type="button"
-                onClick={handleLiveSheetSync}
-                disabled={isSyncingSheet}
-                className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
-                title="Sync newest items from Google Sheet"
-              >
-                <RefreshCw className={`w-3 h-3 ${isSyncingSheet ? 'animate-spin' : ''}`} />
-                <span>{isSyncingSheet ? 'Syncing...' : 'Sync Sheet'}</span>
-              </button>
+              
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {/* 1. Download Basic Body PNG Template */}
+                <a
+                  href="/buddies/basic_buddy.png"
+                  download="basic_buddy_template.png"
+                  className="text-[11px] font-bold text-stone-700 hover:text-stone-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-stone-100 border border-stone-200 hover:bg-stone-200 transition-colors shadow-2xs"
+                  title="Download the official Basic Buddy PNG template to draw matching accessories & costumes"
+                >
+                  <Download className="w-3 h-3 text-stone-600" />
+                  <span>Download Template</span>
+                </a>
+
+                {/* 2. Upload Custom Art Button (+20 XP, 10 BB) */}
+                <button
+                  type="button"
+                  onClick={openUploadModal}
+                  className="text-[11px] font-bold text-white flex items-center gap-1.5 px-3 py-1 rounded-lg bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:to-amber-600 shadow-xs transition-all cursor-pointer"
+                  title="Submit custom drawn PNG art for Buddy Builder (+20 XP & 10 Buddy Bucks!)"
+                >
+                  <Upload className="w-3 h-3" />
+                  <span>Upload Art</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-black/20 text-[9px] font-mono tracking-tight font-black">
+                    +20 XP
+                  </span>
+                </button>
+
+                {/* 3. Sync Sheet Button */}
+                <button
+                  type="button"
+                  onClick={handleLiveSheetSync}
+                  disabled={isSyncingSheet}
+                  className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                  title="Sync newest items from Google Sheet"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isSyncingSheet ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingSheet ? 'Syncing...' : 'Sync Sheet'}</span>
+                </button>
+
+                {/* 4. Pending Submissions Pill (if user has pending submissions) */}
+                {pendingSubmissions.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowPendingDrawer((prev) => !prev)}
+                    className="text-[11px] font-semibold text-amber-800 hover:text-amber-950 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors cursor-pointer"
+                    title="View your pending art submissions"
+                  >
+                    <Clock className="w-3 h-3 text-amber-600" />
+                    <span>{pendingSubmissions.length} Pending</span>
+                  </button>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
               {categories.map((cat) => {
@@ -684,6 +853,12 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                           <div className="text-xs font-bold text-stone-900 leading-tight">
                             {item.name}
                           </div>
+                          {item.artist && (
+                            <div className="text-[10px] text-orange-600 font-semibold mt-0.5 truncate flex items-center gap-1">
+                              <span className="text-[11px]">🎨</span>
+                              <span className="truncate">by {item.artist}</span>
+                            </div>
+                          )}
                           {item.description && (
                             <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
                               {item.description}
@@ -812,6 +987,405 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                     BB)
                   </span>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 2: UPLOAD CUSTOM ART FORM (+20 XP, 10 BUDDY BUCKS) */}
+      {/* ======================================================== */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 bg-stone-950/70 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-stone-200 text-stone-900 space-y-4 my-8 relative">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setIsUploadModalOpen(false)}
+              className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            {/* If upload succeeded, show celebratory success view */}
+            {uploadSuccess ? (
+              <div className="text-center space-y-4 py-2">
+                <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/20">
+                  <CheckCircle2 className="w-9 h-9" />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-xl font-black text-stone-900">Artwork Submitted!</h3>
+                  <p className="text-xs text-stone-600">
+                    Your design <strong className="text-stone-900">"{uploadSuccess.name}"</strong> has been uploaded to Google Drive.
+                  </p>
+                </div>
+
+                {/* Rewards callout */}
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border border-amber-200 text-left space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-amber-600" />
+                    <span className="text-xs font-black text-amber-950 uppercase tracking-wide">
+                      Artist Rewards Granted
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs font-bold text-stone-800">
+                    <span className="px-3 py-1 rounded-xl bg-white border border-amber-200 text-emerald-700 shadow-2xs">
+                      +{uploadSuccess.xp} Experience Points
+                    </span>
+                    <span className="px-3 py-1 rounded-xl bg-white border border-amber-200 text-amber-800 shadow-2xs flex items-center gap-1">
+                      <Coins className="w-3.5 h-3.5 text-amber-500" />
+                      +{uploadSuccess.bucks} Buddy Bucks
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status Explanation */}
+                <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 text-left text-xs space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-stone-800 font-bold">
+                    <Clock className="w-4 h-4 text-amber-600" />
+                    <span>Status: Pending Staff Review</span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 leading-relaxed">
+                    The item was added to the database spreadsheet marked as <strong className="text-stone-700">"Pending"</strong>. Once our makerspace team checks and approves it, it will automatically appear live in the Wardrobe Rack for all members!
+                  </p>
+                  <a
+                    href={GOOGLE_DRIVE_BUDDY_ART_FOLDER_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 hover:underline pt-1"
+                  >
+                    <span>View Submission Folder in Google Drive</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={openUploadModal}
+                    className="flex-1 py-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Submit Another Item
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs shadow-md transition-colors cursor-pointer"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            ) : (
+              /* Upload Form */
+              <form onSubmit={handleArtSubmit} className="space-y-4 text-left">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-orange-500 to-amber-400 text-white flex items-center justify-center shrink-0 shadow-sm">
+                    <Upload className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-black text-stone-900 leading-tight">
+                      Submit Custom Buddy Art
+                    </h3>
+                    <p className="text-[11px] text-stone-500">
+                      Earn <strong className="text-orange-600">+20 XP</strong> & <strong className="text-amber-600">10 🪙 Buddy Bucks</strong> for contributing!
+                    </p>
+                  </div>
+                </div>
+
+                {uploadError && (
+                  <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{uploadError}</span>
+                  </div>
+                )}
+
+                {/* 1. Item Name */}
+                <div>
+                  <label className="text-xs font-bold text-stone-700 block mb-1">
+                    Item Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={artName}
+                    onChange={(e) => setArtName(e.target.value)}
+                    placeholder="e.g. Celestial Wizard Cape, Steampunk Goggles..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                  />
+                </div>
+
+                {/* 2. Category Dropdown & Artist Attribution Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Category <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={artCategory}
+                      onChange={(e) => setArtCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 bg-white focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    >
+                      <option value="headwear">Headwear / Hats</option>
+                      <option value="hair">Hair / Wigs</option>
+                      <option value="face_accessory">Face Accessory / Eyewear</option>
+                      <option value="mouth">Mouth / Expression</option>
+                      <option value="tops">Tops / Shirts / Bowties</option>
+                      <option value="bottoms">Bottoms / Pants / Skirts</option>
+                      <option value="shoes">Shoes / Footwear</option>
+                      <option value="capes">Capes / Wings / Back</option>
+                      <option value="props">Props / Handheld Items</option>
+                      <option value="costume">Full Costumes / Outfits</option>
+                      <option value="other">Other Accessory</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Artist Attribution <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={artArtist}
+                      onChange={(e) => setArtArtist(e.target.value)}
+                      placeholder="Your name or handle"
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Description */}
+                <div>
+                  <label className="text-xs font-bold text-stone-700 block mb-1">
+                    Description <span className="text-stone-400 font-normal">(Optional)</span>
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={artDescription}
+                    onChange={(e) => setArtDescription(e.target.value)}
+                    placeholder="Short description or lore about this item..."
+                    className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 resize-none"
+                  />
+                </div>
+
+                {/* 4. Suggested Price in Buddy Bucks */}
+                <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-stone-50 border border-stone-200 text-xs">
+                  <span className="font-bold text-stone-700">Suggested Wardrobe Price:</span>
+                  <div className="flex items-center gap-1.5">
+                    {[0, 10, 15, 25, 50].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => setArtPrice(p)}
+                        className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          artPrice === p
+                            ? 'bg-amber-500 text-stone-950 shadow-2xs'
+                            : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-100'
+                        }`}
+                      >
+                        {p === 0 ? 'Free' : `${p} BB`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 5. PNG Art File Picker & Live Transparency Preview */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-stone-700">
+                      PNG Artwork File <span className="text-red-500">*</span>
+                    </label>
+                    <a
+                      href="/buddies/basic_buddy.png"
+                      download="basic_buddy_template.png"
+                      className="text-[11px] font-semibold text-blue-700 hover:underline flex items-center gap-1"
+                    >
+                      <Download className="w-3 h-3" />
+                      <span>Download Template Body</span>
+                    </a>
+                  </div>
+
+                  <div className="border-2 border-dashed border-stone-300 hover:border-orange-400 rounded-2xl p-4 text-center transition-colors bg-stone-50/50">
+                    <input
+                      type="file"
+                      id="buddy-art-file-input"
+                      accept=".png,image/png"
+                      onChange={handleArtFileChange}
+                      className="hidden"
+                    />
+
+                    {artPreviewUrl ? (
+                      <div className="space-y-3">
+                        <div
+                          className="w-32 h-32 mx-auto rounded-xl p-2 border border-stone-200 shadow-inner flex items-center justify-center overflow-hidden"
+                          style={{
+                            backgroundImage:
+                              'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)',
+                            backgroundSize: '16px 16px',
+                            backgroundPosition: '0 0, 0 8px, 8px -8px, -8px 0px',
+                            backgroundColor: '#ffffff',
+                          }}
+                        >
+                          <img
+                            src={artPreviewUrl}
+                            alt="Preview"
+                            className="max-w-full max-h-full object-contain"
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-center gap-2">
+                          <label
+                            htmlFor="buddy-art-file-input"
+                            className="text-[11px] font-bold text-orange-600 hover:text-orange-700 px-3 py-1 rounded-lg bg-orange-50 border border-orange-200 cursor-pointer"
+                          >
+                            Change Image
+                          </label>
+                          <span className="text-[11px] text-stone-500 font-medium">
+                            {artFile?.name}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <label
+                        htmlFor="buddy-art-file-input"
+                        className="cursor-pointer block py-3 space-y-1.5"
+                      >
+                        <ImageIcon className="w-8 h-8 text-stone-400 mx-auto" />
+                        <div className="text-xs font-bold text-stone-700">
+                          Click to select PNG artwork
+                        </div>
+                        <p className="text-[11px] text-stone-400">
+                          Must be a PNG with transparent background (under 5MB)
+                        </p>
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                {/* Submission Notice & Google Drive link */}
+                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-[11px] text-blue-900 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Info className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>Upload Destination & Review Process:</span>
+                  </div>
+                  <p className="text-blue-800 leading-relaxed">
+                    Submitted PNG art is uploaded directly to the makerspace Google Drive folder and added to the <strong className="font-semibold">Buddy_Items</strong> sheet with status <strong className="font-semibold">"Pending"</strong>. You will receive <strong>+20 XP</strong> and <strong>10 Buddy Bucks</strong> immediately!
+                  </p>
+                </div>
+
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 font-semibold text-xs transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingArt || !artPreviewUrl || !artName.trim()}
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    {isSubmittingArt ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Uploading Art...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-3.5 h-3.5" />
+                        <span>Submit Art (+20 XP & 10 🪙)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* MODAL 3: PENDING SUBMISSIONS LIST DRAWER / DIALOG        */}
+      {/* ======================================================== */}
+      {showPendingDrawer && (
+        <div className="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-stone-200 text-stone-900 space-y-4 relative">
+            <button
+              type="button"
+              onClick={() => setShowPendingDrawer(false)}
+              className="absolute top-4 right-4 p-2 text-stone-400 hover:text-stone-700 hover:bg-stone-100 rounded-full transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <h3 className="text-base font-black text-stone-900">
+                Your Pending Art Submissions
+              </h3>
+            </div>
+
+            <p className="text-xs text-stone-500">
+              Items currently awaiting makerspace staff review. Once approved in the Google Sheet, they will show in the live Wardrobe Rack!
+            </p>
+
+            <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
+              {pendingSubmissions.map((sub) => (
+                <div
+                  key={sub.id}
+                  className="p-3 rounded-2xl border border-stone-200 bg-stone-50 flex items-center gap-3 text-left"
+                >
+                  <div
+                    className="w-12 h-12 rounded-xl border border-stone-200 shrink-0 p-1 flex items-center justify-center overflow-hidden"
+                    style={{
+                      backgroundImage:
+                        'linear-gradient(45deg, #e5e7eb 25%, transparent 25%), linear-gradient(-45deg, #e5e7eb 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e5e7eb 75%), linear-gradient(-45deg, transparent 75%, #e5e7eb 75%)',
+                      backgroundSize: '12px 12px',
+                      backgroundColor: '#ffffff',
+                    }}
+                  >
+                    <img
+                      src={sub.assetUrl}
+                      alt={sub.name}
+                      className="max-w-full max-h-full object-contain"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-bold text-stone-900 truncate">{sub.name}</div>
+                    <div className="text-[10px] text-stone-500 capitalize">
+                      {formatCategoryLabel(sub.category)} • 🎨 by {sub.artist}
+                    </div>
+                    <div className="text-[10px] text-stone-400 mt-0.5">
+                      {new Date(sub.timestamp).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                    Pending
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div className="pt-2 flex justify-between items-center text-xs">
+              <a
+                href={GOOGLE_DRIVE_BUDDY_ART_FOLDER_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold text-blue-700 hover:underline flex items-center gap-1"
+              >
+                <span>Google Drive Folder</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              <button
+                type="button"
+                onClick={() => setShowPendingDrawer(false)}
+                className="px-4 py-2 rounded-xl bg-stone-900 text-white font-bold text-xs cursor-pointer"
+              >
+                Close
               </button>
             </div>
           </div>

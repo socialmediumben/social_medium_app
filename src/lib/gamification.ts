@@ -166,6 +166,16 @@ export const DEFAULT_XP_RULES: XpActivityRule[] = [
     enabled: true,
     cooldown: 'unlimited',
   },
+  {
+    id: 'buddy_art_upload',
+    name: 'Buddy Art Creation',
+    description: 'Contributing custom outfit, hat, or prop art to the Buddy Builder',
+    xpReward: 20,
+    icon: '🎨',
+    category: 'community',
+    enabled: true,
+    cooldown: 'unlimited',
+  },
 ];
 
 const STORAGE_KEY_TIERS = 'sm_xp_level_tiers';
@@ -281,6 +291,12 @@ export function fetchXpActivityRules(): XpActivityRule[] {
     if (!raw) return DEFAULT_XP_RULES;
     const parsed = JSON.parse(raw);
     if (Array.isArray(parsed) && parsed.length > 0) {
+      // Merge any new default rules that don't exist in stored rules
+      const existingIds = new Set(parsed.map((r: XpActivityRule) => r.id));
+      const missing = DEFAULT_XP_RULES.filter((d) => !existingIds.has(d.id));
+      if (missing.length > 0) {
+        return [...parsed, ...missing];
+      }
       return parsed;
     }
   } catch (err) {
