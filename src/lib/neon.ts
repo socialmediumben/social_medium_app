@@ -7,6 +7,7 @@ import {
   PortalPhotoRecord,
   GameRoomMediaItem,
   StoreItem,
+  PortalDoorSettings,
 } from './types';
 import { calculateLevelFromXp } from './gamification';
 
@@ -805,6 +806,7 @@ export interface GlobalAppSettings {
     store?: 'all' | 'staff' | 'none';
     [key: string]: any;
   };
+  portalDoorSettings?: PortalDoorSettings;
   xpRules?: any[] | null;
   levelTiers?: any[] | null;
   toolMappings?: any[] | null;
@@ -850,6 +852,43 @@ export async function updateGlobalAppSettings(
     return { success: true, settings: data.settings };
   } catch (err: any) {
     return { success: false, error: err.message || 'Error updating global settings.' };
+  }
+}
+
+/**
+ * Fetches the current live developer settings from the physical Portal Door.
+ */
+export async function fetchPortalDoorSettings(): Promise<PortalDoorSettings | null> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/portal-door/settings?_t=${Date.now()}`, { cache: 'no-store' });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.settings || null;
+  } catch (e) {
+    console.warn('[Portal Door Settings] Failed to fetch settings:', e);
+    return null;
+  }
+}
+
+/**
+ * Remotely updates developer settings on the physical Portal Door.
+ */
+export async function updatePortalDoorSettings(
+  partial: Partial<PortalDoorSettings>
+): Promise<{ success: boolean; settings?: PortalDoorSettings; error?: string }> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/portal-door/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...partial, updatedBy: 'phone' }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      return { success: false, error: data.error || 'Failed to update Portal Door settings.' };
+    }
+    return { success: true, settings: data.settings };
+  } catch (err: any) {
+    return { success: false, error: err.message || 'Error updating Portal Door settings.' };
   }
 }
 

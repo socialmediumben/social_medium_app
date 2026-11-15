@@ -197,3 +197,12 @@ export interface XpAwardEventDetail {
   rewardUnlocked?: string;
   note?: string;
 }
+
+export interface PortalDoorSettings {
+  contestMode: boolean;
+  digitalBackground: boolean;
+  sound: boolean;
+  photoboothMode: boolean;
+  updatedAt?: string;
+  updatedBy?: string;
+}

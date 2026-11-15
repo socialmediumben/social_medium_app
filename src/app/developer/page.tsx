@@ -45,10 +45,13 @@ import {
   Save,
   X,
   Globe,
+  Volume2,
+  VolumeX,
+  Camera,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
-import { getGreetingName, MemberProfile, CommunityAnnouncement, XpActivityRule, XpLevelTier } from '@/lib/types';
+import { getGreetingName, MemberProfile, CommunityAnnouncement, XpActivityRule, XpLevelTier, PortalDoorSettings } from '@/lib/types';
 import {
   fetchCommunityAnnouncement,
   updateCommunityAnnouncement,
@@ -66,6 +69,8 @@ import {
   STORE_BALANCE_FIELD_ID,
   STORE_CAMPAIGN_CODE,
   updateGlobalAppSettings,
+  fetchPortalDoorSettings,
+  updatePortalDoorSettings,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -93,7 +98,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'store' | 'gamification' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'portal-door' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -119,6 +124,84 @@ export default function DeveloperPage() {
   } = useDevMode();
 
   const [activeTab, setActiveTab] = useState<DevSubTab>('impersonate');
+  // ==========================================
+  // PORTAL DOOR REMOTE SETTINGS STATE & HANDLERS
+  // ==========================================
+  const [portalSettings, setPortalSettings] = useState<PortalDoorSettings>({
+    contestMode: false,
+    digitalBackground: true,
+    sound: true,
+    photoboothMode: false,
+  });
+  const [isUpdatingPortalSetting, setIsUpdatingPortalSetting] = useState<string | null>(null);
+  const [isRefreshingPortal, setIsRefreshingPortal] = useState(false);
+  const [portalNotice, setPortalNotice] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  // Poll live settings from Portal Door installation
+  useEffect(() => {
+    let isMounted = true;
+    const loadPortal = async () => {
+      const res = await fetchPortalDoorSettings();
+      if (res && isMounted) {
+        setPortalSettings(res);
+      }
+    };
+    loadPortal();
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        loadPortal();
+      }
+    }, 3500);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleTogglePortalSetting = async (key: keyof PortalDoorSettings, nextVal: boolean) => {
+    setIsUpdatingPortalSetting(key);
+    setPortalSettings((prev) => ({ ...prev, [key]: nextVal }));
+    try {
+      const res = await updatePortalDoorSettings({ [key]: nextVal });
+      if (res.success && res.settings) {
+        setPortalSettings(res.settings);
+        setPortalNotice({
+          message: `Portal Door ${key} set to ${nextVal ? "ON" : "OFF"}! Synchronized with the physical door.`,
+          type: "success",
+        });
+      } else {
+        setPortalNotice({
+          message: res.error || "Failed to update Portal Door setting.",
+          type: "error",
+        });
+      }
+    } catch (e: any) {
+      setPortalNotice({ message: e.message || "Network error updating Portal Door.", type: "error" });
+    } finally {
+      setIsUpdatingPortalSetting(null);
+      setTimeout(() => setPortalNotice(null), 3500);
+    }
+  };
+
+  const handleManualPortalRefresh = async () => {
+    setIsRefreshingPortal(true);
+    try {
+      const res = await fetchPortalDoorSettings();
+      if (res) {
+        setPortalSettings(res);
+        setPortalNotice({
+          message: "Successfully refreshed settings from Portal Door!",
+          type: "success",
+        });
+      }
+    } catch (_) {
+      setPortalNotice({ message: "Error checking Portal Door.", type: "error" });
+    } finally {
+      setIsRefreshingPortal(false);
+      setTimeout(() => setPortalNotice(null), 3000);
+    }
+  };
+
 
   // ==========================================
   // 1. IMPERSONATION STATE
@@ -815,6 +898,21 @@ export default function DeveloperPage() {
         >
           <Layers className="w-4 h-4 text-amber-400" />
           <span>Module Visibility</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('portal-door')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'portal-door'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <DoorOpen className="w-4 h-4 text-purple-400" />
+          <span>Portal Door</span>
+          {portalSettings.contestMode && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" title="Contest Mode Active on Door" />
+          )}
         </button>
 
         <button
@@ -1566,6 +1664,317 @@ export default function DeveloperPage() {
         </div>
       )}
 
+
+      {/* ========================================================================= */}
+      {/* TAB: PORTAL DOOR REMOTE CONTROLLER                                        */}
+      {/* ========================================================================= */}
+      {activeTab === 'portal-door' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/15 text-purple-700 flex items-center justify-center shrink-0 shadow-xs">
+                <DoorOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                    Portal Door Remote Controller
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-purple-600 animate-pulse" />
+                    Physical Kiosk Live Sync
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Live 2-way wireless controller for the physical Portal Door installation. Toggle modes from your phone, or see the actual settings chosen on the door in real time.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleManualPortalRefresh}
+                disabled={isRefreshingPortal}
+                className="px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                title="Fetch latest settings from physical Portal Door"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingPortal ? "animate-spin" : ""}`} />
+                <span>Refresh Status</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Feedback notice */}
+          {portalNotice && (
+            <div
+              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-2 shadow-xs ${
+                portalNotice.type === "success"
+                  ? "bg-emerald-50 text-emerald-900 border border-emerald-200"
+                  : "bg-red-50 text-red-900 border border-red-200"
+              }`}
+            >
+              {portalNotice.type === "success" ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              )}
+              <span>{portalNotice.message}</span>
+            </div>
+          )}
+
+          {/* 4 Interactive Remote Control Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Control 1: Costume Contest Mode */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/15 text-amber-700 flex items-center justify-center font-bold">
+                      <Trophy className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">
+                        Costume Contest Mode
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Door Hotkey: <kbd className="px-1.5 py-0.5 bg-stone-100 border border-stone-300 rounded font-mono text-[10px]">C</kbd>
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[11px] uppercase tracking-wider ${
+                      portalSettings.contestMode
+                        ? "bg-amber-100 text-amber-900 border border-amber-300"
+                        : "bg-stone-100 text-stone-600"
+                    }`}
+                  >
+                    {portalSettings.contestMode ? "Contest: ON" : "Contest: OFF"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  When enabled, photobooth snapshots taken on the Portal Door display a prominent <strong>Upload to Contest</strong> action and QR code prompt. Submissions appear instantly on the Social Medium Contest leaderboard.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 font-medium">
+                  {portalSettings.contestMode ? "Active on Portal Door" : "Deactivated on Portal Door"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePortalSetting("contestMode", !portalSettings.contestMode)}
+                  disabled={isUpdatingPortalSetting === "contestMode"}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                    portalSettings.contestMode
+                      ? "bg-amber-500 hover:bg-amber-600 text-stone-950"
+                      : "bg-stone-900 hover:bg-stone-800 text-white"
+                  }`}
+                >
+                  {isUpdatingPortalSetting === "contestMode" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : portalSettings.contestMode ? (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <Trophy className="w-3.5 h-3.5" />
+                  )}
+                  <span>{portalSettings.contestMode ? "Turn Contest OFF" : "Turn Contest ON"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Control 2: Digital Background vs Physical Background */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-cyan-500/15 text-cyan-700 flex items-center justify-center font-bold">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">
+                        AI Background Removal
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Door Hotkey: <kbd className="px-1.5 py-0.5 bg-stone-100 border border-stone-300 rounded font-mono text-[10px]">-</kbd>
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[11px] uppercase tracking-wider ${
+                      portalSettings.digitalBackground
+                        ? "bg-cyan-100 text-cyan-900 border border-cyan-300"
+                        : "bg-orange-100 text-orange-900 border border-orange-300"
+                    }`}
+                  >
+                    {portalSettings.digitalBackground ? "Digital AI Scenes" : "Physical Backdrop"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Controls Google MediaPipe Multi-Person AI segmentation. When <strong>Digital Background</strong> is active, members are keyed onto digital themes and custom backdrops. When set to <strong>Physical Background</strong>, the camera shows the raw physical room backdrop (Party Mode).
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 font-medium">
+                  {portalSettings.digitalBackground ? "AI Cutout Enabled" : "Party / Raw Camera Mode"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePortalSetting("digitalBackground", !portalSettings.digitalBackground)}
+                  disabled={isUpdatingPortalSetting === "digitalBackground"}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                    portalSettings.digitalBackground
+                      ? "bg-cyan-600 hover:bg-cyan-700 text-white"
+                      : "bg-orange-500 hover:bg-orange-600 text-stone-950"
+                  }`}
+                >
+                  {isUpdatingPortalSetting === "digitalBackground" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-3.5 h-3.5" />
+                  )}
+                  <span>{portalSettings.digitalBackground ? "Switch to Physical" : "Switch to Digital AI"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Control 3: Installation Sound */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-700 flex items-center justify-center font-bold">
+                      <Volume2 className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">
+                        Installation Sound / Audio
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Door Hotkey: <kbd className="px-1.5 py-0.5 bg-stone-100 border border-stone-300 rounded font-mono text-[10px]">.</kbd>
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[11px] uppercase tracking-wider ${
+                      portalSettings.sound
+                        ? "bg-emerald-100 text-emerald-900 border border-emerald-300"
+                        : "bg-rose-100 text-rose-900 border border-rose-300"
+                    }`}
+                  >
+                    {portalSettings.sound ? "Sound: ON" : "Sound: MUTED"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Controls the master audio volume on the physical Portal Door speakers. Controls transition video sound effects, background audio, and member theme song playback.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 font-medium">
+                  {portalSettings.sound ? "Speaker Volume Active" : "Silent / Muted"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePortalSetting("sound", !portalSettings.sound)}
+                  disabled={isUpdatingPortalSetting === "sound"}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                    portalSettings.sound
+                      ? "bg-rose-600 hover:bg-rose-700 text-white"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  }`}
+                >
+                  {isUpdatingPortalSetting === "sound" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : portalSettings.sound ? (
+                    <VolumeX className="w-3.5 h-3.5" />
+                  ) : (
+                    <Volume2 className="w-3.5 h-3.5" />
+                  )}
+                  <span>{portalSettings.sound ? "Mute Sound" : "Unmute Sound"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Control 4: Photobooth Mode */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-700 flex items-center justify-center font-bold">
+                      <Camera className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">
+                        Live Photobooth Camera
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Door Hotkey: <kbd className="px-1.5 py-0.5 bg-stone-100 border border-stone-300 rounded font-mono text-[10px]">*</kbd>
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[11px] uppercase tracking-wider ${
+                      portalSettings.photoboothMode
+                        ? "bg-indigo-100 text-indigo-900 border border-indigo-300"
+                        : "bg-stone-100 text-stone-600"
+                    }`}
+                  >
+                    {portalSettings.photoboothMode ? "Camera: ACTIVE" : "Camera: SLEEP"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  Engages or pauses the live webcam feed and photobooth canvas overlay on the door. When active, visitors see themselves in the portal mirror ready for a tap card snapshot.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 font-medium">
+                  {portalSettings.photoboothMode ? "Webcam Loop Engaged" : "Webcam Standby / Closed Door"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePortalSetting("photoboothMode", !portalSettings.photoboothMode)}
+                  disabled={isUpdatingPortalSetting === "photoboothMode"}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                    portalSettings.photoboothMode
+                      ? "bg-stone-800 hover:bg-stone-900 text-white"
+                      : "bg-indigo-600 hover:bg-indigo-700 text-white"
+                  }`}
+                >
+                  {isUpdatingPortalSetting === "photoboothMode" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Camera className="w-3.5 h-3.5" />
+                  )}
+                  <span>{portalSettings.photoboothMode ? "Sleep Camera" : "Engage Photobooth"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Door Status & Info Footnote */}
+          <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 text-xs text-stone-600 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <DoorOpen className="w-4 h-4 text-purple-600 shrink-0" />
+              <span>
+                <strong>2-Way Door Synchronization:</strong> Any changes made on the physical door using keyboard hotkeys or on-screen buttons automatically update this phone controller live within 3 seconds.
+              </span>
+            </div>
+            {portalSettings.updatedAt && (
+              <span className="text-[11px] font-mono text-stone-400 shrink-0">
+                Last Synced: {new Date(portalSettings.updatedAt).toLocaleTimeString()} ({portalSettings.updatedBy === "door" ? "Chosen on Portal Door" : "Set via Phone"})
+              </span>
+            )}
+          </div>
+        </div>
+      )}
       {/* ========================================================================= */}
       {/* TAB: STORE, SNACK SHACK & WALLET CONFIGURATION                          */}
       {/* ========================================================================= */}

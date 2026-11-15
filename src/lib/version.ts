@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.5';
+export const APP_VERSION = '3.6';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,20 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.6',
+    date: '2026-11-14',
+    title: 'Portal Door 2-Way Remote Controller & Wireless Installation Management',
+    changes: [
+      'Added dedicated "Portal Door" Remote Controller module to Developer Studio allowing staff and developers to manage the physical photobooth installation directly from their phone.',
+      'Remote Contest Mode toggle: wireless activation/deactivation of Costume Contest QR actions and leaderboard submission prompts on the Portal Door.',
+      'Remote AI Digital Background toggle: switch between Google MediaPipe AI multi-person segmentation (digital scenes) and raw camera physical backdrop (Party Mode).',
+      'Remote Sound & Audio toggle: control master audio playback and sound effects on physical installation speakers.',
+      'Remote Live Photobooth Camera standby toggle: wake or sleep the live webcam loop on the door screen.',
+      'Two-way synchronization: any physical keypresses or on-screen button toggles on the actual Portal Door update the phone controller in real time.',
+      'Dedicated /api/portal-door/settings endpoint deployed on neon-kiosk backend proxy with sub-3s polling.',
+    ],
+  },
   {
     version: '3.5',
     date: '2026-11-14',
