@@ -96,65 +96,175 @@ export interface BuddyColorChoice {
   id: string;
   name: string;
   hex: string;
-  assetUrl: string;
+  assetUrl?: string;
+  price?: number;        // 0 = Free starter brand color, 10 = Unlockable premium color
+  isStarter?: boolean;   // True for official Social Medium brand colors
+  description?: string;
 }
 
 export const BUDDY_BASE_COLORS: BuddyColorChoice[] = [
+  // 1. Official Free Social Medium Brand Colors (Free for all members)
   {
     id: 'cyan',
     name: 'Social Medium Cyan',
     hex: '#3bc0cd',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 0,
+    isStarter: true,
+    description: 'The official vibrant cyan of the Social Medium makerspace.',
   },
   {
     id: 'orange',
     name: 'Maker Orange',
     hex: '#f16622',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 0,
+    isStarter: true,
+    description: 'The high-energy orange of creative fabrication & making.',
   },
   {
-    id: 'dark-blue',
-    name: 'Cobalt Navy',
+    id: 'navy',
+    name: 'Social Medium Navy',
     hex: '#344ea2',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 0,
+    isStarter: true,
+    description: 'The foundational deep navy of the Social Medium brand portal.',
+  },
+
+  // 2. Unlockable Community & Artist Colors (10 Buddy Bucks each)
+  {
+    id: 'white',
+    name: 'Neutral Sketch',
+    hex: '#ffffff',
+    price: 10,
+    isStarter: false,
+    description: 'Clean sketchbook white paper tone with crisp black ink outlines.',
   },
   {
     id: 'green',
     name: 'Sage Green',
     hex: '#8a9280',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 10,
+    isStarter: false,
+    description: 'Calm earth-toned studio green inspired by nature.',
   },
   {
     id: 'purple',
     name: 'Arcane Purple',
     hex: '#8b5cf6',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 10,
+    isStarter: false,
+    description: 'Mystical violet inspired by fantasy crafting and digital wizardry.',
   },
   {
     id: 'yellow',
     name: 'Sunshine Gold',
     hex: '#fbbf24',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 10,
+    isStarter: false,
+    description: 'Warm, radiating golden sunshine yellow.',
   },
   {
     id: 'pink',
     name: 'Neon Coral',
     hex: '#f43f5e',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 10,
+    isStarter: false,
+    description: 'Punchy cyberpunk coral pink that stands out everywhere.',
   },
   {
     id: 'slate',
     name: 'Cybernetic Slate',
     hex: '#64748b',
-    assetUrl: '/buddies/basic_buddy.png',
+    price: 10,
+    isStarter: false,
+    description: 'Cool industrial gray with subtle blue undertones.',
   },
   {
-    id: 'white',
-    name: 'Neutral Sketch',
-    hex: '#ffffff',
-    assetUrl: '/buddies/basic_buddy.png',
+    id: 'emerald',
+    name: 'Forest Emerald',
+    hex: '#10b981',
+    price: 10,
+    isStarter: false,
+    description: 'Rich, lush botanical emerald green for makers of things that grow.',
+  },
+  {
+    id: 'lavender',
+    name: 'Lavender Mist',
+    hex: '#c084fc',
+    price: 10,
+    isStarter: false,
+    description: 'Soft pastel purple for dreamy, calming aesthetics.',
+  },
+  {
+    id: 'ruby',
+    name: 'Crimson Ruby',
+    hex: '#dc2626',
+    price: 10,
+    isStarter: false,
+    description: 'Bold, striking primary red with pure passion.',
+  },
+  {
+    id: 'amber',
+    name: 'Honey Amber',
+    hex: '#f59e0b',
+    price: 10,
+    isStarter: false,
+    description: 'Warm glowing amber resin tone for laser and resin enthusiasts.',
+  },
+  {
+    id: 'teal',
+    name: 'Deep Aqua Teal',
+    hex: '#0d9488',
+    price: 10,
+    isStarter: false,
+    description: 'Luminous underwater oceanic teal.',
+  },
+  {
+    id: 'charcoal',
+    name: 'Midnight Charcoal',
+    hex: '#334155',
+    price: 10,
+    isStarter: false,
+    description: 'Deep midnight stone gray for subtle, stealthy styles.',
+  },
+  {
+    id: 'bubblegum',
+    name: 'Bubblegum Pink',
+    hex: '#f472b6',
+    price: 10,
+    isStarter: false,
+    description: 'Playful confectionary pastel pink.',
+  },
+  {
+    id: 'lime',
+    name: 'Electric Lime',
+    hex: '#84cc16',
+    price: 10,
+    isStarter: false,
+    description: 'High-visibility fluorescent workshop lime.',
+  },
+  {
+    id: 'indigo',
+    name: 'Cosmic Indigo',
+    hex: '#6366f1',
+    price: 10,
+    isStarter: false,
+    description: 'Deep space twilight violet-blue.',
   },
 ];
+
+/**
+ * Checks if a base color is unlocked for the current member config.
+ * Official SM brand colors (price = 0, isStarter = true) are always unlocked.
+ */
+export function isBuddyColorUnlocked(colorId: string, config: BuddyConfig): boolean {
+  if (colorId === 'dark-blue') colorId = 'navy';
+  const color = BUDDY_BASE_COLORS.find((c) => c.id === colorId);
+  if (!color) return true;
+  if (!color.price || color.price === 0 || color.isStarter) return true;
+  if (config.baseColor === colorId || (colorId === 'navy' && config.baseColor === 'dark-blue')) return true;
+  const unlocked = config.unlockedItemIds || [];
+  return unlocked.includes(colorId) || unlocked.includes(`color_${colorId}`);
+}
 
 // Fallback items catalog (immediate synchronous availability while Google Sheet loads)
 export const DEFAULT_BUDDY_ITEMS: BuddyItem[] = [
@@ -424,25 +534,31 @@ export function getCustomBuddyItems(): BuddyItem[] {
 
 export function getDefaultBuddyConfig(): BuddyConfig {
   const allItems = getAllBuddyItems();
-  const firstBase = allItems.find((i) => i.category === 'base_body');
+  const firstBase = allItems.find((i) => i.category === 'base_body') || DEFAULT_BUDDY_ITEMS[0];
   const firstMouth = allItems.find((i) => i.category === 'mouth');
 
   const equipped: BuddyEquippedLayers = {};
-  const unlocked = ['body_blue', 'body_orange', 'closed_smile'];
-
   if (firstBase) {
     equipped.base_body = firstBase.id;
-    unlocked.push(firstBase.id);
   }
   if (firstMouth) {
     equipped.mouth = firstMouth.id;
-    unlocked.push(firstMouth.id);
   }
+
+  const starterColors = BUDDY_BASE_COLORS.filter((c) => c.isStarter).map((c) => c.id);
+  const unlocked = [
+    'body_blue',
+    'body_orange',
+    'closed_smile',
+    firstBase ? firstBase.id : 'sheet_1_basic_buddy',
+    ...(firstMouth ? [firstMouth.id] : []),
+    ...starterColors,
+  ];
 
   return {
     baseColor: 'cyan',
     equipped,
-    unlockedItemIds: unlocked,
+    unlockedItemIds: Array.from(new Set(unlocked)),
     updatedAt: new Date().toISOString(),
   };
 }
@@ -659,8 +775,12 @@ export function randomizeBuddy(
     ? allItems.filter((i) => currentConfig.unlockedItemIds.includes(i.id) || i.price === 0)
     : allItems;
 
-  const colors = BUDDY_BASE_COLORS;
-  const chosenColor = colors[Math.floor(Math.random() * colors.length)];
+  const availableColors = unlockedOnly
+    ? BUDDY_BASE_COLORS.filter((c) => isBuddyColorUnlocked(c.id, currentConfig))
+    : BUDDY_BASE_COLORS;
+  const chosenColor = availableColors.length > 0
+    ? availableColors[Math.floor(Math.random() * availableColors.length)]
+    : BUDDY_BASE_COLORS[0];
 
   const newEquipped: BuddyEquippedLayers = {};
 

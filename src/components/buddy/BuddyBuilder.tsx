@@ -21,11 +21,14 @@ import {
   Wrench,
   Footprints,
   RefreshCw,
+  Palette,
 } from 'lucide-react';
 import { BuddyConfig, BuddyItem, BuddyLayerCategory, MemberProfile } from '@/lib/types';
 import {
   formatCategoryLabel,
   BUDDY_BASE_COLORS,
+  BuddyColorChoice,
+  isBuddyColorUnlocked,
   getAllBuddyItems,
   fetchBuddyItemsFromSheet,
   loadMemberBuddyConfig,
@@ -56,11 +59,12 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     loadMemberBuddyBucks(accountId, member?.buddyBucks)
   );
 
-  // Active Category Tab
-  const [activeCategory, setActiveCategory] = useState<BuddyLayerCategory>('base_body');
+  // Active Category Tab: Defaults to the expanded "Body Color" palette
+  const [activeCategory, setActiveCategory] = useState<BuddyLayerCategory>('body_color');
 
-  // Item Purchase Modal State
+  // Item / Color Purchase Modal State
   const [pendingItem, setPendingItem] = useState<BuddyItem | null>(null);
+  const [pendingColor, setPendingColor] = useState<BuddyColorChoice | null>(null);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [purchaseError, setPurchaseError] = useState<string | null>(null);
 
@@ -87,11 +91,12 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     return () => window.removeEventListener('sm_buddy_catalog_updated', handleCatalogUpdate);
   }, []);
 
-  // Dynamically extract categories directly from loaded Google Sheet database items
+  // Dynamically extract categories from Google Sheet; hide Base Body tab & prepend "Body Color"
   const categories = useMemo(() => {
     const map = new Map<string, { id: string; label: string; count: number; zIndex: number }>();
     items.forEach((item) => {
       const cat = item.category || 'other';
+      if (cat === 'base_body') return; // Do not show Base Body tab, character always wears default body
       if (!map.has(cat)) {
         map.set(cat, {
           id: cat,
@@ -102,7 +107,16 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
       }
       map.get(cat)!.count++;
     });
-    return Array.from(map.values()).sort((a, b) => a.zIndex - b.zIndex);
+    const sheetCategories = Array.from(map.values()).sort((a, b) => a.zIndex - b.zIndex);
+    return [
+      {
+        id: 'body_color',
+        label: 'Body Color',
+        count: BUDDY_BASE_COLORS.length,
+        zIndex: 5,
+      },
+      ...sheetCategories,
+    ];
   }, [items]);
 
   // Ensure active category is valid when categories change
@@ -132,8 +146,9 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
   }, [member]);
 
-  // Filter items by current active category
+  // Filter items by current active category (body_color renders custom palette)
   const categoryItems = useMemo(() => {
+    if (activeCategory === 'body_color') return [];
     return items.filter((i) => i.category === activeCategory);
   }, [items, activeCategory]);
 
@@ -148,6 +163,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
 
     if (!isUnlocked) {
       setPendingItem(item);
+      setPendingColor(null);
       setPurchaseError(null);
       return;
     }
@@ -192,8 +208,45 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setConfig(updated);
   };
 
-  // Confirm Purchase with Buddy Bucks
+  // Handle Color Selection or Purchase Prompt
+  const handleColorClick = (color: BuddyColorChoice) => {
+    const isUnlocked = isBuddyColorUnlocked(color.id, config);
+    if (!isUnlocked) {
+      setPendingColor(color);
+      setPendingItem(null);
+      setPurchaseError(null);
+      return;
+    }
+    handleColorChange(color.id);
+  };
+
+  // Confirm Purchase with Buddy Bucks (for Item or Color)
   const handleConfirmPurchase = async () => {
+    if (pendingColor) {
+      setIsPurchasing(true);
+      setPurchaseError(null);
+      const res = await purchaseBuddyItem(
+        accountId,
+        pendingColor.id,
+        pendingColor.price || 10,
+        config,
+        buddyBucks
+      );
+      setIsPurchasing(false);
+      if (res.success) {
+        setBuddyBucks(res.newBalance);
+        const updatedConfig: BuddyConfig = {
+          ...res.newConfig,
+          baseColor: pendingColor.id,
+        };
+        setConfig(updatedConfig);
+        setPendingColor(null);
+      } else {
+        setPurchaseError(res.error || 'Failed to unlock color.');
+      }
+      return;
+    }
+
     if (!pendingItem) return;
     setIsPurchasing(true);
     setPurchaseError(null);
@@ -399,6 +452,33 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                 <span>Bare Buddy</span>
               </button>
             </div>
+
+            {/* Quick Active Body Color Indicator */}
+            <div className="w-full flex items-center justify-between px-3.5 py-2 rounded-2xl bg-stone-50 border border-stone-200 text-xs">
+              <span className="text-stone-500 font-medium">Body Color:</span>
+              <button
+                type="button"
+                onClick={() => setActiveCategory('body_color')}
+                className="flex items-center gap-1.5 font-bold text-stone-800 hover:text-[#344ea2] transition-colors cursor-pointer"
+                title="Customize Body Color"
+              >
+                <span
+                  className={`w-3.5 h-3.5 rounded-full ${
+                    (BUDDY_BASE_COLORS.find((c) => c.id === config.baseColor || (c.id === 'navy' && config.baseColor === 'dark-blue'))?.hex || '#3bc0cd').toLowerCase() === '#ffffff'
+                      ? 'border border-stone-300'
+                      : 'border border-white shadow-2xs'
+                  }`}
+                  style={{
+                    backgroundColor:
+                      BUDDY_BASE_COLORS.find((c) => c.id === config.baseColor || (c.id === 'navy' && config.baseColor === 'dark-blue'))?.hex || '#3bc0cd',
+                  }}
+                />
+                <span>
+                  {BUDDY_BASE_COLORS.find((c) => c.id === config.baseColor || (c.id === 'navy' && config.baseColor === 'dark-blue'))?.name || 'Cyan'}
+                </span>
+                <span className="text-[10px] text-stone-400">&rarr;</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -450,37 +530,90 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
             </div>
           </div>
 
-          {/* SECTION A: BASE BODY COLORS */}
-          {activeCategory === 'base_body' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-800">Choose Buddy Skin Color</span>
-                <span className="text-[11px] text-stone-400">8 Community Colors</span>
+          {/* SECTION A: EXPANDED BODY COLOR PALETTE */}
+          {activeCategory === 'body_color' && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-2 border-b border-stone-100">
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <Palette className="w-4 h-4 text-[#344ea2]" />
+                    <span className="text-xs font-bold text-stone-800">Body Color Palette</span>
+                  </div>
+                  <p className="text-[11px] text-stone-500 mt-0.5">
+                    Official Social Medium brand colors are free for all members. Unlock artist & maker shades for 10 🪙 Buddy Bucks!
+                  </p>
+                </div>
+                <div className="text-[11px] font-bold text-stone-600 bg-stone-100 px-2.5 py-1 rounded-full self-start sm:self-auto shrink-0">
+                  {BUDDY_BASE_COLORS.filter((c) => isBuddyColorUnlocked(c.id, config)).length} / {BUDDY_BASE_COLORS.length} Unlocked
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {BUDDY_BASE_COLORS.map((col) => {
-                  const isSelected = config.baseColor === col.id;
+                  const isSelected =
+                    config.baseColor === col.id ||
+                    (col.id === 'navy' && config.baseColor === 'dark-blue');
+                  const isUnlocked = isBuddyColorUnlocked(col.id, config);
+                  const isWhite = col.hex.toLowerCase() === '#ffffff';
+
                   return (
                     <button
                       key={col.id}
                       type="button"
-                      onClick={() => handleColorChange(col.id)}
-                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col items-center gap-2 cursor-pointer ${
+                      onClick={() => handleColorClick(col)}
+                      className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer relative group ${
                         isSelected
-                          ? 'border-[#344ea2] bg-[#344ea2]/5 ring-2 ring-[#344ea2]/20 shadow-xs'
-                          : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                          ? 'border-[#344ea2] bg-[#344ea2]/5 ring-2 ring-[#344ea2]/25 shadow-xs'
+                          : 'border-stone-200 hover:border-stone-300 hover:bg-stone-50/80 bg-white'
                       }`}
                     >
-                      <div
-                        className="w-10 h-10 rounded-full border-2 border-white shadow-sm flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: col.hex }}
-                      >
-                        {isSelected && <Check className="w-5 h-5 text-white drop-shadow-sm" />}
+                      <div className="flex items-start justify-between gap-2 mb-2 w-full">
+                        <div
+                          className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 shadow-xs transition-transform group-hover:scale-105 ${
+                            isWhite ? 'border border-stone-300' : 'border-2 border-white'
+                          }`}
+                          style={{ backgroundColor: col.hex }}
+                        >
+                          {isSelected && (
+                            <Check
+                              className={`w-5 h-5 drop-shadow-sm ${
+                                isWhite ? 'text-stone-900' : 'text-white'
+                              }`}
+                            />
+                          )}
+                        </div>
+
+                        {/* Status Badge */}
+                        <div className="shrink-0">
+                          {col.isStarter ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                              Free Brand
+                            </span>
+                          ) : isUnlocked ? (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-stone-100 text-stone-600">
+                              Unlocked
+                            </span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 flex items-center gap-1 border border-amber-200">
+                              <Lock className="w-2.5 h-2.5 text-amber-600" />
+                              <span>{col.price || 10} BB</span>
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <span className="text-xs font-bold text-stone-800 text-center leading-tight">
-                        {col.name}
-                      </span>
+
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-1">
+                          <span className="text-xs font-bold text-stone-800 leading-tight">
+                            {col.name}
+                          </span>
+                        </div>
+                        {col.description && (
+                          <p className="text-[10px] text-stone-400 line-clamp-1">
+                            {col.description}
+                          </p>
+                        )}
+                      </div>
                     </button>
                   );
                 })}
@@ -489,7 +622,8 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
           )}
 
           {/* SECTION B: ITEMS GRID (FOR ALL OTHER CATEGORIES) */}
-          <div className="space-y-3 pt-2">
+          {activeCategory !== 'body_color' && (
+            <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-stone-800">
                   {categories.find((c) => c.id === activeCategory)?.label || formatCategoryLabel(activeCategory)}
@@ -576,46 +710,68 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                 </div>
               )}
             </div>
+          )}
         </div>
       </div>
 
-      {/* 3. ITEM PURCHASE MODAL (When clicking a locked item) */}
-      {pendingItem && (
+      {/* 3. ITEM OR COLOR PURCHASE MODAL (When clicking a locked item or skin color) */}
+      {(pendingItem || pendingColor) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
           <div className="relative w-full max-w-sm bg-white rounded-3xl p-6 shadow-2xl border border-stone-200 text-center space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 mx-auto flex items-center justify-center text-2xl shadow-xs">
-              🪙
-            </div>
+            {pendingColor ? (
+              <div
+                className={`w-14 h-14 rounded-2xl mx-auto flex items-center justify-center text-2xl shadow-sm ${
+                  pendingColor.hex.toLowerCase() === '#ffffff'
+                    ? 'border border-stone-300'
+                    : 'border-2 border-white'
+                }`}
+                style={{ backgroundColor: pendingColor.hex }}
+              >
+                🎨
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 mx-auto flex items-center justify-center text-2xl shadow-xs">
+                🪙
+              </div>
+            )}
 
             <div>
               <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                Wardrobe Unlock
+                {pendingColor ? 'Body Color Unlock' : 'Wardrobe Unlock'}
               </span>
               <h3 className="font-fredoka text-xl font-bold text-stone-900 mt-1">
-                Unlock {pendingItem.name}?
+                Unlock {pendingColor ? pendingColor.name : pendingItem?.name}?
               </h3>
               <p className="text-xs text-stone-500 mt-1">
-                {pendingItem.description || 'Add this custom accessory to your permanent wardrobe inventory.'}
+                {pendingColor
+                  ? pendingColor.description || 'Unlock this permanent custom skin tone for your Buddy avatar.'
+                  : pendingItem?.description || 'Add this custom accessory to your permanent wardrobe inventory.'}
               </p>
             </div>
 
             {/* Price & Balance Calculation */}
-            <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs space-y-2 text-left">
-              <div className="flex justify-between items-center text-stone-600">
-                <span>Item Price:</span>
-                <span className="font-bold text-stone-900">{pendingItem.price} Buddy Bucks</span>
-              </div>
-              <div className="flex justify-between items-center text-stone-600">
-                <span>Your Current Balance:</span>
-                <span className="font-bold text-stone-900">{buddyBucks} Buddy Bucks</span>
-              </div>
-              <div className="flex justify-between items-center pt-2 border-t border-stone-200 font-bold text-stone-900">
-                <span>Balance After Purchase:</span>
-                <span className={buddyBucks >= pendingItem.price ? 'text-emerald-700' : 'text-red-600'}>
-                  {buddyBucks - pendingItem.price} Buddy Bucks
-                </span>
-              </div>
-            </div>
+            {(() => {
+              const price = pendingColor ? (pendingColor.price || 10) : (pendingItem?.price || 0);
+              const hasEnough = buddyBucks >= price;
+              return (
+                <div className="p-3.5 rounded-2xl bg-stone-50 border border-stone-200 text-xs space-y-2 text-left">
+                  <div className="flex justify-between items-center text-stone-600">
+                    <span>Unlock Price:</span>
+                    <span className="font-bold text-stone-900">{price} Buddy Bucks</span>
+                  </div>
+                  <div className="flex justify-between items-center text-stone-600">
+                    <span>Your Current Balance:</span>
+                    <span className="font-bold text-stone-900">{buddyBucks} Buddy Bucks</span>
+                  </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-stone-200 font-bold text-stone-900">
+                    <span>Balance After Purchase:</span>
+                    <span className={hasEnough ? 'text-emerald-700' : 'text-red-600'}>
+                      {buddyBucks - price} Buddy Bucks
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
 
             {purchaseError && (
               <div className="p-2.5 rounded-xl bg-red-50 text-red-700 text-xs font-medium border border-red-200">
@@ -626,7 +782,10 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
             <div className="flex gap-2 pt-1">
               <button
                 type="button"
-                onClick={() => setPendingItem(null)}
+                onClick={() => {
+                  setPendingItem(null);
+                  setPendingColor(null);
+                }}
                 className="flex-1 py-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 font-semibold text-xs transition-colors cursor-pointer"
               >
                 Cancel
@@ -634,15 +793,24 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
               <button
                 type="button"
                 onClick={handleConfirmPurchase}
-                disabled={isPurchasing || buddyBucks < pendingItem.price}
+                disabled={
+                  isPurchasing ||
+                  (pendingColor
+                    ? buddyBucks < (pendingColor.price || 10)
+                    : pendingItem
+                    ? buddyBucks < pendingItem.price
+                    : true)
+                }
                 className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-stone-950 font-bold text-xs shadow-md transition-colors cursor-pointer flex items-center justify-center gap-1.5"
               >
                 {isPurchasing ? (
                   <span>Unlocking...</span>
                 ) : (
-                  <>
-                    <span>Unlock ({pendingItem.price} BB)</span>
-                  </>
+                  <span>
+                    Unlock (
+                    {pendingColor ? pendingColor.price || 10 : pendingItem?.price}{' '}
+                    BB)
+                  </span>
                 )}
               </button>
             </div>

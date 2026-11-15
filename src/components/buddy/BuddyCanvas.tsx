@@ -46,8 +46,11 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
   // Determine active skin color hex
   const activeColor = useMemo(() => {
     return (
-      BUDDY_BASE_COLORS.find((c) => c.id === config.baseColor) ||
-      BUDDY_BASE_COLORS[0]
+      BUDDY_BASE_COLORS.find(
+        (c) =>
+          c.id === config.baseColor ||
+          (c.id === 'navy' && config.baseColor === 'dark-blue')
+      ) || BUDDY_BASE_COLORS[0]
     );
   }, [config.baseColor]);
 
