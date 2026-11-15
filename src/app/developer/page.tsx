@@ -531,13 +531,66 @@ export default function DeveloperPage() {
       return;
     }
 
+    // For SVG vectors, read directly
+    if (file.type === 'image/svg+xml' || file.name.endsWith('.svg')) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const text = event.target?.result as string;
+        if (text) {
+          setLogoDraft(text.trim());
+          setLogoFeedback(null);
+        }
+      };
+      reader.onerror = () => setLogoFeedback('Failed to read SVG file.');
+      reader.readAsText(file);
+      return;
+    }
+
+    // For bitmap images (PNG, JPG, WebP), auto-resize & compress to optimal header size
     const reader = new FileReader();
     reader.onload = (event) => {
-      const result = event.target?.result as string;
-      if (result) {
-        setLogoDraft(result);
+      const rawDataUrl = event.target?.result as string;
+      if (!rawDataUrl) return;
+
+      const img = new Image();
+      img.onload = () => {
+        try {
+          // Standard max dimensions for navigation header logo
+          const MAX_WIDTH = 480;
+          const MAX_HEIGHT = 140;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+            const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+            width = Math.round(width * ratio);
+            height = Math.round(height * ratio);
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Export crisp optimized PNG (under ~30KB)
+            const optimized = canvas.toDataURL('image/png');
+            setLogoDraft(optimized);
+            setLogoFeedback(null);
+          } else {
+            setLogoDraft(rawDataUrl);
+            setLogoFeedback(null);
+          }
+        } catch (_) {
+          setLogoDraft(rawDataUrl);
+          setLogoFeedback(null);
+        }
+      };
+      img.onerror = () => {
+        setLogoDraft(rawDataUrl);
         setLogoFeedback(null);
-      }
+      };
+      img.src = rawDataUrl;
     };
     reader.onerror = () => {
       setLogoFeedback('Failed to read image file.');

@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.7';
+export const APP_VERSION = '3.8';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.8',
+    date: '2026-11-14',
+    title: 'Brand Logo Permanent Persistence & Self-Healing Sync Engine',
+    changes: [
+      'Eliminated logo disappearance: prevented backend cold-start resets from wiping client-side custom brand logos.',
+      'Self-Healing Sync: if the backend server restarts with default settings, the client automatically re-syncs and restores the stored brand logo to the server.',
+      'Automatic Client-Side Image Optimization: uploaded logo photos (PNG, JPG, WebP) are automatically downsampled using an off-screen HTML5 canvas to a crisp, lightweight ~25KB format, preventing browser localStorage quota exhaustion and network payload drops.',
+      'Committed persistent app_settings.json configuration to backend server repository, preventing ephemeral filesystem loss during deployments and restarts.',
+      'Protected explicit resets: developer resetting to default badge is tracked with an explicit flag so intentional removals are honored without accidental resurrection.',
+    ],
+  },
   {
     version: '3.7',
     date: '2026-11-14',

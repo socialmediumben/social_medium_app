@@ -99,8 +99,10 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
     try {
       if (logo) {
         localStorage.setItem('sm_brand_logo', logo);
+        localStorage.removeItem('sm_brand_logo_explicitly_reset');
       } else {
         localStorage.removeItem('sm_brand_logo');
+        localStorage.setItem('sm_brand_logo_explicitly_reset', 'true');
       }
       window.dispatchEvent(new CustomEvent('brand_logo_changed', { detail: logo }));
     } catch (_) {}
@@ -122,14 +124,24 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
       try {
         const settings = await fetchGlobalAppSettings();
         if (settings) {
-          // 1. Brand Logo
-          if (settings.brandLogo !== undefined) {
+          // 1. Brand Logo (Protected Persistence: server null will never wipe local logo)
+          if (settings.brandLogo) {
             setBrandLogoState(settings.brandLogo);
             try {
-              if (settings.brandLogo) {
-                localStorage.setItem('sm_brand_logo', settings.brandLogo);
-              } else {
-                localStorage.removeItem('sm_brand_logo');
+              localStorage.setItem('sm_brand_logo', settings.brandLogo);
+              localStorage.removeItem('sm_brand_logo_explicitly_reset');
+            } catch (_) {}
+          } else {
+            // Server returned null/empty (e.g. server cold-booted with defaults)
+            try {
+              const localLogo = localStorage.getItem('sm_brand_logo');
+              const wasExplicitlyReset = localStorage.getItem('sm_brand_logo_explicitly_reset') === 'true';
+              if (localLogo && !wasExplicitlyReset) {
+                // Keep local logo active and heal remote server!
+                setBrandLogoState(localLogo);
+                updateGlobalAppSettings({ brandLogo: localLogo }).catch(() => {});
+              } else if (wasExplicitlyReset) {
+                setBrandLogoState(null);
               }
             } catch (_) {}
           }
