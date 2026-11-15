@@ -104,54 +104,79 @@ export const BUDDY_BASE_COLORS: BuddyColorChoice[] = [
     id: 'cyan',
     name: 'Social Medium Cyan',
     hex: '#3bc0cd',
-    assetUrl: '/buddies/blue_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'orange',
     name: 'Maker Orange',
     hex: '#f16622',
-    assetUrl: '/buddies/orange_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'dark-blue',
     name: 'Cobalt Navy',
     hex: '#344ea2',
-    assetUrl: '/buddies/blue_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'green',
     name: 'Sage Green',
     hex: '#8a9280',
-    assetUrl: '/buddies/blue_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'purple',
     name: 'Arcane Purple',
     hex: '#8b5cf6',
-    assetUrl: '/buddies/blue_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'yellow',
     name: 'Sunshine Gold',
     hex: '#fbbf24',
-    assetUrl: '/buddies/orange_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'pink',
     name: 'Neon Coral',
     hex: '#f43f5e',
-    assetUrl: '/buddies/orange_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
   },
   {
     id: 'slate',
     name: 'Cybernetic Slate',
     hex: '#64748b',
-    assetUrl: '/buddies/blue_buddy.png',
+    assetUrl: '/buddies/basic_buddy.png',
+  },
+  {
+    id: 'white',
+    name: 'Neutral Sketch',
+    hex: '#ffffff',
+    assetUrl: '/buddies/basic_buddy.png',
   },
 ];
 
-// Fallback items catalog (only used before initial Google Sheet fetch)
-export const DEFAULT_BUDDY_ITEMS: BuddyItem[] = [];
+// Fallback items catalog (immediate synchronous availability while Google Sheet loads)
+export const DEFAULT_BUDDY_ITEMS: BuddyItem[] = [
+  {
+    id: 'sheet_1_basic_buddy',
+    name: 'Basic Buddy',
+    category: 'base_body',
+    price: 0,
+    assetUrl: '/buddies/basic_buddy.png',
+    zIndex: 30,
+    description: 'Basic Buddy Body',
+  },
+  {
+    id: 'sheet_21_closed_smile',
+    name: 'Closed Smile',
+    category: 'mouth',
+    price: 0,
+    assetUrl: '/buddies/closed_smile.png',
+    zIndex: 40,
+    description: 'Closed Smile',
+  },
+];
 
 // ==========================================
 // 3. GOOGLE SHEETS PARSING & CATALOG RETRIEVAL
@@ -321,7 +346,7 @@ export function getAllBuddyItems(): BuddyItem[] {
     }));
   }
 
-  return [];
+  return DEFAULT_BUDDY_ITEMS;
 }
 
 /**
@@ -430,6 +455,16 @@ export function loadMemberBuddyConfig(
   profileAvatar?: string
 ): BuddyConfig {
   const defaultConfig = getDefaultBuddyConfig();
+  const validBaseId = defaultConfig.equipped.base_body || 'sheet_1_basic_buddy';
+
+  const sanitizeEquipped = (equipped: BuddyEquippedLayers): BuddyEquippedLayers => {
+    const clean = { ...equipped };
+    // If base body is legacy or missing, normalize to active Basic Buddy
+    if (!clean.base_body || clean.base_body === 'body_cyan' || clean.base_body === 'body_orange' || clean.base_body === 'body_blue' || clean.base_body === 'default_body') {
+      clean.base_body = validBaseId;
+    }
+    return clean;
+  };
 
   // 1. Check Neon One profile avatar JSON string
   if (profileAvatar && typeof profileAvatar === 'string' && profileAvatar.trim().startsWith('{')) {
@@ -438,7 +473,7 @@ export function loadMemberBuddyConfig(
       if (parsed && typeof parsed.equipped === 'object') {
         return {
           baseColor: parsed.baseColor || 'cyan',
-          equipped: { ...parsed.equipped },
+          equipped: sanitizeEquipped(parsed.equipped),
           unlockedItemIds: Array.isArray(parsed.unlockedItemIds)
             ? Array.from(new Set([...defaultConfig.unlockedItemIds, ...parsed.unlockedItemIds]))
             : defaultConfig.unlockedItemIds,
@@ -457,7 +492,7 @@ export function loadMemberBuddyConfig(
         if (parsed && typeof parsed.equipped === 'object') {
           return {
             baseColor: parsed.baseColor || 'cyan',
-            equipped: { ...parsed.equipped },
+            equipped: sanitizeEquipped(parsed.equipped),
             unlockedItemIds: Array.isArray(parsed.unlockedItemIds)
               ? Array.from(new Set([...defaultConfig.unlockedItemIds, ...parsed.unlockedItemIds]))
               : defaultConfig.unlockedItemIds,

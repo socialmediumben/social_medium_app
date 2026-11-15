@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { BuddyConfig, BuddyItem } from '@/lib/types';
-import { getAllBuddyItems, BUDDY_BASE_COLORS } from '@/lib/buddy';
+import { getAllBuddyItems, BUDDY_BASE_COLORS, DEFAULT_BUDDY_ITEMS } from '@/lib/buddy';
 
 interface BuddyCanvasProps {
   config: BuddyConfig;
+  items?: BuddyItem[];
   size?: number | string;
   className?: string;
   showShadow?: boolean;
@@ -15,36 +16,39 @@ interface BuddyCanvasProps {
  * Multi-layer composite renderer for Buddy avatars.
  * Layers are rendered strictly by their computed Z-Index order,
  * allowing full customization of front-to-back layer depth.
+ * 
+ * Supports dynamic skin color tinting on top of the clean white/black-outline Basic Buddy base.
  */
 export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
   config,
+  items: propItems,
   size = 360,
   className = '',
   showShadow = true,
 }) => {
-  const allItems = useMemo(() => getAllBuddyItems(), []);
+  const [catalogItems, setCatalogItems] = useState<BuddyItem[]>([]);
 
-  // Compute CSS filter for non-standard base colors
-  const colorFilterStyle = useMemo(() => {
-    switch (config.baseColor) {
-      case 'orange':
-        return {};
-      case 'purple':
-        return { filter: 'hue-rotate(85deg) saturate(1.4)' };
-      case 'green':
-        return { filter: 'hue-rotate(220deg) saturate(0.8) brightness(0.95)' };
-      case 'dark-blue':
-        return { filter: 'hue-rotate(35deg) saturate(1.6) brightness(0.85)' };
-      case 'yellow':
-        return { filter: 'hue-rotate(340deg) saturate(1.8) brightness(1.15)' };
-      case 'pink':
-        return { filter: 'hue-rotate(150deg) saturate(1.5) brightness(1.05)' };
-      case 'slate':
-        return { filter: 'grayscale(0.85) brightness(0.95)' };
-      case 'cyan':
-      default:
-        return {};
-    }
+  useEffect(() => {
+    setCatalogItems(getAllBuddyItems());
+    const handleUpdate = () => {
+      setCatalogItems(getAllBuddyItems());
+    };
+    window.addEventListener('sm_buddy_catalog_updated', handleUpdate);
+    return () => window.removeEventListener('sm_buddy_catalog_updated', handleUpdate);
+  }, []);
+
+  const allItems = useMemo(() => {
+    if (propItems && propItems.length > 0) return propItems;
+    if (catalogItems.length > 0) return catalogItems;
+    return getAllBuddyItems();
+  }, [propItems, catalogItems]);
+
+  // Determine active skin color hex
+  const activeColor = useMemo(() => {
+    return (
+      BUDDY_BASE_COLORS.find((c) => c.id === config.baseColor) ||
+      BUDDY_BASE_COLORS[0]
+    );
   }, [config.baseColor]);
 
   // Resolve equipped items and sort strictly by zIndex ascending
@@ -60,17 +64,19 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
       }
     });
 
-    // If no base_body item is equipped, supply the default base body so the character is visible
+    // If no base_body item is equipped or equipped points to legacy ID, supply Basic Buddy
     const hasBase = layers.some((l) => l.category === 'base_body');
     if (!hasBase) {
-      const defaultBody = allItems.find((i) => i.category === 'base_body') || {
-        id: 'default_body',
-        name: 'Blue Buddy',
-        category: 'base_body',
-        assetUrl: '/buddies/blue_buddy.png',
-        zIndex: 30,
-        price: 0,
-      };
+      const defaultBody =
+        allItems.find((i) => i.category === 'base_body') ||
+        DEFAULT_BUDDY_ITEMS.find((i) => i.category === 'base_body') || {
+          id: 'sheet_1_basic_buddy',
+          name: 'Basic Buddy',
+          category: 'base_body',
+          assetUrl: '/buddies/basic_buddy.png',
+          zIndex: 30,
+          price: 0,
+        };
       layers.push(defaultBody);
     }
 
@@ -104,15 +110,41 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
             className="absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-200"
             style={{
               zIndex: layer.zIndex,
-              ...(isBaseBody ? colorFilterStyle : {}),
             }}
           >
             {layer.assetUrl ? (
-              <img
-                src={layer.assetUrl}
-                alt={layer.name}
-                className="w-full h-full object-contain pointer-events-none drop-shadow-xs"
-              />
+              isBaseBody ? (
+                <div className="relative w-full h-full flex items-center justify-center">
+                  {/* Color Tint Silhouette Layer */}
+                  <div
+                    className="absolute inset-0 w-full h-full transition-colors duration-200"
+                    style={{
+                      backgroundColor: activeColor.hex,
+                      WebkitMaskImage: `url(${layer.assetUrl})`,
+                      maskImage: `url(${layer.assetUrl})`,
+                      WebkitMaskSize: 'contain',
+                      maskSize: 'contain',
+                      WebkitMaskRepeat: 'no-repeat',
+                      maskRepeat: 'no-repeat',
+                      WebkitMaskPosition: 'center',
+                      maskPosition: 'center',
+                    }}
+                  />
+                  {/* Crisp Black Outline on top */}
+                  <img
+                    src={layer.assetUrl}
+                    alt={layer.name}
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xs"
+                    style={{ mixBlendMode: 'multiply' }}
+                  />
+                </div>
+              ) : (
+                <img
+                  src={layer.assetUrl}
+                  alt={layer.name}
+                  className="w-full h-full object-contain pointer-events-none drop-shadow-xs"
+                />
+              )
             ) : null}
           </div>
         );

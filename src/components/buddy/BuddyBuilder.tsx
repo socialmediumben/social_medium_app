@@ -173,7 +173,13 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
 
   // Handle Base Color Change
   const handleColorChange = (colorId: string) => {
-    const baseItem = colorId === 'orange' ? 'body_orange' : 'body_cyan';
+    const currentBase = config.equipped?.base_body;
+    const baseItem =
+      currentBase &&
+      !['body_orange', 'body_cyan', 'body_blue', 'default_body'].includes(currentBase)
+        ? currentBase
+        : items.find((i) => i.category === 'base_body')?.id || 'sheet_1_basic_buddy';
+
     const updated: BuddyConfig = {
       ...config,
       baseColor: colorId,
@@ -221,11 +227,15 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
 
   // Clear Clothes (Bare Mascot)
   const handleClearClothes = () => {
+    const baseItem =
+      items.find((i) => i.category === 'base_body')?.id || 'sheet_1_basic_buddy';
+    const firstMouth =
+      items.find((i) => i.category === 'mouth')?.id || config.equipped?.mouth;
     const cleared: BuddyConfig = {
       ...config,
       equipped: {
-        base_body: config.baseColor === 'orange' ? 'body_orange' : 'body_cyan',
-        expression: 'expr_smile',
+        base_body: baseItem,
+        ...(firstMouth ? { mouth: firstMouth } : {}),
       },
       updatedAt: new Date().toISOString(),
     };
@@ -344,7 +354,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
             <div className="absolute inset-0 bg-[radial-gradient(#e2e8f0_1px,transparent_1px)] [background-size:16px_16px] opacity-60" />
 
             {/* Character Renderer */}
-            <BuddyCanvas config={config} size={280} className="relative z-10" />
+            <BuddyCanvas config={config} items={items} size={280} className="relative z-10" />
           </div>
 
           {/* Primary Action Controls */}
