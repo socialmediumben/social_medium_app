@@ -213,17 +213,7 @@ export interface PortalDoorSettings {
 // BUDDY BUILDER & BUDDY BUCKS TYPES
 // ==========================================
 
-export type BuddyLayerCategory =
-  | 'base_body'
-  | 'expression'
-  | 'headwear'
-  | 'hair'
-  | 'tops'
-  | 'bottoms'
-  | 'capes'
-  | 'props'
-  | 'face_accessory'
-  | 'shoes';
+export type BuddyLayerCategory = string;
 
 export interface BuddyItem {
   id: string;
@@ -239,16 +229,7 @@ export interface BuddyItem {
 }
 
 export interface BuddyEquippedLayers {
-  base_body?: string;
-  expression?: string;
-  headwear?: string;
-  hair?: string;
-  tops?: string;
-  bottoms?: string;
-  capes?: string;
-  props?: string;
-  face_accessory?: string;
-  shoes?: string;
+  [category: string]: string | undefined;
 }
 
 export interface BuddyConfig {

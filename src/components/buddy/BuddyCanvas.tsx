@@ -13,8 +13,8 @@ interface BuddyCanvasProps {
 
 /**
  * Multi-layer composite renderer for Buddy avatars.
- * Layers are stacked in strict z-index order so capes render behind the body,
- * while outfits, hats, expressions, and props render in front.
+ * Layers are rendered strictly by their computed Z-Index order,
+ * allowing full customization of front-to-back layer depth.
  */
 export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
   config,
@@ -24,36 +24,11 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
 }) => {
   const allItems = useMemo(() => getAllBuddyItems(), []);
 
-  // Resolve equipped items and sort by zIndex ascending
-  const activeLayers = useMemo(() => {
-    const layers: BuddyItem[] = [];
-    const equipped = config.equipped || {};
-
-    Object.entries(equipped).forEach(([, itemId]) => {
-      if (!itemId) return;
-      const found = allItems.find((i) => i.id === itemId);
-      if (found) {
-        layers.push(found);
-      }
-    });
-
-    // Ensure strict z-index sorting: low z-index at the back, high z-index on top
-    return layers.sort((a, b) => (a.zIndex || 50) - (b.zIndex || 50));
-  }, [config.equipped, allItems]);
-
-  // Determine base body asset and color tint
-  const baseColorDef = useMemo(() => {
-    return (
-      BUDDY_BASE_COLORS.find((c) => c.id === config.baseColor) ||
-      BUDDY_BASE_COLORS[0]
-    );
-  }, [config.baseColor]);
-
-  // Compute CSS filter for non-standard base colors if using base_cyan as template
+  // Compute CSS filter for non-standard base colors
   const colorFilterStyle = useMemo(() => {
     switch (config.baseColor) {
       case 'orange':
-        return {}; // Uses base_orange.png directly
+        return {};
       case 'purple':
         return { filter: 'hue-rotate(85deg) saturate(1.4)' };
       case 'green':
@@ -72,16 +47,36 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
     }
   }, [config.baseColor]);
 
-  const baseBodyItem = activeLayers.find((l) => l.category === 'base_body');
-  const baseImgUrl =
-    config.baseColor === 'orange' || baseBodyItem?.id === 'body_orange'
-      ? '/buddies/base_orange.png'
-      : baseBodyItem?.assetUrl || baseColorDef.assetUrl || '/buddies/base_cyan.png';
+  // Resolve equipped items and sort strictly by zIndex ascending
+  const activeLayers = useMemo(() => {
+    const layers: BuddyItem[] = [];
+    const equipped = config.equipped || {};
 
-  // Layers that sit behind the body (zIndex < 30, e.g. capes, back hair)
-  const backLayers = activeLayers.filter((l) => l.zIndex < 30);
-  // Layers that sit on top of the body (zIndex >= 40, e.g. tops, headwear, props)
-  const frontLayers = activeLayers.filter((l) => l.zIndex >= 40 && l.category !== 'base_body');
+    Object.entries(equipped).forEach(([category, itemId]) => {
+      if (!itemId) return;
+      const found = allItems.find((i) => i.id === itemId);
+      if (found) {
+        layers.push(found);
+      }
+    });
+
+    // If no base_body item is equipped, supply the default base body so the character is visible
+    const hasBase = layers.some((l) => l.category === 'base_body');
+    if (!hasBase) {
+      const defaultBody = allItems.find((i) => i.category === 'base_body') || {
+        id: 'default_body',
+        name: 'Blue Buddy',
+        category: 'base_body',
+        assetUrl: '/buddies/blue_buddy.png',
+        zIndex: 30,
+        price: 0,
+      };
+      layers.push(defaultBody);
+    }
+
+    // Sort strictly by zIndex ascending (lowest renders first/behind, highest renders on top)
+    return layers.sort((a, b) => (a.zIndex || 50) - (b.zIndex || 50));
+  }, [config.equipped, allItems]);
 
   return (
     <div
@@ -100,51 +95,28 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
         />
       )}
 
-      {/* 1. BACK LAYERS (Z-Index < 30: Capes, Back Accessories, Wings) */}
-      {backLayers.map((layer) => (
-        <div
-          key={layer.id}
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          style={{ zIndex: layer.zIndex }}
-        >
-          {layer.assetUrl ? (
-            <img
-              src={layer.assetUrl}
-              alt={layer.name}
-              className="w-full h-full object-contain pointer-events-none"
-            />
-          ) : null}
-        </div>
-      ))}
-
-      {/* 2. BASE BODY LAYER (Z-Index 30: The mascot body) */}
-      <div
-        className="absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-300"
-        style={{ zIndex: 30, ...colorFilterStyle }}
-      >
-        <img
-          src={baseImgUrl}
-          alt={`Buddy (${baseColorDef.name})`}
-          className="w-full h-full object-contain pointer-events-none drop-shadow-xs"
-        />
-      </div>
-
-      {/* 3. FRONT LAYERS (Z-Index >= 40: Clothes, Face, Hats, Props) */}
-      {frontLayers.map((layer) => (
-        <div
-          key={layer.id}
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
-          style={{ zIndex: layer.zIndex }}
-        >
-          {layer.assetUrl ? (
-            <img
-              src={layer.assetUrl}
-              alt={layer.name}
-              className="w-full h-full object-contain pointer-events-none"
-            />
-          ) : null}
-        </div>
-      ))}
+      {/* Render all active layers in strict ascending z-index order */}
+      {activeLayers.map((layer, index) => {
+        const isBaseBody = layer.category === 'base_body';
+        return (
+          <div
+            key={`${layer.id}-${index}`}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none transition-all duration-200"
+            style={{
+              zIndex: layer.zIndex,
+              ...(isBaseBody ? colorFilterStyle : {}),
+            }}
+          >
+            {layer.assetUrl ? (
+              <img
+                src={layer.assetUrl}
+                alt={layer.name}
+                className="w-full h-full object-contain pointer-events-none drop-shadow-xs"
+              />
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 };

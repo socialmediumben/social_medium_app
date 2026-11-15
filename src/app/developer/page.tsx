@@ -93,7 +93,7 @@ import {
   fetchBuddyItemsFromSheet,
   saveCustomBuddyItem,
   deleteCustomBuddyItem,
-  BUDDY_CATEGORIES,
+  formatCategoryLabel,
   awardBuddyBucks,
   loadMemberBuddyBucks,
 } from '@/lib/buddy';
@@ -157,6 +157,22 @@ export default function DeveloperPage() {
   // ==========================================
   const [buddyCatalog, setBuddyCatalog] = useState<BuddyItem[]>([]);
   const [buddyCategoryFilter, setBuddyCategoryFilter] = useState<string>('all');
+
+  const devCategories = React.useMemo(() => {
+    const map = new Map<string, { id: string; label: string; count: number }>();
+    buddyCatalog.forEach((item) => {
+      const cat = item.category || 'other';
+      if (!map.has(cat)) {
+        map.set(cat, {
+          id: cat,
+          label: formatCategoryLabel(cat),
+          count: 0,
+        });
+      }
+      map.get(cat)!.count++;
+    });
+    return Array.from(map.values());
+  }, [buddyCatalog]);
   const [newBuddyName, setNewBuddyName] = useState('');
   const [newBuddyCategory, setNewBuddyCategory] = useState<BuddyLayerCategory>('tops');
   const [newBuddyPrice, setNewBuddyPrice] = useState<number>(25);
@@ -2648,23 +2664,20 @@ export default function DeveloperPage() {
                 >
                   All ({buddyCatalog.length})
                 </button>
-                {BUDDY_CATEGORIES.map((cat) => {
-                  const count = buddyCatalog.filter((i) => i.category === cat.id).length;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setBuddyCategoryFilter(cat.id)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
-                        buddyCategoryFilter === cat.id
-                          ? 'bg-stone-900 text-white'
-                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
-                      }`}
-                    >
-                      {cat.label} ({count})
-                    </button>
-                  );
-                })}
+                {devCategories.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setBuddyCategoryFilter(cat.id)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+                      buddyCategoryFilter === cat.id
+                        ? 'bg-stone-900 text-white'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                  >
+                    {cat.label} ({cat.count})
+                  </button>
+                ))}
               </div>
             </div>
 

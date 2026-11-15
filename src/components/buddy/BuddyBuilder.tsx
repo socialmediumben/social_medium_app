@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import { BuddyConfig, BuddyItem, BuddyLayerCategory, MemberProfile } from '@/lib/types';
 import {
-  BUDDY_CATEGORIES,
+  formatCategoryLabel,
   BUDDY_BASE_COLORS,
   getAllBuddyItems,
   fetchBuddyItemsFromSheet,
@@ -87,6 +87,43 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     return () => window.removeEventListener('sm_buddy_catalog_updated', handleCatalogUpdate);
   }, []);
 
+  // Dynamically extract categories directly from loaded Google Sheet database items
+  const categories = useMemo(() => {
+    const map = new Map<string, { id: string; label: string; count: number; zIndex: number }>();
+    items.forEach((item) => {
+      const cat = item.category || 'other';
+      if (!map.has(cat)) {
+        map.set(cat, {
+          id: cat,
+          label: formatCategoryLabel(cat),
+          count: 0,
+          zIndex: item.zIndex || 50,
+        });
+      }
+      map.get(cat)!.count++;
+    });
+    return Array.from(map.values()).sort((a, b) => a.zIndex - b.zIndex);
+  }, [items]);
+
+  // Ensure active category is valid when categories change
+  useEffect(() => {
+    if (categories.length > 0 && !categories.some((c) => c.id === activeCategory)) {
+      setActiveCategory(categories[0].id);
+    }
+  }, [categories, activeCategory]);
+
+  const [isSyncingSheet, setIsSyncingSheet] = useState(false);
+  const handleLiveSheetSync = async () => {
+    setIsSyncingSheet(true);
+    try {
+      const sheetItems = await fetchBuddyItemsFromSheet();
+      setItems(getAllBuddyItems());
+    } catch (_) {}
+    finally {
+      setIsSyncingSheet(false);
+    }
+  };
+
   // Sync state if active member changes
   useEffect(() => {
     if (member) {
@@ -110,13 +147,26 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     const isUnlocked = config.unlockedItemIds.includes(item.id) || item.price === 0;
 
     if (!isUnlocked) {
-      // Open purchase confirmation
       setPendingItem(item);
       setPurchaseError(null);
       return;
     }
 
-    // Equip or toggle unequip
+    // Toggle unequip if already equipped (except base_body)
+    if (config.equipped?.[item.category] === item.id) {
+      if (item.category !== 'base_body') {
+        const nextEquipped = { ...config.equipped };
+        delete nextEquipped[item.category];
+        setConfig((prev) => ({
+          ...prev,
+          equipped: nextEquipped,
+          updatedAt: new Date().toISOString(),
+        }));
+      }
+      return;
+    }
+
+    // Equip item
     const updated = equipBuddyItem(config, item);
     setConfig(updated);
   };
@@ -347,25 +397,42 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
           {/* Category Tabs / Pills */}
           <div>
             <label className="text-xs font-bold text-stone-700 block mb-2">Wardrobe Rack</label>
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <label className="text-xs font-bold text-stone-700">Wardrobe Categories</label>
+              <button
+                type="button"
+                onClick={handleLiveSheetSync}
+                disabled={isSyncingSheet}
+                className="text-[11px] font-bold text-blue-700 hover:text-blue-900 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+                title="Sync newest items from Google Sheet"
+              >
+                <RefreshCw className={`w-3 h-3 ${isSyncingSheet ? 'animate-spin' : ''}`} />
+                <span>{isSyncingSheet ? 'Syncing...' : 'Sync Sheet'}</span>
+              </button>
+            </div>
             <div className="flex items-center gap-1.5 overflow-x-auto pb-2 scrollbar-none">
-              {BUDDY_CATEGORIES.map((cat) => {
+              {categories.map((cat) => {
                 const isActive = activeCategory === cat.id;
-                const hasEquipped = config.equipped[cat.id] !== undefined;
+                const hasEquipped = config.equipped?.[cat.id] !== undefined;
                 return (
                   <button
                     key={cat.id}
                     type="button"
                     onClick={() => setActiveCategory(cat.id)}
-                    className={`px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                       isActive
                         ? 'bg-[#344ea2] text-white shadow-xs'
                         : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
                     }`}
                   >
-                    {getCategoryIcon(cat.iconName)}
-                    <span>{cat.shortLabel}</span>
+                    <span>{cat.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                      isActive ? 'bg-white/20 text-white' : 'bg-stone-200 text-stone-600'
+                    }`}>
+                      {cat.count}
+                    </span>
                     {hasEquipped && cat.id !== 'base_body' && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" title="Equipped" />
                     )}
                   </button>
                 );
@@ -412,11 +479,10 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
           )}
 
           {/* SECTION B: ITEMS GRID (FOR ALL OTHER CATEGORIES) */}
-          {activeCategory !== 'base_body' && (
-            <div className="space-y-3">
+          <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-stone-800">
-                  {BUDDY_CATEGORIES.find((c) => c.id === activeCategory)?.label}
+                  {categories.find((c) => c.id === activeCategory)?.label || formatCategoryLabel(activeCategory)}
                 </span>
                 <span className="text-[11px] text-stone-400">
                   {categoryItems.length} {categoryItems.length === 1 ? 'item' : 'items'} available
@@ -500,7 +566,6 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                 </div>
               )}
             </div>
-          )}
         </div>
       </div>
 

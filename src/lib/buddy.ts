@@ -1,82 +1,92 @@
+'use client';
+
 import {
   BuddyConfig,
+  BuddyEquippedLayers,
   BuddyItem,
   BuddyLayerCategory,
-  BuddyEquippedLayers,
 } from './types';
-import { updateMemberBuddyConfigInNeon, updateMemberBuddyBucksInNeon } from './neon';
 
 // ==========================================
-// 1. BUDDY CATEGORIES METADATA
+// 1. LAYER STACK ORDER & DYNAMIC CATEGORIES
 // ==========================================
 
-export interface BuddyCategoryMeta {
-  id: BuddyLayerCategory;
-  label: string;
-  shortLabel: string;
-  defaultZIndex: number;
-  iconName: string;
-  description: string;
+export const DEFAULT_CATEGORY_LAYER_ORDER: Record<string, number> = {
+  capes: 20,
+  base_body: 30,
+  mouth: 40,
+  expression: 45,
+  tops: 60,
+  bottoms: 65,
+  shoes: 70,
+  face_accessory: 80,
+  headwear: 90,
+  hair: 95,
+  props: 110,
+};
+
+const LAYER_ORDER_STORAGE_KEY = 'sm_buddy_layer_order';
+const SHEET_BUDDY_ITEMS_KEY = 'sm_sheet_buddy_items';
+const CUSTOM_BUDDY_ITEMS_KEY = 'sm_custom_buddy_items';
+
+export const GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Buddy_Items';
+
+/**
+ * Returns the active category layer stack order (category -> zIndex).
+ */
+export function getCategoryLayerOrder(): Record<string, number> {
+  let customOrder: Record<string, number> = {};
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(LAYER_ORDER_STORAGE_KEY);
+      if (stored) customOrder = JSON.parse(stored);
+    } catch (_) {}
+  }
+  return { ...DEFAULT_CATEGORY_LAYER_ORDER, ...customOrder };
 }
 
-export const BUDDY_CATEGORIES: BuddyCategoryMeta[] = [
-  {
-    id: 'base_body',
-    label: 'Body Color',
-    shortLabel: 'Body',
-    defaultZIndex: 30,
-    iconName: 'User',
-    description: 'Select your Buddy mascot skin color',
-  },
-  {
-    id: 'expression',
-    label: 'Expressions',
-    shortLabel: 'Face',
-    defaultZIndex: 40,
-    iconName: 'Smile',
-    description: 'Eyes, smile, and facial mood',
-  },
-  {
-    id: 'headwear',
-    label: 'Hats & Headwear',
-    shortLabel: 'Hats',
-    defaultZIndex: 90,
-    iconName: 'Crown',
-    description: 'Witch hats, tiaras, goggles, and helmets',
-  },
-  {
-    id: 'tops',
-    label: 'Outfits & Tops',
-    shortLabel: 'Tops',
-    defaultZIndex: 60,
-    iconName: 'Shirt',
-    description: 'Robes, uniforms, shirts, and aprons',
-  },
-  {
-    id: 'capes',
-    label: 'Capes & Back',
-    shortLabel: 'Back',
-    defaultZIndex: 20,
-    iconName: 'Sparkles',
-    description: 'Capes, cloaks, and back accessories',
-  },
-  {
-    id: 'props',
-    label: 'Tools & Props',
-    shortLabel: 'Props',
-    defaultZIndex: 110,
-    iconName: 'Wrench',
-    description: 'Magic staves, potions, soldering irons, 3D prints',
-  },
-  {
-    id: 'shoes',
-    label: 'Footwear & Boots',
-    shortLabel: 'Shoes',
-    defaultZIndex: 70,
-    iconName: 'Footprints',
-    description: 'Boots, sneakers, and workshop footwear',
-  },
-];
+/**
+ * Saves category layer order globally and dispatches catalog update.
+ */
+export function saveCategoryLayerOrder(order: Record<string, number>): void {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(LAYER_ORDER_STORAGE_KEY, JSON.stringify(order));
+      window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
+      import('./neon').then(({ updateGlobalAppSettings }) => {
+        updateGlobalAppSettings({ buddyLayerOrder: order }).catch(() => {});
+      }).catch(() => {});
+    } catch (_) {}
+  }
+}
+
+/**
+ * Resets category layer order to standard defaults.
+ */
+export function resetCategoryLayerOrder(): Record<string, number> {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.removeItem(LAYER_ORDER_STORAGE_KEY);
+      window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
+      import('./neon').then(({ updateGlobalAppSettings }) => {
+        updateGlobalAppSettings({ buddyLayerOrder: DEFAULT_CATEGORY_LAYER_ORDER }).catch(() => {});
+      }).catch(() => {});
+    } catch (_) {}
+  }
+  return { ...DEFAULT_CATEGORY_LAYER_ORDER };
+}
+
+/**
+ * Formats a raw category slug into a clean user-facing title.
+ * e.g. "face_accessory" -> "Face Accessory", "mouth" -> "Mouth"
+ */
+export function formatCategoryLabel(cat: string): string {
+  if (!cat) return 'Other';
+  return cat
+    .replace(/[-_]/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
 
 // ==========================================
 // 2. BASE COLOR PALETTES
@@ -94,312 +104,58 @@ export const BUDDY_BASE_COLORS: BuddyColorChoice[] = [
     id: 'cyan',
     name: 'Social Medium Cyan',
     hex: '#3bc0cd',
-    assetUrl: '/buddies/base_cyan.png',
+    assetUrl: '/buddies/blue_buddy.png',
   },
   {
     id: 'orange',
     name: 'Maker Orange',
     hex: '#f16622',
-    assetUrl: '/buddies/base_orange.png',
+    assetUrl: '/buddies/orange_buddy.png',
   },
   {
     id: 'dark-blue',
     name: 'Cobalt Navy',
     hex: '#344ea2',
-    assetUrl: '/buddies/base_cyan.png', // Filtered or tinted dynamically
+    assetUrl: '/buddies/blue_buddy.png',
   },
   {
     id: 'green',
     name: 'Sage Green',
     hex: '#8a9280',
-    assetUrl: '/buddies/base_cyan.png',
+    assetUrl: '/buddies/blue_buddy.png',
   },
   {
     id: 'purple',
     name: 'Arcane Purple',
     hex: '#8b5cf6',
-    assetUrl: '/buddies/base_cyan.png',
+    assetUrl: '/buddies/blue_buddy.png',
   },
   {
     id: 'yellow',
     name: 'Sunshine Gold',
     hex: '#fbbf24',
-    assetUrl: '/buddies/base_orange.png',
+    assetUrl: '/buddies/orange_buddy.png',
   },
   {
     id: 'pink',
     name: 'Neon Coral',
     hex: '#f43f5e',
-    assetUrl: '/buddies/base_orange.png',
+    assetUrl: '/buddies/orange_buddy.png',
   },
   {
     id: 'slate',
     name: 'Cybernetic Slate',
     hex: '#64748b',
-    assetUrl: '/buddies/base_cyan.png',
+    assetUrl: '/buddies/blue_buddy.png',
   },
 ];
 
-// ==========================================
-// 3. BUILT-IN STARTER ITEMS CATALOG
-// ==========================================
-
-export const DEFAULT_BUDDY_ITEMS: BuddyItem[] = [
-  // --- BASE BODIES & EXPRESSIONS ---
-  {
-    id: 'body_blue_smile',
-    name: 'Blue Buddy (Smiling)',
-    category: 'base_body',
-    assetUrl: '/buddies/blue_buddy_smile.png',
-    zIndex: 30,
-    price: 0,
-    description: 'Signature smiling Blue Social Medium mascot base.',
-  },
-  {
-    id: 'body_blue_talking',
-    name: 'Blue Buddy (Talking)',
-    category: 'base_body',
-    assetUrl: '/buddies/blue_buddy_talking.png',
-    zIndex: 30,
-    price: 0,
-    description: 'Energetic talking Blue Social Medium mascot base.',
-  },
-  {
-    id: 'body_orange_smile',
-    name: 'Orange Buddy (Smiling)',
-    category: 'base_body',
-    assetUrl: '/buddies/orange_buddy_smile.png',
-    zIndex: 30,
-    price: 0,
-    description: 'Signature smiling Orange Social Medium mascot base.',
-  },
-  {
-    id: 'body_orange_talking',
-    name: 'Orange Buddy (Talking)',
-    category: 'base_body',
-    assetUrl: '/buddies/orange_buddy_talking.png',
-    zIndex: 30,
-    price: 0,
-    description: 'Energetic talking Orange Social Medium mascot base.',
-  },
-
-  // --- HATS & HEADWEAR ---
-  {
-    id: 'headwear_witch_hat',
-    name: 'Witch Hat',
-    category: 'headwear',
-    assetUrl: '/buddies/witch_hat.png',
-    zIndex: 90,
-    price: 30,
-    description: 'Pointed black sorcerer hat with buckled leather band.',
-  },
-  {
-    id: 'headwear_cat_ears',
-    name: 'Cat Ears Headband',
-    category: 'headwear',
-    assetUrl: '/buddies/cat_ears.png',
-    zIndex: 90,
-    price: 20,
-    description: 'Cosplay cat ears headband.',
-  },
-  {
-    id: 'headwear_flower',
-    name: 'Blossom Flower',
-    category: 'headwear',
-    assetUrl: '/buddies/flower.png',
-    zIndex: 90,
-    price: 15,
-    description: 'Vibrant spring blossom tucked above the ear.',
-  },
-  {
-    id: 'headwear_headphones',
-    name: 'Studio Headphones',
-    category: 'headwear',
-    assetUrl: '/buddies/headphones.png',
-    zIndex: 90,
-    price: 25,
-    description: 'Over-ear audio mixing headphones for podcasting & music.',
-  },
-  {
-    id: 'hair_magical_girl',
-    name: 'Magical Girl Pigtails',
-    category: 'hair',
-    assetUrl: '/buddies/magical_girl_hair.png',
-    zIndex: 95,
-    price: 40,
-    description: 'Twin celestial blonde pigtails with red jewel ornaments.',
-  },
-
-  // --- TOPS, OUTFITS & ACCESSORIES ---
-  {
-    id: 'tops_apron',
-    name: 'Workshop Apron',
-    category: 'tops',
-    assetUrl: '/buddies/apron.png',
-    zIndex: 60,
-    price: 25,
-    description: 'Heavy duty workshop protection apron with pocket.',
-  },
-  {
-    id: 'tops_bow_tie',
-    name: 'Dapper Bow Tie',
-    category: 'tops',
-    assetUrl: '/buddies/bow_tie.png',
-    zIndex: 65,
-    price: 10,
-    description: 'Classic red bow tie for refined makerspace occasions.',
-  },
-  {
-    id: 'face_cyborg_visor',
-    name: 'Cyborg Ocular Visor',
-    category: 'face_accessory',
-    assetUrl: '/buddies/cyborg_face.png',
-    zIndex: 80,
-    price: 35,
-    description: 'Bionic targeting ocular cyber-implant.',
-  },
-
-  // --- PROPS, COMPANIONS & TOOLS ---
-  {
-    id: 'prop_robot_arm',
-    name: 'Robotic Grabber Arm',
-    category: 'props',
-    assetUrl: '/buddies/robot_arm.png',
-    zIndex: 110,
-    price: 40,
-    description: 'Heavy industrial bionic prosthetic arm with pneumatic claw.',
-  },
-  {
-    id: 'prop_dragon',
-    name: 'Companion Dragon',
-    category: 'props',
-    assetUrl: '/buddies/dragon.png',
-    zIndex: 110,
-    price: 50,
-    description: 'Loyal miniature emerald dragon companion.',
-  },
-  {
-    id: 'prop_mini_robot',
-    name: 'Mini Robot Companion',
-    category: 'props',
-    assetUrl: '/buddies/robot.png',
-    zIndex: 110,
-    price: 45,
-    description: 'Autonomous tracked workshop assistant droid.',
-  },
-  {
-    id: 'prop_wizard_staff',
-    name: 'Arcane Wizard Staff',
-    category: 'props',
-    assetUrl: '/buddies/wizard_staff.png',
-    zIndex: 110,
-    price: 40,
-    description: 'Carved elderwood staff crowned with a glowing crystal orb.',
-  },
-  {
-    id: 'prop_sword',
-    name: 'Cosplay Foam Sword',
-    category: 'props',
-    assetUrl: '/buddies/sword.png',
-    zIndex: 110,
-    price: 35,
-    description: 'Durable battle-ready cosplay sword.',
-  },
-  {
-    id: 'prop_test_tube',
-    name: 'Bubbling Chemical Vial',
-    category: 'props',
-    assetUrl: '/buddies/test_tube.png',
-    zIndex: 110,
-    price: 25,
-    description: 'Glass test tube emitting mysterious neon vapors.',
-  },
-  {
-    id: 'prop_screwdriver',
-    name: 'Precision Screwdriver',
-    category: 'props',
-    assetUrl: '/buddies/screwdriver.png',
-    zIndex: 110,
-    price: 15,
-    description: 'Magnetic tip workbench tool for electronics fabrication.',
-  },
-  {
-    id: 'prop_laser_pointer',
-    name: 'Laser Alignment Pointer',
-    category: 'props',
-    assetUrl: '/buddies/laser_pointer.png',
-    zIndex: 110,
-    price: 20,
-    description: 'Precision red diode pointer for CNC & laser work.',
-  },
-  {
-    id: 'prop_game_controller',
-    name: 'Retro Game Controller',
-    category: 'props',
-    assetUrl: '/buddies/game_controller.png',
-    zIndex: 110,
-    price: 25,
-    description: 'Dual-thumbstick handheld game controller.',
-  },
-  {
-    id: 'prop_mic_stand',
-    name: 'Studio Condenser Mic',
-    category: 'props',
-    assetUrl: '/buddies/mic_stand.png',
-    zIndex: 110,
-    price: 25,
-    description: 'Broadcast studio condenser microphone on desk stand.',
-  },
-  {
-    id: 'prop_soda_can',
-    name: 'Sparkling Soda Can',
-    category: 'props',
-    assetUrl: '/buddies/soda_can.png',
-    zIndex: 110,
-    price: 10,
-    description: 'Cold fizzy beverage from the snack shack.',
-  },
-
-  // --- COMPLETE COSTUME SETS ---
-  {
-    id: 'costume_wizard',
-    name: 'Wizard Master Set',
-    category: 'tops',
-    assetUrl: '/buddies/costume_wizard.png',
-    zIndex: 60,
-    price: 50,
-    description: 'Complete Arcane Wizard outfit with buckled witch hat, flowing black cape, and glowing purple staff.',
-  },
-  {
-    id: 'costume_sailor',
-    name: 'Sailor Scout Hero Set',
-    category: 'tops',
-    assetUrl: '/buddies/costume_sailor.png',
-    zIndex: 60,
-    price: 50,
-    description: 'Iconic magical girl uniform featuring blonde twintails, sailor bow, pleated skirt, and crimson boots.',
-  },
-  {
-    id: 'costume_cyborg',
-    name: 'Cyborg Chemist Set',
-    category: 'tops',
-    assetUrl: '/buddies/costume_cyborg.png',
-    zIndex: 60,
-    price: 50,
-    description: 'Cybernetic enhancement suite featuring a metallic ocular implant and robotic arm holding an active bubbling potion.',
-  },
-];
+// Fallback items catalog (only used before initial Google Sheet fetch)
+export const DEFAULT_BUDDY_ITEMS: BuddyItem[] = [];
 
 // ==========================================
-// 4. STORAGE & CATALOG RETRIEVAL
+// 3. GOOGLE SHEETS PARSING & CATALOG RETRIEVAL
 // ==========================================
-
-const CUSTOM_BUDDY_ITEMS_KEY = 'sm_custom_buddy_items';
-
-export const GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL =
-  'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Buddy_Items';
-
-const SHEET_BUDDY_ITEMS_KEY = 'sm_sheet_buddy_items';
 
 function parseBuddyCsv(csvText: string): string[][] {
   const rows: string[][] = [];
@@ -476,29 +232,13 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       else if (col.includes('active') || col.includes('status') || col.includes('enable')) activeIdx = i;
     }
 
-    // If no name or (category / price / url) found, the tab doesn't exist yet (Google Sheet returned default tab)
     if (nameIdx === -1 || (catIdx === -1 && priceIdx === -1 && urlIdx === -1)) {
       return [];
     }
 
-    const defaultZ: Record<string, number> = {
-      capes: 20,
-      base_body: 30,
-      expression: 40,
-      tops: 60,
-      bottoms: 65,
-      shoes: 70,
-      face_accessory: 80,
-      headwear: 90,
-      hair: 95,
-      props: 110,
-    };
-
-    const validCategories: BuddyLayerCategory[] = [
-      'base_body', 'expression', 'headwear', 'hair', 'tops', 'bottoms', 'capes', 'props', 'face_accessory', 'shoes'
-    ];
-
+    const layerOrder = getCategoryLayerOrder();
     const items: BuddyItem[] = [];
+
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r];
       if (!row || row.length === 0) continue;
@@ -512,8 +252,9 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
         }
       }
 
-      const rawCat = catIdx !== -1 ? String(row[catIdx] || '').trim().toLowerCase().replace(/[^a-z_]/g, '') : 'tops';
-      const category: BuddyLayerCategory = validCategories.includes(rawCat as any) ? (rawCat as BuddyLayerCategory) : 'tops';
+      // Dynamic category straight from Google Sheet
+      const rawCat = catIdx !== -1 ? String(row[catIdx] || '').trim().toLowerCase().replace(/[^a-z0-9_]/g, '') : 'other';
+      const category: string = rawCat || 'other';
 
       const rawPrice = priceIdx !== -1 ? String(row[priceIdx] || '').replace(/[^0-9]/g, '') : '0';
       const price = parseInt(rawPrice, 10) || 0;
@@ -521,8 +262,15 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       let assetUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
       if (!assetUrl) continue;
 
-      const rawZ = zIdx !== -1 ? parseInt(String(row[zIdx] || '').replace(/[^0-9]/g, ''), 10) : NaN;
-      const zIndex = !isNaN(rawZ) ? rawZ : (defaultZ[category] || 60);
+      // Clean asset URL: if relative path missing leading slash, add it
+      if (assetUrl.startsWith('buddies/')) assetUrl = '/' + assetUrl;
+
+      // Z-Index resolution: 
+      // 1. If explicit positive Z_Index in spreadsheet (>0), use it
+      // 2. Otherwise use the layer order configured in Developer Mode
+      const parsedZ = zIdx !== -1 ? parseInt(String(row[zIdx] || '').replace(/[^0-9]/g, ''), 10) : NaN;
+      const categoryZ = layerOrder[category];
+      const zIndex = !isNaN(parsedZ) && parsedZ > 0 ? parsedZ : (categoryZ !== undefined ? categoryZ : 50);
 
       const description = descIdx !== -1 ? String(row[descIdx] || '').trim() : undefined;
 
@@ -551,63 +299,29 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
   }
 }
 
-
 /**
- * Returns all available Buddy items combining built-in presets and developer-uploaded items.
+ * Returns all available Buddy items.
+ * If Google Sheet items exist, they are the 100% SOLE SOURCE OF TRUTH.
  */
 export function getAllBuddyItems(): BuddyItem[] {
-  let customItems: BuddyItem[] = [];
   let sheetItems: BuddyItem[] = [];
   if (typeof window !== 'undefined') {
     try {
-      const stored = localStorage.getItem(CUSTOM_BUDDY_ITEMS_KEY);
-      if (stored) customItems = JSON.parse(stored);
       const sheetStored = localStorage.getItem(SHEET_BUDDY_ITEMS_KEY);
       if (sheetStored) sheetItems = JSON.parse(sheetStored);
     } catch (_) {}
   }
 
-  // Deduplicate by ID
-  const map = new Map<string, BuddyItem>();
-  DEFAULT_BUDDY_ITEMS.forEach((it) => map.set(it.id, it));
-  customItems.forEach((it) => map.set(it.id, { ...it, isCustom: true }));
-  sheetItems.forEach((it) => map.set(it.id, { ...it, isCustom: true }));
-  return Array.from(map.values());
-}
+  const layerOrder = getCategoryLayerOrder();
 
-/**
- * Saves a developer-uploaded Buddy item to the global library.
- */
-export function saveCustomBuddyItem(item: BuddyItem): BuddyItem[] {
-  const allCustom = getCustomBuddyItems();
-  const existingIdx = allCustom.findIndex((i) => i.id === item.id);
-  if (existingIdx !== -1) {
-    allCustom[existingIdx] = { ...item, isCustom: true };
-  } else {
-    allCustom.push({ ...item, isCustom: true });
+  if (sheetItems.length > 0) {
+    return sheetItems.map((item) => ({
+      ...item,
+      zIndex: layerOrder[item.category] !== undefined ? layerOrder[item.category] : item.zIndex,
+    }));
   }
 
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(CUSTOM_BUDDY_ITEMS_KEY, JSON.stringify(allCustom));
-      window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
-    } catch (_) {}
-  }
-  return getAllBuddyItems();
-}
-
-/**
- * Deletes a custom Buddy item.
- */
-export function deleteCustomBuddyItem(itemId: string): BuddyItem[] {
-  const allCustom = getCustomBuddyItems().filter((i) => i.id !== itemId);
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(CUSTOM_BUDDY_ITEMS_KEY, JSON.stringify(allCustom));
-      window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
-    } catch (_) {}
-  }
-  return getAllBuddyItems();
+  return [];
 }
 
 /**
@@ -629,34 +343,44 @@ export function syncBuddyAssetsFromGlobalSettings(assets?: BuddyItem[] | null): 
 }
 
 /**
- * Awards Buddy Bucks to a member account and syncs to Neon CRM / localStorage.
+ * Saves a developer-uploaded Buddy item to the custom library.
  */
-export async function awardBuddyBucks(
-  accountId: string,
-  amount: number,
-  reason?: string
-): Promise<number> {
-  if (!accountId || amount <= 0) return 0;
-  const current = loadMemberBuddyBucks(accountId);
-  const newBalance = current + amount;
+export function saveCustomBuddyItem(item: BuddyItem): BuddyItem[] {
+  const allCustom = getCustomBuddyItems();
+  const existingIdx = allCustom.findIndex((i) => i.id === item.id);
+  if (existingIdx !== -1) {
+    allCustom[existingIdx] = { ...item, isCustom: true };
+  } else {
+    allCustom.push({ ...item, isCustom: true });
+  }
 
   if (typeof window !== 'undefined') {
-    localStorage.setItem(`sm_buddy_bucks_${accountId}`, String(newBalance));
-    window.dispatchEvent(
-      new CustomEvent('sm_buddy_bucks_updated', {
-        detail: { accountId, newBalance, amountAdded: amount, reason },
-      })
-    );
+    try {
+      localStorage.setItem(CUSTOM_BUDDY_ITEMS_KEY, JSON.stringify(allCustom));
+      window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
+      import('./neon').then(({ updateGlobalAppSettings }) => {
+        updateGlobalAppSettings({ buddyAssets: allCustom }).catch(() => {});
+      }).catch(() => {});
+    } catch (_) {}
   }
+  return getAllBuddyItems();
+}
 
-  try {
-    const { updateMemberBuddyBucksInNeon } = await import('./neon');
-    await updateMemberBuddyBucksInNeon(accountId, newBalance);
-  } catch (err) {
-    console.warn('Neon Buddy Bucks background sync notice:', err);
+/**
+ * Deletes a custom Buddy item.
+ */
+export function deleteCustomBuddyItem(itemId: string): BuddyItem[] {
+  const allCustom = getCustomBuddyItems().filter((i) => i.id !== itemId);
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(CUSTOM_BUDDY_ITEMS_KEY, JSON.stringify(allCustom));
+      window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
+      import('./neon').then(({ updateGlobalAppSettings }) => {
+        updateGlobalAppSettings({ buddyAssets: allCustom }).catch(() => {});
+      }).catch(() => {});
+    } catch (_) {}
   }
-
-  return newBalance;
+  return getAllBuddyItems();
 }
 
 export function getCustomBuddyItems(): BuddyItem[] {
@@ -670,23 +394,30 @@ export function getCustomBuddyItems(): BuddyItem[] {
 }
 
 // ==========================================
-// 5. MEMBER CONFIGURATION & WALLET LOGIC
+// 4. MEMBER CONFIGURATION & WALLET LOGIC
 // ==========================================
 
 export function getDefaultBuddyConfig(): BuddyConfig {
+  const allItems = getAllBuddyItems();
+  const firstBase = allItems.find((i) => i.category === 'base_body');
+  const firstMouth = allItems.find((i) => i.category === 'mouth');
+
+  const equipped: BuddyEquippedLayers = {};
+  const unlocked = ['body_blue', 'body_orange', 'closed_smile'];
+
+  if (firstBase) {
+    equipped.base_body = firstBase.id;
+    unlocked.push(firstBase.id);
+  }
+  if (firstMouth) {
+    equipped.mouth = firstMouth.id;
+    unlocked.push(firstMouth.id);
+  }
+
   return {
     baseColor: 'cyan',
-    equipped: {
-      base_body: 'body_cyan',
-      expression: 'expr_smile',
-      tops: 'top_sm_shirt',
-    },
-    unlockedItemIds: [
-      'body_cyan',
-      'body_orange',
-      'expr_smile',
-      'top_sm_shirt',
-    ],
+    equipped,
+    unlockedItemIds: unlocked,
     updatedAt: new Date().toISOString(),
   };
 }
@@ -765,6 +496,37 @@ export function loadMemberBuddyBucks(
 }
 
 /**
+ * Awards Buddy Bucks to a member account and syncs to Neon CRM / localStorage.
+ */
+export async function awardBuddyBucks(
+  accountId: string,
+  amount: number,
+  reason?: string
+): Promise<number> {
+  if (!accountId || amount <= 0) return 0;
+  const current = loadMemberBuddyBucks(accountId);
+  const newBalance = current + amount;
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(`sm_buddy_bucks_${accountId}`, String(newBalance));
+    window.dispatchEvent(
+      new CustomEvent('sm_buddy_bucks_updated', {
+        detail: { accountId, newBalance, amountAdded: amount, reason },
+      })
+    );
+  }
+
+  try {
+    const { updateMemberBuddyBucksInNeon } = await import('./neon');
+    await updateMemberBuddyBucksInNeon(accountId, newBalance);
+  } catch (err) {
+    console.warn('Neon Buddy Bucks background sync notice:', err);
+  }
+
+  return newBalance;
+}
+
+/**
  * Unlocks/purchases an item using Buddy Bucks and adds it to the user's wardrobe inventory.
  */
 export async function purchaseBuddyItem(
@@ -789,39 +551,43 @@ export async function purchaseBuddyItem(
     unlockedItemIds: updatedUnlocked,
     updatedAt: new Date().toISOString(),
   };
+  const updatedBalance = Math.max(0, currentBalance - price);
 
-  const newBalance = Math.max(0, currentBalance - Math.max(0, price));
+  if (typeof window !== 'undefined' && accountId) {
+    localStorage.setItem(`sm_buddy_avatar_${accountId}`, JSON.stringify(updatedConfig));
+    localStorage.setItem(`sm_buddy_bucks_${accountId}`, String(updatedBalance));
+    window.dispatchEvent(new CustomEvent('sm_buddy_updated', { detail: JSON.stringify(updatedConfig) }));
+    window.dispatchEvent(new CustomEvent('sm_buddy_bucks_updated', { detail: updatedBalance }));
+  }
 
-  // Save config & balance
-  await updateMemberBuddyConfigInNeon(accountId, JSON.stringify(updatedConfig));
-  await updateMemberBuddyBucksInNeon(accountId, newBalance);
+  // Background sync with Neon CRM
+  try {
+    const { updateMemberBuddyConfigInNeon, updateMemberBuddyBucksInNeon } = await import('./neon');
+    updateMemberBuddyConfigInNeon(accountId, JSON.stringify(updatedConfig)).catch((err) => {
+      console.warn('Neon avatar background sync notice:', err);
+    });
+    if (price > 0) {
+      updateMemberBuddyBucksInNeon(accountId, updatedBalance).catch((err) => {
+        console.warn('Neon bucks background sync notice:', err);
+      });
+    }
+  } catch (err) {
+    console.warn('Neon One CRM connection notice:', err);
+  }
 
   return {
     success: true,
-    newBalance,
+    newBalance: updatedBalance,
     newConfig: updatedConfig,
   };
 }
 
 /**
- * Equips an item into the Buddy configuration.
+ * Equips an item and replaces whatever was in that layer category.
  */
 export function equipBuddyItem(config: BuddyConfig, item: BuddyItem): BuddyConfig {
   const newEquipped: BuddyEquippedLayers = { ...config.equipped };
-
-  if (item.category === 'base_body') {
-    newEquipped.base_body = item.id;
-    // Derive base color from item
-    if (item.id === 'body_orange') config.baseColor = 'orange';
-    else if (item.id === 'body_cyan') config.baseColor = 'cyan';
-  } else {
-    // If clicking an already equipped item, unequip it (toggle)
-    if (newEquipped[item.category] === item.id) {
-      delete newEquipped[item.category];
-    } else {
-      newEquipped[item.category] = item.id;
-    }
-  }
+  newEquipped[item.category] = item.id;
 
   return {
     ...config,
@@ -835,7 +601,7 @@ export function equipBuddyItem(config: BuddyConfig, item: BuddyItem): BuddyConfi
  */
 export function unequipBuddyCategory(
   config: BuddyConfig,
-  category: BuddyLayerCategory
+  category: string
 ): BuddyConfig {
   const newEquipped: BuddyEquippedLayers = { ...config.equipped };
   delete newEquipped[category];
@@ -861,24 +627,19 @@ export function randomizeBuddy(
   const colors = BUDDY_BASE_COLORS;
   const chosenColor = colors[Math.floor(Math.random() * colors.length)];
 
-  const newEquipped: BuddyEquippedLayers = {
-    base_body: chosenColor.id === 'orange' ? 'body_orange' : 'body_cyan',
-  };
+  const newEquipped: BuddyEquippedLayers = {};
 
-  const optionalCategories: BuddyLayerCategory[] = [
-    'expression',
-    'headwear',
-    'tops',
-    'capes',
-    'props',
-    'shoes',
-  ];
+  // Find unique categories
+  const categories = Array.from(new Set(availableItems.map((i) => i.category)));
 
-  optionalCategories.forEach((cat) => {
+  categories.forEach((cat) => {
     const itemsInCat = availableItems.filter((i) => i.category === cat);
-    if (itemsInCat.length > 0 && Math.random() > 0.3) {
-      const pick = itemsInCat[Math.floor(Math.random() * itemsInCat.length)];
-      newEquipped[cat] = pick.id;
+    if (itemsInCat.length > 0) {
+      // Base body always gets picked; others have random chance
+      if (cat === 'base_body' || Math.random() > 0.35) {
+        const pick = itemsInCat[Math.floor(Math.random() * itemsInCat.length)];
+        newEquipped[cat] = pick.id;
+      }
     }
   });
 
@@ -888,4 +649,9 @@ export function randomizeBuddy(
     equipped: newEquipped,
     updatedAt: new Date().toISOString(),
   };
+}
+
+// Auto-fetch Google Sheet on app boot
+if (typeof window !== 'undefined') {
+  fetchBuddyItemsFromSheet().catch(() => {});
 }
