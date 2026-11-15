@@ -506,13 +506,100 @@ export function normalizeNfcTapCard(raw: string): string {
     if (!isNaN(dec)) return dec.toString();
   }
 
-  // 4. 8-hex character string (e.g. USB reader "54dae65a")
-  if (/^[0-9a-fA-F]{8}$/.test(clean)) {
+  // 4. 7 or 8-hex character string (e.g. USB reader "544ca65a" or "54dae65a")
+  if (/^[0-9a-fA-F]{7,8}$/.test(clean)) {
     const dec = parseInt(clean, 16);
     if (!isNaN(dec)) return dec.toString();
   }
 
+  // 5. Generic hex string up to 16 characters
+  if (/^[0-9a-fA-F]{6,16}$/.test(clean)) {
+    try {
+      const dec = parseInt(clean, 16);
+      if (!isNaN(dec)) return dec.toString();
+    } catch (_) {}
+  }
+
   return clean;
+}
+
+/**
+ * Returns all viable cross-representation IDs (raw, decimal, hex, reversed-byte endianness) for CRM search.
+ */
+export function getCandidateTapCardIds(raw: string): string[] {
+  if (!raw) return [];
+  const clean = String(raw).trim();
+  if (!clean) return [];
+
+  const candidates = new Set<string>();
+  candidates.add(clean);
+  candidates.add(clean.toLowerCase());
+  candidates.add(clean.toUpperCase());
+
+  const norm = normalizeNfcTapCard(clean);
+  if (norm) {
+    candidates.add(norm);
+  }
+
+  // If it's hexadecimal (e.g. 544ca65a)
+  if (/^[0-9a-fA-F]{6,16}$/.test(clean)) {
+    try {
+      const dec = parseInt(clean, 16);
+      if (!isNaN(dec)) candidates.add(dec.toString());
+    } catch (_) {}
+
+    if (/^[0-9a-fA-F]{7,8}$/.test(clean)) {
+      try {
+        const pad = clean.padStart(8, '0');
+        const b0 = pad.substring(0, 2);
+        const b1 = pad.substring(2, 4);
+        const b2 = pad.substring(4, 6);
+        const b3 = pad.substring(6, 8);
+        const rev = parseInt(b3 + b2 + b1 + b0, 16);
+        if (!isNaN(rev)) candidates.add(rev.toString());
+      } catch (_) {}
+    }
+
+    if (/^[0-9a-fA-F]{14}$/.test(clean)) {
+      try {
+        const b0 = clean.substring(0, 2);
+        const b1 = clean.substring(2, 4);
+        const b2 = clean.substring(4, 6);
+        const b3 = clean.substring(6, 8);
+        const decRev = parseInt(b3 + b2 + b1 + b0, 16);
+        if (!isNaN(decRev)) candidates.add(decRev.toString());
+        const decDir = parseInt(b0 + b1 + b2 + b3, 16);
+        if (!isNaN(decDir)) candidates.add(decDir.toString());
+        const fullBigInt = BigInt('0x' + clean).toString();
+        candidates.add(fullBigInt);
+      } catch (_) {}
+    }
+  }
+
+  // If it's a decimal number (e.g. 1414309466)
+  if (/^\d+$/.test(clean)) {
+    try {
+      const num = Number(clean);
+      if (!isNaN(num) && num < 0xFFFFFFFF) {
+        const hex8 = num.toString(16).padStart(8, '0');
+        candidates.add(hex8.toLowerCase());
+        candidates.add(hex8.toUpperCase());
+
+        const b0 = hex8.substring(0, 2);
+        const b1 = hex8.substring(2, 4);
+        const b2 = hex8.substring(4, 6);
+        const b3 = hex8.substring(6, 8);
+        const revHex = b3 + b2 + b1 + b0;
+        candidates.add(revHex.toLowerCase());
+        candidates.add(revHex.toUpperCase());
+
+        const revDec = parseInt(revHex, 16);
+        if (!isNaN(revDec)) candidates.add(revDec.toString());
+      }
+    } catch (_) {}
+  }
+
+  return Array.from(candidates);
 }
 
 /**
@@ -554,34 +641,25 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
       return { ok: searchResponse.ok, searchData };
     };
 
-    let { ok, searchData } = await executeSearch(normalizedCard);
+    const candidates = getCandidateTapCardIds(cleanCard);
+    let matchedAccountId: string | null = null;
+    let matchedCardVal: string = normalizedCard;
 
-    // Fallback: if not found by normalized ID and normalized differs from cleanCard, try raw cleanCard
-    if ((!searchData.searchResults || searchData.searchResults.length === 0) && normalizedCard !== cleanCard) {
-      const fallback = await executeSearch(cleanCard);
-      if (fallback.searchData.searchResults && fallback.searchData.searchResults.length > 0) {
-        ok = fallback.ok;
-        searchData = fallback.searchData;
+    for (const cand of candidates) {
+      const res = await executeSearch(cand);
+      if (res.ok && res.searchData?.searchResults?.length > 0) {
+        matchedAccountId = String(res.searchData.searchResults[0]['Account ID'] || res.searchData.searchResults[0].accountId || '');
+        matchedCardVal = cand;
+        break;
       }
     }
 
-    if (!ok || (Array.isArray(searchData) && searchData[0]?.message)) {
-      const msg = searchData[0]?.message || searchData?.message || 'Neon One search failed.';
-      return { success: false, error: msg };
-    }
-
-    const results = searchData.searchResults || [];
-    if (results.length === 0) {
+    if (!matchedAccountId) {
       return { success: false, error: `No member found in Neon One with Tap Card "${cleanCard}".` };
     }
 
-    const accountId = results[0]['Account ID'] || results[0].accountId;
-    if (!accountId) {
-      return { success: false, error: 'Account ID missing from search results.' };
-    }
-
     // 2. Fetch full account record
-    return await fetchMemberProfileByAccountId(String(accountId), normalizedCard);
+    return await fetchMemberProfileByAccountId(matchedAccountId, matchedCardVal);
   } catch (err: any) {
     return {
       success: false,
