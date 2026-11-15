@@ -411,17 +411,174 @@ export const DEFAULT_BUDDY_ITEMS: BuddyItem[] = [
 
 const CUSTOM_BUDDY_ITEMS_KEY = 'sm_custom_buddy_items';
 
+export const GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL =
+  'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Buddy_Items';
+
+const SHEET_BUDDY_ITEMS_KEY = 'sm_sheet_buddy_items';
+
+function parseBuddyCsv(csvText: string): string[][] {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentField = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < csvText.length; i++) {
+    const char = csvText[i];
+    const nextChar = csvText[i + 1];
+
+    if (char === '"') {
+      if (inQuotes && nextChar === '"') {
+        currentField += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === ',' && !inQuotes) {
+      currentRow.push(currentField);
+      currentField = '';
+    } else if ((char === '\r' || char === '\n') && !inQuotes) {
+      if (char === '\r' && nextChar === '\n') i++;
+      currentRow.push(currentField);
+      if (currentRow.some((f) => f.trim().length > 0)) {
+        rows.push(currentRow);
+      }
+      currentRow = [];
+      currentField = '';
+    } else {
+      currentField += char;
+    }
+  }
+
+  if (currentField || currentRow.length > 0) {
+    currentRow.push(currentField);
+    if (currentRow.some((f) => f.trim().length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Fetches accessory layers directly from the permanent Social Medium Database Google Sheet ("Buddy_Items" tab).
+ * Supports columns: Name, Category, Price / Buddy_Bucks, Asset_URL / URL, Z_Index, Description, Active
+ */
+export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
+  try {
+    const res = await fetch(`${GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL}&_t=${Date.now()}`);
+    if (!res.ok) return [];
+    const text = await res.text();
+    const rows = parseBuddyCsv(text);
+    if (!rows || rows.length < 2) return [];
+
+    const header = rows[0].map((h) => String(h || '').trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+    let nameIdx = -1;
+    let catIdx = -1;
+    let priceIdx = -1;
+    let urlIdx = -1;
+    let zIdx = -1;
+    let descIdx = -1;
+    let activeIdx = -1;
+
+    for (let i = 0; i < header.length; i++) {
+      const col = header[i];
+      if (col.includes('name') || col.includes('item') || col.includes('title')) nameIdx = i;
+      else if (col.includes('cat') || col.includes('layer') || col.includes('type')) catIdx = i;
+      else if (col.includes('price') || col.includes('buck') || col.includes('cost') || col.includes('bb')) priceIdx = i;
+      else if (col.includes('url') || col.includes('asset') || col.includes('image') || col.includes('link') || col.includes('file')) urlIdx = i;
+      else if (col.includes('z') || col.includes('order') || col.includes('depth') || col.includes('stack')) zIdx = i;
+      else if (col.includes('desc') || col.includes('detail') || col.includes('note')) descIdx = i;
+      else if (col.includes('active') || col.includes('status') || col.includes('enable')) activeIdx = i;
+    }
+
+    // If no name or (category / price / url) found, the tab doesn't exist yet (Google Sheet returned default tab)
+    if (nameIdx === -1 || (catIdx === -1 && priceIdx === -1 && urlIdx === -1)) {
+      return [];
+    }
+
+    const defaultZ: Record<string, number> = {
+      capes: 20,
+      base_body: 30,
+      expression: 40,
+      tops: 60,
+      bottoms: 65,
+      shoes: 70,
+      face_accessory: 80,
+      headwear: 90,
+      hair: 95,
+      props: 110,
+    };
+
+    const validCategories: BuddyLayerCategory[] = [
+      'base_body', 'expression', 'headwear', 'hair', 'tops', 'bottoms', 'capes', 'props', 'face_accessory', 'shoes'
+    ];
+
+    const items: BuddyItem[] = [];
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!row || row.length === 0) continue;
+      const name = String(row[nameIdx] || '').trim();
+      if (!name) continue;
+
+      if (activeIdx !== -1) {
+        const activeVal = String(row[activeIdx] || '').trim().toLowerCase();
+        if (activeVal === 'false' || activeVal === 'no' || activeVal === '0' || activeVal === 'inactive' || activeVal === 'archived') {
+          continue;
+        }
+      }
+
+      const rawCat = catIdx !== -1 ? String(row[catIdx] || '').trim().toLowerCase().replace(/[^a-z_]/g, '') : 'tops';
+      const category: BuddyLayerCategory = validCategories.includes(rawCat as any) ? (rawCat as BuddyLayerCategory) : 'tops';
+
+      const rawPrice = priceIdx !== -1 ? String(row[priceIdx] || '').replace(/[^0-9]/g, '') : '0';
+      const price = parseInt(rawPrice, 10) || 0;
+
+      let assetUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
+      if (!assetUrl) continue;
+
+      const rawZ = zIdx !== -1 ? parseInt(String(row[zIdx] || '').replace(/[^0-9]/g, ''), 10) : NaN;
+      const zIndex = !isNaN(rawZ) ? rawZ : (defaultZ[category] || 60);
+
+      const description = descIdx !== -1 ? String(row[descIdx] || '').trim() : undefined;
+
+      items.push({
+        id: `sheet_${r}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+        name,
+        category,
+        price,
+        assetUrl,
+        zIndex,
+        description,
+        isCustom: true,
+      });
+    }
+
+    if (items.length > 0 && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(SHEET_BUDDY_ITEMS_KEY, JSON.stringify(items));
+        window.dispatchEvent(new CustomEvent('sm_buddy_catalog_updated'));
+      } catch (_) {}
+    }
+    return items;
+  } catch (err) {
+    console.warn('Google Sheet Buddy items fetch notice:', err);
+    return [];
+  }
+}
+
+
 /**
  * Returns all available Buddy items combining built-in presets and developer-uploaded items.
  */
 export function getAllBuddyItems(): BuddyItem[] {
   let customItems: BuddyItem[] = [];
+  let sheetItems: BuddyItem[] = [];
   if (typeof window !== 'undefined') {
     try {
       const stored = localStorage.getItem(CUSTOM_BUDDY_ITEMS_KEY);
-      if (stored) {
-        customItems = JSON.parse(stored);
-      }
+      if (stored) customItems = JSON.parse(stored);
+      const sheetStored = localStorage.getItem(SHEET_BUDDY_ITEMS_KEY);
+      if (sheetStored) sheetItems = JSON.parse(sheetStored);
     } catch (_) {}
   }
 
@@ -429,6 +586,7 @@ export function getAllBuddyItems(): BuddyItem[] {
   const map = new Map<string, BuddyItem>();
   DEFAULT_BUDDY_ITEMS.forEach((it) => map.set(it.id, it));
   customItems.forEach((it) => map.set(it.id, { ...it, isCustom: true }));
+  sheetItems.forEach((it) => map.set(it.id, { ...it, isCustom: true }));
   return Array.from(map.values());
 }
 

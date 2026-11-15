@@ -417,7 +417,7 @@ export default function ProfilePage() {
               className="px-3 py-1.5 rounded-xl border border-stone-200 hover:border-amber-400 hover:bg-amber-50/50 text-stone-700 hover:text-amber-900 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Award className="w-3.5 h-3.5 text-amber-600" />
-              <span>All 10 Ranks & Perks</span>
+              <span>All 10 Ranks & Buddy Bucks Rewards</span>
             </button>
             {xpAuditHistory.length > 0 && (
               <button
@@ -474,14 +474,14 @@ export default function ProfilePage() {
             </div>
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-amber-800 flex items-center gap-1.5">
-                <span>Current Level Perk</span>
+                <span>Current Buddy Bucks Milestone</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-amber-200/70 text-amber-900 text-[10px]">Active</span>
               </div>
               <div className="text-sm font-bold text-stone-900 mt-0.5">
                 {levelInfo.reward || 'Welcome to Social Medium & Community Access'}
               </div>
               <p className="text-xs text-stone-600 mt-0.5">
-                Mention this perk at the front desk or snack shack to redeem.
+                🪙 Credited directly to your Buddy Builder wallet.
               </p>
             </div>
           </div>
@@ -493,14 +493,14 @@ export default function ProfilePage() {
             </div>
             <div>
               <div className="text-[11px] font-bold uppercase tracking-wider text-stone-500 flex items-center gap-1.5">
-                {levelInfo.nextTier ? `Unlocks at Level ${levelInfo.nextTier.level}` : 'Legendary Mastery'}
+                {levelInfo.nextTier ? `Level ${levelInfo.nextTier.level} Milestone Reward` : 'Legendary Mastery'}
               </div>
               <div className="text-sm font-bold text-stone-800 mt-0.5">
                 {levelInfo.nextTier ? levelInfo.nextTier.reward : 'All perks and achievements unlocked!'}
               </div>
               <p className="text-xs text-stone-500 mt-0.5">
                 {levelInfo.nextTier
-                  ? `Earn ${levelInfo.xpNeededForNextTier} more XP to claim this reward.`
+                  ? `Earn ${levelInfo.xpNeededForNextTier} more XP to unlock this Buddy Bucks reward.`
                   : 'You have reached the pinnacle of makerspace mastery.'}
               </p>
             </div>
@@ -587,10 +587,10 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <h3 className="font-fredoka text-xl font-bold text-stone-900">
-                    Makerspace Ranks & Perks
+                    Makerspace Ranks & Buddy Bucks Rewards
                   </h3>
                   <p className="text-xs text-stone-500">
-                    Earn XP across physical visits and app interactions to unlock each milestone
+                    Earn XP across physical visits and app activities to automatically receive Buddy Bucks at each milestone
                   </p>
                 </div>
               </div>

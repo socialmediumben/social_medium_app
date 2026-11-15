@@ -27,6 +27,7 @@ import {
   BUDDY_CATEGORIES,
   BUDDY_BASE_COLORS,
   getAllBuddyItems,
+  fetchBuddyItemsFromSheet,
   loadMemberBuddyConfig,
   loadMemberBuddyBucks,
   equipBuddyItem,
@@ -73,6 +74,11 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
 
   useEffect(() => {
     setItems(getAllBuddyItems());
+    fetchBuddyItemsFromSheet().then((sheetItems) => {
+      if (sheetItems && sheetItems.length > 0) {
+        setItems(getAllBuddyItems());
+      }
+    }).catch(() => {});
 
     const handleCatalogUpdate = () => {
       setItems(getAllBuddyItems());

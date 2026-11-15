@@ -90,6 +90,7 @@ import {
 } from '@/lib/types';
 import {
   getAllBuddyItems,
+  fetchBuddyItemsFromSheet,
   saveCustomBuddyItem,
   deleteCustomBuddyItem,
   BUDDY_CATEGORIES,
@@ -163,6 +164,30 @@ export default function DeveloperPage() {
   const [newBuddyAssetUrl, setNewBuddyAssetUrl] = useState('');
   const [newBuddyDescription, setNewBuddyDescription] = useState('');
   const [isSavingBuddyAsset, setIsSavingBuddyAsset] = useState(false);
+  const [isSyncingBuddySheet, setIsSyncingBuddySheet] = useState(false);
+
+  const handleSyncBuddySheet = async () => {
+    setIsSyncingBuddySheet(true);
+    try {
+      const items = await fetchBuddyItemsFromSheet();
+      setBuddyCatalog(getAllBuddyItems());
+      if (items.length > 0) {
+        setBuddyAssetNotice({
+          message: `Successfully synced ${items.length} items from Google Sheet tab "Buddy_Items"!`,
+          type: 'success',
+        });
+      } else {
+        setBuddyAssetNotice({
+          message: 'Google Sheet returned 0 items. Make sure a tab named "Buddy_Items" is added to the Google Sheet with columns: Name, Category, Price, Asset_URL, Z_Index, Description, Active.',
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setBuddyAssetNotice({ message: err.message || 'Failed to sync Google Sheet.', type: 'error' });
+    } finally {
+      setIsSyncingBuddySheet(false);
+    }
+  };
   const [buddyAssetNotice, setBuddyAssetNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   // Neon One Custom Field IDs for Buddy
@@ -1137,6 +1162,19 @@ export default function DeveloperPage() {
           {portalSettings.contestMode && (
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" title="Contest Mode Active on Door" />
           )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('buddy-assets')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'buddy-assets'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <Palette className="w-4 h-4 text-pink-400" />
+          <span>Buddy Assets</span>
         </button>
 
         <button
@@ -2200,6 +2238,511 @@ export default function DeveloperPage() {
         </div>
       )}
       {/* ========================================================================= */}
+      {/* ========================================================================= */}
+      {/* TAB: BUDDY BUILDER ASSETS & ACCESSORIES                                 */}
+      {/* ========================================================================= */}
+      {activeTab === 'buddy-assets' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-pink-500/15 text-pink-700 flex items-center justify-center shrink-0 shadow-xs">
+                <Palette className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                    Buddy Builder Asset Studio
+                  </h2>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-pink-100 text-pink-800 border border-pink-200">
+                    Live Economy
+                  </span>
+                </div>
+                <p className="text-stone-600 text-xs mt-0.5">
+                  Manage wardrobe assets via Google Sheets database or in-app file uploads, set Buddy Buck prices, and configure Neon One fields.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <a
+                href="https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/edit"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3.5 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                title="Open SM App Database Google Sheet"
+              >
+                <Database className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Google Sheet ↗</span>
+              </a>
+
+              <button
+                type="button"
+                onClick={handleSyncBuddySheet}
+                disabled={isSyncingBuddySheet}
+                className="px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 border border-blue-300 text-blue-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Sync latest items from Google Sheet Buddy_Items tab"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isSyncingBuddySheet ? 'animate-spin' : ''}`} />
+                <span>{isSyncingBuddySheet ? 'Syncing...' : 'Sync Sheet'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleGrantTestBuddyBucks(100)}
+                className="px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Give 100 test Buddy Bucks to your current account"
+              >
+                <Coins className="w-4 h-4 text-amber-600" />
+                <span>+100 Test BB</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Google Sheet Database Helper Notice */}
+          <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 text-emerald-950 text-xs space-y-2">
+            <div className="flex items-center gap-2 font-bold text-emerald-900">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>Google Sheet Database Integration ("Buddy_Items" Tab)</span>
+            </div>
+            <p className="leading-relaxed">
+              You can manage all accessories and prices directly in your Google Sheet! Add a new tab named <code className="bg-emerald-100 px-1.5 py-0.5 rounded font-mono font-bold">Buddy_Items</code> to the <strong>SM App Database</strong> sheet with these exact column headers:
+            </p>
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              {['Name', 'Category', 'Price', 'Asset_URL', 'Z_Index', 'Description', 'Active'].map((col) => (
+                <span key={col} className="px-2 py-0.5 rounded-md bg-white border border-emerald-300 font-mono text-[11px] font-bold text-emerald-800">
+                  {col}
+                </span>
+              ))}
+            </div>
+            <div className="text-[11px] text-emerald-800 pt-1">
+              &bull; <strong>Categories:</strong> <code>headwear</code>, <code>tops</code>, <code>props</code>, <code>capes</code>, <code>shoes</code>, <code>face_accessory</code>, <code>expression</code>, <code>hair</code>, <code>base_body</code><br/>
+              &bull; <strong>Asset_URL:</strong> Relative path (e.g. <code>/buddies/costume_wizard.png</code>) or public image URL (Google Drive direct link, GitHub, etc.)
+            </div>
+          </div>
+
+          {buddyAssetNotice && (
+            <div
+              className={`p-4 rounded-2xl border text-sm flex items-center justify-between gap-3 ${
+                buddyAssetNotice.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-red-50 border-red-200 text-red-800'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {buddyAssetNotice.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                )}
+                <span>{buddyAssetNotice.message}</span>
+              </div>
+              <button
+                onClick={() => setBuddyAssetNotice(null)}
+                className="text-stone-400 hover:text-stone-600 text-xs font-bold"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {/* Top Row: In-App Upload Form & Neon One Custom Fields */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Upload Form Card */}
+            <div className="lg:col-span-2 p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+              <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <Upload className="w-5 h-5 text-stone-700" />
+                  <h3 className="font-bold text-stone-900 text-base">
+                    Quick In-App Upload & Publish
+                  </h3>
+                </div>
+                <span className="text-[11px] text-stone-500 font-mono">
+                  Stack: Capes(20) &bull; Body(30) &bull; Tops(60) &bull; Shoes(70) &bull; Head(90) &bull; Props(110)
+                </span>
+              </div>
+
+              <form onSubmit={handlePublishBuddyItem} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Accessory Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newBuddyName}
+                      onChange={(e) => setNewBuddyName(e.target.value)}
+                      placeholder="e.g. Safety Goggles, Wizard Cape, 3D Print..."
+                      className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={newBuddyCategory}
+                      onChange={(e) => {
+                        const cat = e.target.value as BuddyLayerCategory;
+                        setNewBuddyCategory(cat);
+                        const zMap: Record<BuddyLayerCategory, number> = {
+                          capes: 20,
+                          base_body: 30,
+                          expression: 40,
+                          tops: 60,
+                          bottoms: 65,
+                          shoes: 70,
+                          face_accessory: 80,
+                          headwear: 90,
+                          hair: 95,
+                          props: 110,
+                        };
+                        setNewBuddyZIndex(zMap[cat] || 60);
+                      }}
+                      className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
+                    >
+                      <option value="headwear">Headwear / Hats / Helmets</option>
+                      <option value="tops">Tops / Outfits / Jackets</option>
+                      <option value="props">Props / Tools / Handhelds</option>
+                      <option value="capes">Capes / Wings (Behind Body)</option>
+                      <option value="face_accessory">Face Accessories / Glasses</option>
+                      <option value="shoes">Footwear / Shoes</option>
+                      <option value="expression">Facial Expression</option>
+                      <option value="hair">Hair Style</option>
+                      <option value="bottoms">Pants / Bottoms</option>
+                      <option value="base_body">Base Mascot Body</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Price in Buddy Bucks (🪙 BB)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs text-stone-500">🪙</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        value={newBuddyPrice}
+                        onChange={(e) => setNewBuddyPrice(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                        className="w-full pl-8 text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
+                      />
+                    </div>
+                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                      Set 0 to make it free and unlocked for all makers.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Layer Z-Index Stack Order
+                    </label>
+                    <input
+                      type="number"
+                      value={newBuddyZIndex}
+                      onChange={(e) => setNewBuddyZIndex(parseInt(e.target.value, 10) || 60)}
+                      className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
+                    />
+                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                      Determines front-to-back layer depth.
+                    </span>
+                  </div>
+                </div>
+
+                {/* File Upload or Path */}
+                <div>
+                  <label className="text-xs font-bold text-stone-700 block mb-1">
+                    Upload Transparent Graphic (PNG / SVG / WebP) *
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-3 items-center">
+                    <label className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-800 text-xs font-bold cursor-pointer flex items-center justify-center gap-2 transition-colors shrink-0">
+                      <Upload className="w-4 h-4 text-stone-600" />
+                      <span>Choose Image File</span>
+                      <input
+                        type="file"
+                        accept="image/png,image/svg+xml,image/webp"
+                        onChange={handleBuddyFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                    <div className="text-xs text-stone-500">or enter relative path / URL:</div>
+                    <input
+                      type="text"
+                      value={newBuddyAssetUrl}
+                      onChange={(e) => setNewBuddyAssetUrl(e.target.value)}
+                      placeholder="/buddies/costume_wizard.png"
+                      className="flex-1 w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Preview Thumbnail if selected */}
+                {newBuddyAssetUrl && (
+                  <div className="p-3 bg-stone-50 border border-stone-200 rounded-2xl flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-xl border border-stone-300 bg-white flex items-center justify-center p-1 overflow-hidden shrink-0">
+                      <img
+                        src={newBuddyAssetUrl}
+                        alt="Preview"
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                    <div className="text-xs text-stone-700">
+                      <div className="font-bold">{newBuddyName || 'Untitled Asset'}</div>
+                      <div className="text-[11px] text-stone-500">
+                        Category: {newBuddyCategory} &bull; Price: {newBuddyPrice} 🪙 BB &bull; Z-Index: {newBuddyZIndex}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-bold text-stone-700 block mb-1">
+                    Description / Lore (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={newBuddyDescription}
+                    onChange={(e) => setNewBuddyDescription(e.target.value)}
+                    placeholder="e.g. Crafted in the electronics lab with ESD protection."
+                    className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingBuddyAsset}
+                    className="w-full py-3 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                  >
+                    {isSavingBuddyAsset ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        <span>Publishing to Catalog...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="w-4 h-4 text-emerald-400" />
+                        <span>Publish Accessory to All Users</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* Neon One Field Mappings Card */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5 flex flex-col justify-between">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b border-stone-100 pb-3">
+                  <Database className="w-5 h-5 text-indigo-600" />
+                  <h3 className="font-bold text-stone-900 text-base">
+                    Neon One Custom Fields
+                  </h3>
+                </div>
+                <p className="text-stone-600 text-xs leading-relaxed">
+                  Enter the Field IDs you created in Neon One for <strong>Buddy Avatar</strong> and <strong>Buddy Bucks</strong>.
+                </p>
+
+                {buddyFieldsNotice && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                      buddyFieldsNotice.type === 'success'
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                        : 'bg-red-50 border-red-200 text-red-800'
+                    }`}
+                  >
+                    {buddyFieldsNotice.type === 'success' ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                    )}
+                    <span>{buddyFieldsNotice.message}</span>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Buddy Avatar JSON Field ID
+                    </label>
+                    <input
+                      type="text"
+                      value={buddyAvatarFieldId}
+                      onChange={(e) => setBuddyAvatarFieldId(e.target.value)}
+                      placeholder="e.g. 182 or 124"
+                      className="w-full text-xs font-mono bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden"
+                    />
+                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                      Stores avatar JSON string of equipped clothes & colors.
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Buddy Bucks Balance Field ID
+                    </label>
+                    <input
+                      type="text"
+                      value={buddyBucksFieldId}
+                      onChange={(e) => setBuddyBucksFieldId(e.target.value)}
+                      placeholder="e.g. 183 or 125"
+                      className="w-full text-xs font-mono bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden"
+                    />
+                    <span className="text-[10px] text-stone-500 mt-0.5 block">
+                      Stores member balance integer in Neon One.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={handleSaveBuddyFields}
+                  disabled={isSavingBuddyFields}
+                  className="w-full py-2.5 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                >
+                  {isSavingBuddyFields ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving Neon Field IDs...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save Field IDs Globally</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Catalog Library & Asset Browser */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-4">
+              <div>
+                <h3 className="font-bold text-stone-900 text-base">
+                  Published Buddy Catalog ({buddyCatalog.length} Items)
+                </h3>
+                <p className="text-stone-500 text-xs">
+                  All active accessories available across the community.
+                </p>
+              </div>
+
+              {/* Category Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                <button
+                  type="button"
+                  onClick={() => setBuddyCategoryFilter('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors ${
+                    buddyCategoryFilter === 'all'
+                      ? 'bg-stone-900 text-white'
+                      : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                  }`}
+                >
+                  All ({buddyCatalog.length})
+                </button>
+                {BUDDY_CATEGORIES.map((cat) => {
+                  const count = buddyCatalog.filter((i) => i.category === cat.id).length;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setBuddyCategoryFilter(cat.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+                        buddyCategoryFilter === cat.id
+                          ? 'bg-stone-900 text-white'
+                          : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                      }`}
+                    >
+                      {cat.label} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Grid of items */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {buddyCatalog
+                .filter((it) => buddyCategoryFilter === 'all' || it.category === buddyCategoryFilter)
+                .map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-4 rounded-2xl border border-stone-200 bg-stone-50/60 flex flex-col justify-between hover:bg-white hover:shadow-xs transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200/80 text-stone-700 uppercase">
+                          {item.category.replace('_', ' ')}
+                        </span>
+                        {item.id.startsWith('sheet_') ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Google Sheet
+                          </span>
+                        ) : item.isCustom ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-pink-100 text-pink-700 border border-pink-200">
+                            Custom Upload
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 border border-blue-200">
+                            Preset
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="w-full h-32 rounded-xl bg-white border border-stone-200 flex items-center justify-center p-2 mb-3 overflow-hidden">
+                        {item.assetUrl ? (
+                          <img
+                            src={item.assetUrl}
+                            alt={item.name}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        ) : (
+                          <div className="text-xs text-stone-400 font-mono">No Graphic</div>
+                        )}
+                      </div>
+
+                      <div className="font-bold text-stone-900 text-sm mb-1 line-clamp-1">
+                        {item.name}
+                      </div>
+                      {item.description && (
+                        <p className="text-stone-500 text-[11px] mb-2 line-clamp-2">
+                          {item.description}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-stone-200/80 flex items-center justify-between mt-2">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-amber-700">
+                        <span>🪙 {item.price === 0 ? 'Free Starter' : `${item.price} BB`}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-stone-400 font-mono">z: {item.zIndex}</span>
+                        {item.isCustom && !item.id.startsWith('sheet_') && (
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteBuddyItem(item.id, item.name)}
+                            className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete custom item"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
       {/* TAB: STORE, SNACK SHACK & WALLET CONFIGURATION                          */}
       {/* ========================================================================= */}
       {activeTab === 'store' && (
@@ -2757,7 +3300,7 @@ export default function DeveloperPage() {
                     <Award className="w-4 h-4" />
                   </span>
                   <h3 className="font-fredoka text-lg font-bold text-stone-900">
-                    Level Tiers, Points Thresholds & Unlocked Rewards
+                    Level Tiers, Points Thresholds & Buddy Bucks Rewards
                   </h3>
                 </div>
                 <p className="text-xs text-stone-500 mt-1">
@@ -2793,7 +3336,7 @@ export default function DeveloperPage() {
                     <th className="py-3 px-3 w-48">Rank Title</th>
                     <th className="py-3 px-3 w-28">Min XP</th>
                     <th className="py-3 px-3 w-20 text-center">Badge</th>
-                    <th className="py-3 px-3">Reward / Perk Unlocked</th>
+                    <th className="py-3 px-3">Buddy Bucks Reward</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-stone-100">
@@ -2834,7 +3377,7 @@ export default function DeveloperPage() {
                           type="text"
                           value={tier.reward}
                           onChange={(e) => handleUpdateTierField(tier.level, 'reward', e.target.value)}
-                          placeholder="e.g. Free 3D Print Test Token, Holographic Sticker Pack"
+                          placeholder="e.g. 50 Buddy Bucks"
                           className="w-full p-1.5 rounded-lg border border-stone-200 bg-white text-xs text-stone-800 focus:border-amber-400 focus:outline-none"
                         />
                       </td>

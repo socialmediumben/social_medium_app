@@ -520,22 +520,34 @@ export async function awardMemberXp(params: {
   const newLevelState = calculateLevelFromXp(newTotalXp, tiers);
   const leveledUp = newLevelState.level > oldLevelState.level;
 
-  // Award Buddy Bucks on Level-Up milestone!
+  // Automatically gift Buddy Bucks when user reaches a new XP milestone tier!
   if (leveledUp) {
-    const tierBucksMap: Record<number, number> = {
-      2: 25,
-      3: 50,
-      4: 75,
-      5: 100,
-      6: 150,
-      7: 200,
-      8: 250,
-      9: 350,
-      10: 500,
-    };
-    const bucksAward = tierBucksMap[newLevelState.level] || 50;
+    let bucksAward = 0;
+    if (newLevelState.reward) {
+      const match = newLevelState.reward.match(/(\d+)/);
+      if (match) bucksAward = parseInt(match[1], 10);
+    }
+    if (!bucksAward || isNaN(bucksAward)) {
+      const defaultBucksMap: Record<number, number> = {
+        2: 25,
+        3: 50,
+        4: 75,
+        5: 100,
+        6: 150,
+        7: 200,
+        8: 250,
+        9: 350,
+        10: 500,
+      };
+      bucksAward = defaultBucksMap[newLevelState.level] || 50;
+    }
+
     import('./buddy').then(({ awardBuddyBucks }) => {
-      awardBuddyBucks(accountId, bucksAward, `Milestone Level ${newLevelState.level}: ${newLevelState.title}`);
+      awardBuddyBucks(
+        accountId,
+        bucksAward,
+        `Level ${newLevelState.level} Milestone Reward (${newLevelState.title})`
+      );
     }).catch(console.warn);
   }
 
@@ -620,6 +632,28 @@ export async function setMemberXpDirectly(
   const oldState = calculateLevelFromXp(oldXp, tiers);
   const newState = calculateLevelFromXp(safeXp, tiers);
   const leveledUp = newState.level > oldState.level;
+
+  // Automatically gift Buddy Bucks when user reaches a new XP milestone tier (even in simulation)
+  if (leveledUp) {
+    let bucksAward = 0;
+    if (newState.reward) {
+      const match = newState.reward.match(/(\d+)/);
+      if (match) bucksAward = parseInt(match[1], 10);
+    }
+    if (!bucksAward || isNaN(bucksAward)) {
+      const defaultBucksMap: Record<number, number> = {
+        2: 25, 3: 50, 4: 75, 5: 100, 6: 150, 7: 200, 8: 250, 9: 350, 10: 500,
+      };
+      bucksAward = defaultBucksMap[newState.level] || 50;
+    }
+    import('./buddy').then(({ awardBuddyBucks }) => {
+      awardBuddyBucks(
+        accountId,
+        bucksAward,
+        `Level ${newState.level} Milestone Reward (${newState.title})`
+      );
+    }).catch(console.warn);
+  }
 
   appendXpAuditRecord(accountId, {
     id: `xp_override_${Date.now()}`,
