@@ -192,10 +192,12 @@ export async function fetchMemberProfileByAccountId(
       const fieldId = String(field.id);
       const fieldName = (field.name || '').toLowerCase();
 
-      // XP / Experience Points (Field matching ID, configured ID, or name)
-      const configuredXpFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null;
+      // XP / Experience Points (Field 122, configured ID, or name)
+      const configuredXpFieldId =
+        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null) || '122';
       if (
-        (configuredXpFieldId && fieldId === configuredXpFieldId) ||
+        fieldId === '122' ||
+        fieldId === configuredXpFieldId ||
         fieldName === 'xp' ||
         fieldName === 'experience points' ||
         fieldName.includes('experience point') ||
@@ -214,11 +216,12 @@ export async function fetchMemberProfileByAccountId(
         }
       }
 
-      // Store Balance / Wallet / Tab (Field matching ID 119, configured ID, or name)
-      const configuredBalanceFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_balance_field_id') : null;
+      // Store Balance / Wallet / Tab (Field 119, configured ID, or name)
+      const configuredBalanceFieldId =
+        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_balance_field_id') : null) || '119';
       if (
         fieldId === '119' ||
-        (configuredBalanceFieldId && fieldId === configuredBalanceFieldId) ||
+        fieldId === configuredBalanceFieldId ||
         fieldName.includes('store balance') ||
         fieldName.includes('wallet') ||
         fieldName.includes('store_balance') ||
@@ -243,10 +246,12 @@ export async function fetchMemberProfileByAccountId(
         }
       }
 
-      // Buddy Avatar Config Field
-      const configuredAvatarFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null;
+      // Buddy Avatar Config Field (Field 120, configured ID, or name)
+      const configuredAvatarFieldId =
+        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null) || '120';
       if (
-        (configuredAvatarFieldId && fieldId === configuredAvatarFieldId) ||
+        fieldId === '120' ||
+        fieldId === configuredAvatarFieldId ||
         fieldName.includes('buddy avatar') ||
         fieldName.includes('buddy_avatar') ||
         fieldName === 'avatar' ||
@@ -262,10 +267,12 @@ export async function fetchMemberProfileByAccountId(
         }
       }
 
-      // Buddy Bucks In-App Currency Field
-      const configuredBucksFieldId = typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null;
+      // Buddy Bucks In-App Currency Field (Field 121, configured ID, or name)
+      const configuredBucksFieldId =
+        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null) || '121';
       if (
-        (configuredBucksFieldId && fieldId === configuredBucksFieldId) ||
+        fieldId === '121' ||
+        fieldId === configuredBucksFieldId ||
         fieldName.includes('buddy bucks') ||
         fieldName.includes('buddy buck') ||
         fieldName.includes('buddy_bucks')
@@ -1756,6 +1763,9 @@ export const GOOGLE_SHEET_STORE_ITEMS_CSV_URL =
   'https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/gviz/tq?tqx=out:csv&sheet=Store_Items';
 
 export const STORE_BALANCE_FIELD_ID = '119';
+export const BUDDY_AVATAR_FIELD_ID = '120';
+export const BUDDY_BUCKS_FIELD_ID = '121';
+export const XP_FIELD_ID = '122';
 export const STORE_CAMPAIGN_ID = '1';
 export const STORE_CAMPAIGN_CODE = 'STORE';
 
@@ -2159,9 +2169,9 @@ export async function updateMemberXpInNeon(
     } catch (_) {}
   }
 
-  // 2. Sync to Neon One if custom field ID is known
+  // 2. Sync to Neon One (Field 122)
   const configuredXpFieldId =
-    typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null;
+    (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null) || XP_FIELD_ID;
 
   try {
     if (configuredXpFieldId && accountId) {
@@ -2258,7 +2268,7 @@ export async function updateMemberBuddyConfigInNeon(
   }
 
   const configuredFieldId =
-    typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null;
+    (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null) || BUDDY_AVATAR_FIELD_ID;
 
   try {
     if (configuredFieldId && accountId) {
@@ -2312,7 +2322,7 @@ export async function updateMemberBuddyBucksInNeon(
   }
 
   const configuredFieldId =
-    typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null;
+    (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null) || BUDDY_BUCKS_FIELD_ID;
 
   try {
     if (configuredFieldId && accountId) {

@@ -9,6 +9,10 @@ import {
   setCostumeContestVisibility as updateContestVisibilityApi,
   fetchGlobalAppSettings,
   updateGlobalAppSettings,
+  STORE_BALANCE_FIELD_ID,
+  BUDDY_AVATAR_FIELD_ID,
+  BUDDY_BUCKS_FIELD_ID,
+  XP_FIELD_ID,
 } from '@/lib/neon';
 import { syncGamificationFromGlobalSettings } from '@/lib/gamification';
 
@@ -163,9 +167,21 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
             } catch (_) {}
           }
 
-          // 4. Store Global Settings
-          if (settings.storeSettings) {
-            try {
+          // 4. Store Global Settings & Default Field IDs
+          try {
+            if (!localStorage.getItem('sm_neon_xp_field_id')) {
+              localStorage.setItem('sm_neon_xp_field_id', XP_FIELD_ID);
+            }
+            if (!localStorage.getItem('sm_neon_buddy_avatar_field_id')) {
+              localStorage.setItem('sm_neon_buddy_avatar_field_id', BUDDY_AVATAR_FIELD_ID);
+            }
+            if (!localStorage.getItem('sm_neon_buddy_bucks_field_id')) {
+              localStorage.setItem('sm_neon_buddy_bucks_field_id', BUDDY_BUCKS_FIELD_ID);
+            }
+            if (!localStorage.getItem('sm_neon_balance_field_id')) {
+              localStorage.setItem('sm_neon_balance_field_id', STORE_BALANCE_FIELD_ID);
+            }
+            if (settings.storeSettings) {
               if (settings.storeSettings.donationFormUrl) {
                 localStorage.setItem('sm_neon_store_donation_form_url', settings.storeSettings.donationFormUrl);
               }
@@ -175,8 +191,8 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
               if (settings.storeSettings.xpFieldId) {
                 localStorage.setItem('sm_neon_xp_field_id', settings.storeSettings.xpFieldId);
               }
-            } catch (_) {}
-          }
+            }
+          } catch (_) {}
 
           // 5. Gamification Activity XP Rules & Level Tiers
           syncGamificationFromGlobalSettings({

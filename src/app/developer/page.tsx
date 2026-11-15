@@ -67,6 +67,9 @@ import {
   fetchStoreItemsFromSheet,
   fetchStoreItems,
   STORE_BALANCE_FIELD_ID,
+  BUDDY_AVATAR_FIELD_ID,
+  BUDDY_BUCKS_FIELD_ID,
+  XP_FIELD_ID,
   STORE_CAMPAIGN_CODE,
   updateGlobalAppSettings,
   fetchPortalDoorSettings,
@@ -914,7 +917,7 @@ export default function DeveloperPage() {
     setXpRules(fetchXpActivityRules());
     setXpTiers(fetchXpLevelTiers());
     if (typeof window !== 'undefined') {
-      setNeonXpFieldId(localStorage.getItem('sm_neon_xp_field_id') || '');
+      setNeonXpFieldId(localStorage.getItem('sm_neon_xp_field_id') || XP_FIELD_ID);
     }
   }, []);
 
@@ -2334,6 +2337,36 @@ export default function DeveloperPage() {
             <div className="text-[11px] text-emerald-800 pt-1">
               &bull; <strong>Categories:</strong> <code>headwear</code>, <code>tops</code>, <code>props</code>, <code>capes</code>, <code>shoes</code>, <code>face_accessory</code>, <code>expression</code>, <code>hair</code>, <code>base_body</code><br/>
               &bull; <strong>Asset_URL:</strong> Relative path (e.g. <code>/buddies/costume_wizard.png</code>) or public image URL (Google Drive direct link, GitHub, etc.)
+            </div>
+          </div>
+
+          {/* Neon One Custom Fields Status */}
+          <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-950 text-xs space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 font-bold text-blue-900">
+                <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                <span>Neon One CRM Custom Fields Linked</span>
+              </div>
+              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-mono font-bold">
+                Live Neon API v2
+              </span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+              <div className="p-2.5 rounded-xl bg-white border border-blue-200">
+                <div className="text-[10px] uppercase font-bold text-stone-400">Buddy Avatar</div>
+                <div className="font-mono font-bold text-blue-900 text-sm">ID: {BUDDY_AVATAR_FIELD_ID}</div>
+                <div className="text-[10px] text-stone-500">MultiLineText (JSON State)</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-blue-200">
+                <div className="text-[10px] uppercase font-bold text-stone-400">Buddy Bucks</div>
+                <div className="font-mono font-bold text-blue-900 text-sm">ID: {BUDDY_BUCKS_FIELD_ID}</div>
+                <div className="text-[10px] text-stone-500">Whole_Number (In-App Wallet)</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-white border border-blue-200">
+                <div className="text-[10px] uppercase font-bold text-stone-400">Experience Points</div>
+                <div className="font-mono font-bold text-blue-900 text-sm">ID: {XP_FIELD_ID}</div>
+                <div className="text-[10px] text-stone-500">Whole_Number (Level XP)</div>
+              </div>
             </div>
           </div>
 
