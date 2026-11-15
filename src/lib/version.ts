@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.3';
+export const APP_VERSION = '3.4';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.4',
+    date: '2026-11-14',
+    title: 'Dynamic Spreadsheet-Driven Store Categories',
+    changes: [
+      'Replaced fixed store categories with dynamic categories extracted directly from the SM App Database Google Sheet ("Store_Items" tab).',
+      'Store category filter pills automatically reflect whatever categories exist in the spreadsheet (e.g., "Snack Bar", "Materials Store", "SWAG", "Other") with live item counts.',
+      'Removed hardcoded category coercion, allowing custom category names without requiring matching icons or rigid enum constraints.',
+      'Added clean category indicator badges directly to store product cards.',
+    ],
+  },
   {
     version: '3.3',
     date: '2026-11-14',

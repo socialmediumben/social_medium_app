@@ -266,8 +266,33 @@ export default function StoreAndDonatePage() {
     setIsProcessingCheckout(false);
   };
 
+  // Dynamic categories from loaded store items (reflects whatever categories are in the Google Sheet database)
+  const dynamicCategories = React.useMemo(() => {
+    const list: string[] = [];
+    const seen = new Set<string>();
+    storeItems.forEach((item) => {
+      const cat = (item.category || '').trim();
+      if (!cat) return;
+      const lower = cat.toLowerCase();
+      if (!seen.has(lower)) {
+        seen.add(lower);
+        list.push(cat);
+      }
+    });
+    return list;
+  }, [storeItems]);
+
+  useEffect(() => {
+    if (
+      selectedCategory !== 'all' &&
+      !dynamicCategories.some((c) => c.toLowerCase() === selectedCategory.toLowerCase())
+    ) {
+      setSelectedCategory('all');
+    }
+  }, [dynamicCategories, selectedCategory]);
+
   const filteredItems = storeItems.filter(
-    (i) => selectedCategory === 'all' || i.category === selectedCategory
+    (i) => selectedCategory === 'all' || (i.category || '').trim().toLowerCase() === selectedCategory.toLowerCase()
   );
 
   return (
@@ -497,33 +522,52 @@ export default function StoreAndDonatePage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Catalog (8 cols) */}
             <div className="lg:col-span-8 space-y-4">
-              {/* Category Filter Pills */}
+              {/* Category Filter Pills (Reflecting whatever categories are in the spreadsheet database) */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-                {[
-                  { id: 'all', label: 'All Items' },
-                  { id: 'drink', label: '🥤 Cold Drinks' },
-                  { id: 'snack', label: '🥨 Snacks' },
-                  { id: 'electronics', label: '🤖 Electronics' },
-                  { id: 'materials', label: '🧵 Materials' },
-                ].map((cat) => (
-                  <button
-                    key={cat.id}
-                    type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
-                      selectedCategory === cat.id
-                        ? 'bg-[#344ea2] text-white shadow-xs'
-                        : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                ))}
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('all')}
+                  className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer ${
+                    selectedCategory === 'all'
+                      ? 'bg-[#344ea2] text-white shadow-xs'
+                      : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+                  }`}
+                >
+                  All Items ({storeItems.length})
+                </button>
+
+                {dynamicCategories.map((cat) => {
+                  const isSelected = selectedCategory.toLowerCase() === cat.toLowerCase();
+                  const count = storeItems.filter(
+                    (i) => (i.category || '').trim().toLowerCase() === cat.toLowerCase()
+                  ).length;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => setSelectedCategory(cat)}
+                      className={`px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-colors cursor-pointer flex items-center gap-1.5 ${
+                        isSelected
+                          ? 'bg-[#344ea2] text-white shadow-xs'
+                          : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+                      }`}
+                    >
+                      <span>{cat}</span>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                          isSelected ? 'bg-white/20 text-white' : 'bg-stone-100 text-stone-500'
+                        }`}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
 
                 <button
                   type="button"
                   onClick={() => setShowCustomModal(true)}
-                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 cursor-pointer ml-auto"
+                  className="px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 flex items-center gap-1 cursor-pointer ml-auto shrink-0"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Custom Item</span>
@@ -571,7 +615,14 @@ export default function StoreAndDonatePage() {
                       className="p-4 rounded-2xl bg-white border border-stone-200 hover:border-[#3bc0cd] hover:shadow-md transition-all flex flex-col justify-between group"
                     >
                       <div className="space-y-1">
-                        <div className="text-2xl mb-1">{item.icon || '📦'}</div>
+                        <div className="flex items-center justify-between gap-1 mb-1">
+                          <div className="text-2xl">{item.icon || '📦'}</div>
+                          {item.category && (
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 truncate max-w-[120px]">
+                              {item.category}
+                            </span>
+                          )}
+                        </div>
                         <h4 className="font-bold text-stone-900 text-xs sm:text-sm leading-snug line-clamp-1">
                           {item.name}
                         </h4>

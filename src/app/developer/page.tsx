@@ -1726,7 +1726,7 @@ export default function DeveloperPage() {
                     Name, Category, Price, Description, Icon, Active
                   </div>
                   <p className="text-[10px] text-stone-500">
-                    Categories: <code>drink</code>, <code>snack</code>, <code>electronics</code>, <code>materials</code>. Price is your suggested donation amount (e.g. 1.50, 7.00).
+                    Categories can be anything you choose (e.g. <code>Snack Bar</code>, <code>Materials Store</code>, <code>SWAG</code>, <code>Other</code>). The Store page dynamically creates filter tabs matching whatever categories are in your spreadsheet.
                   </p>
                 </div>
 

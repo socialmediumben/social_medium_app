@@ -132,7 +132,7 @@ export interface PortalPhotoRecord {
 export interface StoreItem {
   id: string;
   name: string;
-  category: 'drink' | 'snack' | 'materials' | 'electronics' | 'other';
+  category: string;
   price: number;
   description?: string;
   icon?: string;

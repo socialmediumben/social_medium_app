@@ -1536,7 +1536,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'soda-cold',
     name: 'Chilled Soda',
-    category: 'drink',
+    category: 'Snack Bar',
     price: 2.00,
     description: 'Coke, Diet Coke, Sprite, Dr. Pepper, or Sunkist from the fridge',
     icon: '🥤',
@@ -1544,7 +1544,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'sparkling-water',
     name: 'Sparkling Water',
-    category: 'drink',
+    category: 'Snack Bar',
     price: 1.50,
     description: 'LaCroix or Bubly chilled can',
     icon: '💧',
@@ -1552,7 +1552,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'energy-drink',
     name: 'Monster / Red Bull',
-    category: 'drink',
+    category: 'Snack Bar',
     price: 3.00,
     description: 'High caffeine energy booster for late-night makers',
     icon: '⚡',
@@ -1560,7 +1560,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'snack-chips',
     name: 'Chips & Pretzels',
-    category: 'snack',
+    category: 'Snack Bar',
     price: 1.50,
     description: 'Individual snack bags from the pantry',
     icon: '🥨',
@@ -1568,7 +1568,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'candy-bar',
     name: 'Candy Bar / Chocolate',
-    category: 'snack',
+    category: 'Snack Bar',
     price: 1.00,
     description: 'Assorted chocolate bars & sweets',
     icon: '🍫',
@@ -1576,7 +1576,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'arduino-nano',
     name: 'Arduino Nano Microcontroller',
-    category: 'electronics',
+    category: 'Materials Store',
     price: 7.00,
     description: 'Breadboard-friendly ATmega328P with USB connection',
     icon: '🤖',
@@ -1584,7 +1584,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'pi-pico',
     name: 'Raspberry Pi Pico',
-    category: 'electronics',
+    category: 'Materials Store',
     price: 6.00,
     description: 'RP2040 dual-core ARM Cortex-M0+ board',
     icon: '🍓',
@@ -1592,7 +1592,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'breadboard-half',
     name: 'Solderless Breadboard',
-    category: 'electronics',
+    category: 'Materials Store',
     price: 3.00,
     description: '400 tie-point prototyping breadboard',
     icon: '🔌',
@@ -1600,7 +1600,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'filament-100g',
     name: 'PLA 3D Filament (100g)',
-    category: 'materials',
+    category: 'Materials Store',
     price: 3.00,
     description: 'High quality 1.75mm PLA filament by weight',
     icon: '🧵',
@@ -1608,7 +1608,7 @@ export const DEFAULT_STORE_ITEMS: StoreItem[] = [
   {
     id: 'acrylic-sheet',
     name: 'Laser Acrylic Scrap Sheet',
-    category: 'materials',
+    category: 'Materials Store',
     price: 2.50,
     description: '1/8" cast acrylic scrap sheet for laser cutting',
     icon: '✨',
@@ -1690,25 +1690,8 @@ export async function fetchStoreItemsFromSheet(): Promise<StoreItem[]> {
       const priceNum = parseFloat(rawPrice);
       if (isNaN(priceNum)) continue;
 
-      const rawCat = catIdx !== -1 ? String(row[catIdx] || '').trim().toLowerCase() : '';
-      let category: StoreItem['category'] = 'other';
-      if (rawCat.includes('drink') || rawCat.includes('beverage')) category = 'drink';
-      else if (rawCat.includes('snack') || rawCat.includes('food') || rawCat.includes('candy')) category = 'snack';
-      else if (
-        rawCat.includes('electro') ||
-        rawCat.includes('circuit') ||
-        rawCat.includes('arduino') ||
-        rawCat.includes('pico')
-      )
-        category = 'electronics';
-      else if (
-        rawCat.includes('mat') ||
-        rawCat.includes('supply') ||
-        rawCat.includes('acrylic') ||
-        rawCat.includes('filament') ||
-        rawCat.includes('art')
-      )
-        category = 'materials';
+      const rawCat = catIdx !== -1 ? String(row[catIdx] || '').trim() : '';
+      const category = rawCat || 'Other';
 
       const desc = descIdx !== -1 ? String(row[descIdx] || '').trim() : '';
       const icon = iconIdx !== -1 ? String(row[iconIdx] || '').trim() : '';
