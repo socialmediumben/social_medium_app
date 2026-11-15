@@ -224,7 +224,9 @@ export function resetXpLevelTiers(): XpLevelTier[] {
  * Calculate member level, title, progress percent, and XP needed for next tier
  */
 export function calculateLevelFromXp(xpInput: number | undefined | null, customTiers?: XpLevelTier[]) {
-  const xp = Math.max(0, xpInput || 0);
+  const rawXp = typeof xpInput === 'number' && !isNaN(xpInput) ? xpInput : 0;
+  // Guard against corrupt date/timestamp values (e.g. > 1 million XP)
+  const xp = Math.max(0, Math.min(rawXp >= 1000000 ? 0 : rawXp, 999999));
   const tiers = customTiers || fetchXpLevelTiers();
 
   // Find the highest tier where minXp <= xp
@@ -416,7 +418,9 @@ export function getLocalMemberXp(accountId: string): number {
     const val = localStorage.getItem(`sm_xp_${accountId}`);
     if (val !== null) {
       const num = parseInt(val, 10);
-      if (!isNaN(num)) return num;
+      if (!isNaN(num) && num >= 0 && num < 1000000) return num;
+      // Corrupt giant number detected! Clear it!
+      localStorage.removeItem(`sm_xp_${accountId}`);
     }
   } catch {}
   return 0;
@@ -428,7 +432,8 @@ export function getLocalMemberXp(accountId: string): number {
 export function setLocalMemberXp(accountId: string, newXp: number): void {
   if (typeof window === 'undefined' || !accountId) return;
   try {
-    localStorage.setItem(`sm_xp_${accountId}`, String(Math.max(0, newXp)));
+    const safe = Math.max(0, Math.min(newXp >= 1000000 ? 0 : newXp, 999999));
+    localStorage.setItem(`sm_xp_${accountId}`, String(safe));
   } catch {}
 }
 

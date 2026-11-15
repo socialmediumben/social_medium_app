@@ -192,49 +192,91 @@ export async function fetchMemberProfileByAccountId(
       const fieldId = String(field.id);
       const fieldName = (field.name || '').toLowerCase();
 
-      // XP / Experience Points (Field 122, configured ID, or name)
-      const configuredXpFieldId =
-        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null) || '122';
+      const rawVal = field.value !== undefined && field.value !== null ? String(field.value).trim() : '';
+
+      // 1. Buddy Avatar Config Field (Field 120) - MUST NEVER BE CONFUSED WITH XP
       if (
-        fieldId === '122' ||
-        fieldId === configuredXpFieldId ||
-        fieldName === 'xp' ||
-        fieldName === 'experience points' ||
-        fieldName.includes('experience point') ||
-        fieldName.includes('xp points')
+        fieldId === '120' ||
+        fieldId === BUDDY_AVATAR_FIELD_ID ||
+        fieldName === 'buddy avatar' ||
+        fieldName.includes('buddy avatar') ||
+        fieldName.includes('buddy_avatar') ||
+        fieldName === 'avatar'
       ) {
-        if (typeof window !== 'undefined' && fieldId) {
+        if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem('sm_neon_xp_field_id', fieldId);
+            localStorage.setItem('sm_neon_buddy_avatar_field_id', '120');
           } catch (_) {}
         }
-        if (field.value !== undefined && field.value !== null) {
-          const num = parseInt(String(field.value).replace(/[^0-9]/g, ''), 10);
-          if (!isNaN(num)) {
+        if (rawVal && rawVal.startsWith('{')) {
+          parsedBuddyAvatar = rawVal;
+        }
+        continue;
+      }
+
+      // 2. Buddy Bucks In-App Currency Field (Field 121)
+      if (
+        fieldId === '121' ||
+        fieldId === BUDDY_BUCKS_FIELD_ID ||
+        fieldName === 'buddy bucks' ||
+        fieldName.includes('buddy bucks') ||
+        fieldName.includes('buddy buck') ||
+        fieldName.includes('buddy_bucks')
+      ) {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('sm_neon_buddy_bucks_field_id', '121');
+          } catch (_) {}
+        }
+        if (rawVal !== '') {
+          const num = parseInt(rawVal.replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(num) && num >= 0 && num < 1000000) {
+            parsedBuddyBucks = num;
+          }
+        }
+        continue;
+      }
+
+      // 3. XP / Experience Points (Field 122) - NEVER Field 120, NEVER parse JSON or dates!
+      if (
+        fieldId === '122' ||
+        fieldId === XP_FIELD_ID ||
+        fieldName === 'experience points' ||
+        fieldName === 'xp' ||
+        fieldName === 'xp points'
+      ) {
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('sm_neon_xp_field_id', '122');
+          } catch (_) {}
+        }
+        // Guard against JSON strings, dates, or timestamps
+        if (rawVal !== '' && !rawVal.startsWith('{') && !rawVal.includes('"') && !rawVal.includes('-')) {
+          const num = parseInt(rawVal.replace(/[^0-9]/g, ''), 10);
+          if (!isNaN(num) && num >= 0 && num < 1000000) {
             parsedXp = num;
           }
         }
+        continue;
       }
 
-      // Store Balance / Wallet / Tab (Field 119, configured ID, or name)
-      const configuredBalanceFieldId =
-        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_balance_field_id') : null) || '119';
+      // 4. Store Balance / Wallet / Tab (Field 119)
       if (
         fieldId === '119' ||
-        fieldId === configuredBalanceFieldId ||
+        fieldId === STORE_BALANCE_FIELD_ID ||
         fieldName.includes('store balance') ||
         fieldName.includes('wallet') ||
         fieldName.includes('store_balance') ||
         fieldName.includes('tab balance') ||
         fieldName === 'balance'
       ) {
-        if (typeof window !== 'undefined' && fieldId) {
+        if (typeof window !== 'undefined') {
           try {
-            localStorage.setItem('sm_neon_balance_field_id', fieldId);
+            localStorage.setItem('sm_neon_balance_field_id', '119');
           } catch (_) {}
         }
-        if (field.value !== undefined && field.value !== null && String(field.value).trim() !== '') {
-          const num = parseFloat(String(field.value).replace(/[^0-9.-]/g, ''));
+        if (rawVal !== '') {
+          const num = parseFloat(rawVal.replace(/[^0-9.-]/g, ''));
           if (!isNaN(num)) {
             parsedStoreBalance = num;
             if (typeof window !== 'undefined' && accountId) {
@@ -244,50 +286,7 @@ export async function fetchMemberProfileByAccountId(
             }
           }
         }
-      }
-
-      // Buddy Avatar Config Field (Field 120, configured ID, or name)
-      const configuredAvatarFieldId =
-        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_avatar_field_id') : null) || '120';
-      if (
-        fieldId === '120' ||
-        fieldId === configuredAvatarFieldId ||
-        fieldName.includes('buddy avatar') ||
-        fieldName.includes('buddy_avatar') ||
-        fieldName === 'avatar' ||
-        fieldName === 'buddy'
-      ) {
-        if (typeof window !== 'undefined' && fieldId) {
-          try {
-            localStorage.setItem('sm_neon_buddy_avatar_field_id', fieldId);
-          } catch (_) {}
-        }
-        if (field.value && typeof field.value === 'string' && field.value.trim().startsWith('{')) {
-          parsedBuddyAvatar = field.value.trim();
-        }
-      }
-
-      // Buddy Bucks In-App Currency Field (Field 121, configured ID, or name)
-      const configuredBucksFieldId =
-        (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_buddy_bucks_field_id') : null) || '121';
-      if (
-        fieldId === '121' ||
-        fieldId === configuredBucksFieldId ||
-        fieldName.includes('buddy bucks') ||
-        fieldName.includes('buddy buck') ||
-        fieldName.includes('buddy_bucks')
-      ) {
-        if (typeof window !== 'undefined' && fieldId) {
-          try {
-            localStorage.setItem('sm_neon_buddy_bucks_field_id', fieldId);
-          } catch (_) {}
-        }
-        if (field.value !== undefined && field.value !== null && String(field.value).trim() !== '') {
-          const num = parseInt(String(field.value).replace(/[^0-9]/g, ''), 10);
-          if (!isNaN(num)) {
-            parsedBuddyBucks = num;
-          }
-        }
+        continue;
       }
 
       // Pronouns (Legacy Field 82)
@@ -381,18 +380,49 @@ export async function fetchMemberProfileByAccountId(
         const localCachedXp = localStorage.getItem(`sm_xp_${accountId}`);
         if (localCachedXp !== null) {
           const num = parseInt(localCachedXp, 10);
-          if (!isNaN(num)) {
+          if (!isNaN(num) && num >= 0 && num < 1000000) {
             parsedXp = num;
+          } else {
+            // Corrupt timestamp in cache! Clear it!
+            localStorage.removeItem(`sm_xp_${accountId}`);
           }
         }
       }
     }
 
-    const finalXp = parsedXp !== undefined ? parsedXp : 0;
+    const finalXp = parsedXp !== undefined && parsedXp < 1000000 ? parsedXp : 0;
     if (typeof window !== 'undefined' && accountId) {
       try {
         localStorage.setItem(`sm_xp_${accountId}`, String(finalXp));
       } catch (_) {}
+    }
+
+    // Sync XP to Neon One if currently blank in Neon One
+    if (parsedXp === undefined && accountId) {
+      updateMemberXpInNeon(accountId, finalXp).catch(() => {});
+    }
+
+    // Determine Buddy Bucks (resolve from Neon field 121, local cache, or 50 starter grant)
+    let finalBuddyBucks = parsedBuddyBucks;
+    if (finalBuddyBucks === undefined) {
+      if (typeof window !== 'undefined' && accountId) {
+        try {
+          const cachedBucks = localStorage.getItem(`sm_buddy_bucks_${accountId}`);
+          if (cachedBucks !== null) {
+            const num = parseInt(cachedBucks, 10);
+            if (!isNaN(num) && num >= 0 && num < 1000000) {
+              finalBuddyBucks = num;
+            }
+          }
+        } catch (_) {}
+      }
+      if (finalBuddyBucks === undefined) {
+        finalBuddyBucks = 50; // Starter grant
+      }
+      // If blank in Neon One, initialize it to Neon One field 121
+      if (accountId) {
+        updateMemberBuddyBucksInNeon(accountId, finalBuddyBucks).catch(() => {});
+      }
     }
 
     const levelState = calculateLevelFromXp(finalXp);
@@ -428,6 +458,8 @@ export async function fetchMemberProfileByAccountId(
       levelTitle: levelState.title,
       levelBadge: levelState.badgeEmoji,
       levelReward: levelState.reward,
+      buddyAvatar: parsedBuddyAvatar,
+      buddyBucks: finalBuddyBucks,
     };
 
     return { success: true, member: memberProfile };
@@ -2149,7 +2181,8 @@ export async function updateMemberXpInNeon(
   accountId: string,
   newXp: number
 ): Promise<{ success: boolean; newXp: number; error?: string }> {
-  const safeXp = Math.max(0, Math.round(newXp));
+  // Sanitize XP to ensure no corrupt timestamps or tap card IDs can ever be saved as XP
+  const safeXp = Math.max(0, Math.min(newXp >= 1000000 ? 0 : Math.round(newXp), 999999));
 
   // 1. Always persist locally
   if (typeof window !== 'undefined' && accountId) {
@@ -2169,12 +2202,11 @@ export async function updateMemberXpInNeon(
     } catch (_) {}
   }
 
-  // 2. Sync to Neon One (Field 122)
-  const configuredXpFieldId =
-    (typeof window !== 'undefined' ? localStorage.getItem('sm_neon_xp_field_id') : null) || XP_FIELD_ID;
+  // 2. Sync strictly to Neon One Experience Points Field (ID 122)
+  const configuredXpFieldId = XP_FIELD_ID;
 
   try {
-    if (configuredXpFieldId && accountId) {
+    if (accountId) {
       await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
