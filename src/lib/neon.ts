@@ -1343,19 +1343,8 @@ export async function fetchPhotoboothPhotosFromSheet(cardId?: string): Promise<P
     const candidateIds = new Set<string>();
     if (cardId) {
       const clean = String(cardId).trim().toLowerCase();
-      candidateIds.add(clean);
-      const norm = normalizeNfcTapCard(clean).toLowerCase();
-      if (norm) candidateIds.add(norm);
-      if (/^\d+$/.test(clean)) {
-        try {
-          candidateIds.add(Number(clean).toString(16).toLowerCase());
-        } catch (_) {}
-      } else if (/^[0-9a-fA-F]+$/.test(clean)) {
-        try {
-          const parsed = parseInt(clean, 16);
-          if (!isNaN(parsed)) candidateIds.add(parsed.toString());
-        } catch (_) {}
-      }
+      const allCands = getCandidateTapCardIds(clean);
+      allCands.forEach(c => candidateIds.add(String(c).trim().toLowerCase()));
     }
 
     const photos: PortalPhotoRecord[] = [];
