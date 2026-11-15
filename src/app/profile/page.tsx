@@ -23,6 +23,7 @@ import {
   History,
   Award,
   Printer,
+  DoorOpen,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
@@ -36,6 +37,7 @@ import {
 import {
   updateMemberInterestsInNeon,
   updateMemberContactInNeon,
+  updatePortalDoorSettings,
   NEON_INTEREST_OPTIONS,
   NEON_GENDER_OPTIONS,
 } from '@/lib/neon';
@@ -94,6 +96,25 @@ export default function ProfilePage() {
   const [xpAuditHistory, setXpAuditHistory] = useState<XpAuditRecord[]>([]);
   const [showAllTiersModal, setShowAllTiersModal] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+
+  // Portal Door Beam state
+  const [isBeamingToDoor, setIsBeamingToDoor] = useState(false);
+  const [beamSuccess, setBeamSuccess] = useState(false);
+
+  const handleBeamToPortalDoor = async () => {
+    const targetCard = member?.tapCard || activeCardId;
+    if (!targetCard) return;
+    setIsBeamingToDoor(true);
+    try {
+      await updatePortalDoorSettings({ activeProfileCardId: targetCard });
+      setBeamSuccess(true);
+      setTimeout(() => setBeamSuccess(false), 4500);
+    } catch (err) {
+      console.warn('Failed to beam profile to portal door:', err);
+    } finally {
+      setIsBeamingToDoor(false);
+    }
+  };
 
   useEffect(() => {
     setLevelTiers(fetchXpLevelTiers());
@@ -382,6 +403,30 @@ export default function ProfilePage() {
             <div className="text-[11px] text-stone-400 mt-1">
               Synchronized with kiosk check-in and portal door.
             </div>
+            <button
+              type="button"
+              onClick={handleBeamToPortalDoor}
+              disabled={isBeamingToDoor}
+              className="mt-3 w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#3bc0cd]/20 hover:bg-[#3bc0cd]/30 border border-[#3bc0cd]/40 text-[#3bc0cd] hover:text-white text-xs font-bold transition-all disabled:opacity-50 active:scale-95 cursor-pointer"
+              title="Display your Buddy Avatar & Profile on the physical Portal Door screen"
+            >
+              {beamSuccess ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-300 font-semibold">Beamed to Portal Door!</span>
+                </>
+              ) : isBeamingToDoor ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-[#3bc0cd]" />
+                  <span>Beaming to Door...</span>
+                </>
+              ) : (
+                <>
+                  <DoorOpen className="w-4 h-4 text-[#3bc0cd]" />
+                  <span>Show on Portal Door</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
