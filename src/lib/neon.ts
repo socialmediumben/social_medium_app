@@ -532,16 +532,14 @@ export function getCandidateTapCardIds(raw: string): string[] {
   if (!clean) return [];
 
   const candidates = new Set<string>();
-  candidates.add(clean);
-  candidates.add(clean.toLowerCase());
-  candidates.add(clean.toUpperCase());
 
+  // 1. Prioritize canonical decimal representations first for fast CRM matching
   const norm = normalizeNfcTapCard(clean);
   if (norm) {
     candidates.add(norm);
   }
 
-  // If it's hexadecimal (e.g. 544ca65a)
+  // If it's hexadecimal (e.g. 544ca65a), derive decimal immediately
   if (/^[0-9a-fA-F]{6,16}$/.test(clean)) {
     try {
       const dec = parseInt(clean, 16);
@@ -575,6 +573,11 @@ export function getCandidateTapCardIds(raw: string): string[] {
       } catch (_) {}
     }
   }
+
+  // 2. Also test raw input and case variants
+  candidates.add(clean);
+  candidates.add(clean.toLowerCase());
+  candidates.add(clean.toUpperCase());
 
   // If it's a decimal number (e.g. 1414309466)
   if (/^\d+$/.test(clean)) {
