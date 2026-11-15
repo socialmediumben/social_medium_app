@@ -894,7 +894,7 @@ export default function ProfilePage() {
                           const blackSvg = item.iconSvg
                             .replace(/stroke="currentColor"/g, 'stroke="#000000"')
                             .replace(/fill="currentColor"/g, 'fill="#000000"')
-                            .replace(/width="24" height="24"/g, 'width="18" height="18"');
+                            .replace(/width="24" height="24"/g, 'width="16" height="16"');
                           return (
                             <div
                               key={idx}
@@ -1149,7 +1149,7 @@ export default function ProfilePage() {
                     const blackSvg = item.iconSvg
                       .replace(/stroke="currentColor"/g, 'stroke="#000000"')
                       .replace(/fill="currentColor"/g, 'fill="#000000"')
-                      .replace(/width="24" height="24"/g, 'width="18" height="18"');
+                      .replace(/width="24" height="24"/g, 'width="16" height="16"');
                     return (
                       <div
                         key={idx}
