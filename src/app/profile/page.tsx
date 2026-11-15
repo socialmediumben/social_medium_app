@@ -22,6 +22,7 @@ import {
   ChevronRight,
   History,
   Award,
+  Printer,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { TapCardLogin } from '@/components/TapCardLogin';
@@ -828,6 +829,95 @@ export default function ProfilePage() {
               </div>
             )}
           </div>
+
+          {/* Check-In Kiosk Nametag Live Preview (2" x 3" Thermal Label) */}
+          <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div>
+                <h2 className="font-fredoka text-lg font-bold text-stone-900 flex items-center gap-2">
+                  <span>Check-In Kiosk Nametag</span>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 uppercase tracking-wider">
+                    2&quot; &times; 3&quot; Thermal Format
+                  </span>
+                </h2>
+                <p className="text-stone-500 text-xs mt-0.5">
+                  Live preview of how your nametag prints automatically when checking in at the kiosk.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="text-xs font-semibold text-[#344ea2] hover:text-[#f16622] flex items-center gap-1.5 px-3 py-1.5 rounded-xl hover:bg-stone-50 transition-colors cursor-pointer border border-stone-200"
+                title="Print test nametag to thermal printer"
+              >
+                <Printer className="w-3.5 h-3.5" />
+                <span>Test Print</span>
+              </button>
+            </div>
+
+            {/* Nametag Card Render */}
+            <div className="py-2">
+              <div className="nametag-preview-wrap">
+                <div className="nametag-card">
+                  <div>
+                    <div className="nametag-header">
+                      <div className={`nametag-name ${
+                        greetingName.length > 14 ? 'very-long-name' : greetingName.length > 10 ? 'long-name' : ''
+                      }`}>
+                        {greetingName}
+                      </div>
+                      <div className="nametag-badge">
+                        {member.membershipStatus?.toLowerCase() === 'active' ? (
+                          <span className="nametag-badge-star" title="Active Member">★</span>
+                        ) : (
+                          <div className="nametag-badge-circle" title="Guest / Day Pass"></div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="nametag-pronouns">
+                      Pronouns: {member.pronouns || '___________'}
+                    </div>
+                  </div>
+
+                  <div className="nametag-body">
+                    <div className="nametag-nerdy-label">I&apos;M NERDY FOR...</div>
+                    <div className="nametag-interests">
+                      {[...selectedInterests, ...(customInterestsInput ? [customInterestsInput.trim()] : [])].filter(Boolean).join(', ') || 'Everything!'}
+                    </div>
+                  </div>
+
+                  {deduplicatedCerts.length > 0 && (
+                    <div className="nametag-certs-container">
+                      <div className="nametag-certs-row">
+                        {deduplicatedCerts.map((item: any, idx: number) => {
+                          const blackSvg = item.iconSvg
+                            .replace(/stroke="currentColor"/g, 'stroke="#000000"')
+                            .replace(/fill="currentColor"/g, 'fill="#000000"')
+                            .replace(/width="24" height="24"/g, 'width="18" height="18"');
+                          return (
+                            <div
+                              key={idx}
+                              className="nametag-cert-pill"
+                              title={`${item.name}${item.isAdvanced ? ' (Advanced)' : ''}`}
+                            >
+                              <div
+                                className="nametag-cert-icon"
+                                dangerouslySetInnerHTML={{ __html: blackSvg }}
+                              />
+                              {item.isAdvanced && (
+                                <span className="nametag-cert-plus">+</span>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Right Column (1 Col): Member Information with First, Last, Preferred Name matching Neon One */}
@@ -1016,6 +1106,68 @@ export default function ProfilePage() {
                   )}
                 </button>
               </form>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Hidden print container for thermal nametag */}
+      <div id="nametag-to-print" className="hidden">
+        <div className="nametag-preview-wrap">
+          <div className="nametag-card">
+            <div>
+              <div className="nametag-header">
+                <div className={`nametag-name ${
+                  greetingName.length > 14 ? 'very-long-name' : greetingName.length > 10 ? 'long-name' : ''
+                }`}>
+                  {greetingName}
+                </div>
+                <div className="nametag-badge">
+                  {member.membershipStatus?.toLowerCase() === 'active' ? (
+                    <span className="nametag-badge-star" title="Active Member">★</span>
+                  ) : (
+                    <div className="nametag-badge-circle" title="Guest / Day Pass"></div>
+                  )}
+                </div>
+              </div>
+              <div className="nametag-pronouns">
+                Pronouns: {member.pronouns || '___________'}
+              </div>
+            </div>
+
+            <div className="nametag-body">
+              <div className="nametag-nerdy-label">I&apos;M NERDY FOR...</div>
+              <div className="nametag-interests">
+                {[...selectedInterests, ...(customInterestsInput ? [customInterestsInput.trim()] : [])].filter(Boolean).join(', ') || 'Everything!'}
+              </div>
+            </div>
+
+            {deduplicatedCerts.length > 0 && (
+              <div className="nametag-certs-container">
+                <div className="nametag-certs-row">
+                  {deduplicatedCerts.map((item: any, idx: number) => {
+                    const blackSvg = item.iconSvg
+                      .replace(/stroke="currentColor"/g, 'stroke="#000000"')
+                      .replace(/fill="currentColor"/g, 'fill="#000000"')
+                      .replace(/width="24" height="24"/g, 'width="18" height="18"');
+                    return (
+                      <div
+                        key={idx}
+                        className="nametag-cert-pill"
+                        title={`${item.name}${item.isAdvanced ? ' (Advanced)' : ''}`}
+                      >
+                        <div
+                          className="nametag-cert-icon"
+                          dangerouslySetInnerHTML={{ __html: blackSvg }}
+                        />
+                        {item.isAdvanced && (
+                          <span className="nametag-cert-plus">+</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </div>

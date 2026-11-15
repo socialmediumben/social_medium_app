@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.6';
+export const APP_VERSION = '3.7';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,19 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '3.7',
+    date: '2026-11-14',
+    title: 'Check-In Kiosk 2" x 3" Thermal Printer Nametag Formatting & Layout Optimization',
+    changes: [
+      'Engineered custom CSS @page { size: 3in 2in; margin: 0; } stylesheet for thermal printers printing 2-inch tall by 3-inch wide nametag labels.',
+      'Guaranteed single-label ejection without accidental blank page spills by constraining root print containers to fixed 3in x 2in boundaries with overflow hidden.',
+      'Optimized thermal print contrast: replaced light-gray typography with solid black high-contrast text and crisp 2.2pt borders suited for 1-bit thermal printheads.',
+      'Adaptive name scaling: automatically adjusts font size for names with 11+ or 15+ characters to eliminate awkward line wrapping on 3-inch wide labels.',
+      'Proportional component layout: scaled member name, pronouns, active member badge, "I\'m Nerdy for..." interests (capped at 2 lines), and tool certification pills into a perfectly balanced vertical budget.',
+      'Synchronized shared certification library (sm-certifications.js) to render compact 18px tool icon pills with bold "+" level badges designed specifically for 2" x 3" thermal labels.',
+    ],
+  },
   {
     version: '3.6',
     date: '2026-11-14',
