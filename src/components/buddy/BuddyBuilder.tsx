@@ -56,6 +56,22 @@ interface BuddyBuilderProps {
   onBuddySaved?: (newConfig: BuddyConfig) => void;
 }
 
+const ACCESSORY_COLOR_PRESETS = [
+  { name: 'Social Medium Cyan', hex: '#3bc0cd' },
+  { name: 'Maker Orange', hex: '#f16622' },
+  { name: 'Social Medium Navy', hex: '#344ea2' },
+  { name: 'Pure White', hex: '#ffffff' },
+  { name: 'Ink Black', hex: '#1c1917' },
+  { name: 'Crimson Red', hex: '#ef4444' },
+  { name: 'Sunshine Gold', hex: '#fbbf24' },
+  { name: 'Emerald Green', hex: '#10b981' },
+  { name: 'Arcane Purple', hex: '#8b5cf6' },
+  { name: 'Neon Coral', hex: '#f43f5e' },
+  { name: 'Electric Sky', hex: '#0284c7' },
+  { name: 'Sage Green', hex: '#8a9280' },
+  { name: 'Maker Brown', hex: '#78350f' },
+];
+
 export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved }) => {
   const accountId = member?.accountId || '';
 
@@ -87,6 +103,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [artName, setArtName] = useState('');
   const [artDescription, setArtDescription] = useState('');
+  const [artColorPicker, setArtColorPicker] = useState(false);
   const [artArtist, setArtArtist] = useState(() =>
     member?.preferredName || (member?.firstName ? `${member.firstName} ${member.lastName || ''}`.trim() : '')
   );
@@ -120,6 +137,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setUploadSuccess(null);
     setArtName('');
     setArtDescription('');
+    setArtColorPicker(false);
     setArtFile(null);
     setArtPreviewUrl(null);
     setArtArtist(
@@ -176,6 +194,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
         zIndex: 50,   // Set by admin upon review
         imageBase64: artPreviewUrl,
         accountId: member?.accountId,
+        colorPicker: artColorPicker,
       });
 
       if (res.success) {
@@ -341,8 +360,37 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
 
     // Equip item
-    const updated = equipBuddyItem(config, item);
+    let updated = equipBuddyItem(config, item);
+    if (item.colorPicker) {
+      const existingColor = updated.equippedColors?.[item.category] || updated.equippedColors?.[item.id];
+      if (!existingColor) {
+        const defaultColor = BUDDY_BASE_COLORS.find((c) => c.id === updated.baseColor)?.hex || '#3bc0cd';
+        updated = {
+          ...updated,
+          equippedColors: {
+            ...(updated.equippedColors || {}),
+            [item.category]: defaultColor,
+            [item.id]: defaultColor,
+          },
+        };
+      }
+    }
     setConfig(updated);
+  };
+
+  // Handle Custom Accessory Color Change for items with colorPicker enabled
+  const handleAccessoryColorChange = (itemOrCat: BuddyItem | string, hexColor: string) => {
+    const category = typeof itemOrCat === 'string' ? itemOrCat : itemOrCat.category;
+    const itemId = typeof itemOrCat === 'string' ? itemOrCat : itemOrCat.id;
+    setConfig((prev) => ({
+      ...prev,
+      equippedColors: {
+        ...(prev.equippedColors || {}),
+        [category]: hexColor,
+        [itemId]: hexColor,
+      },
+      updatedAt: new Date().toISOString(),
+    }));
   };
 
   // Handle Base Color Change
@@ -422,7 +470,18 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     if (res.success) {
       setBuddyBucks(res.newBalance);
       // Auto-equip the newly purchased item!
-      const equipped = equipBuddyItem(res.newConfig, pendingItem);
+      let equipped = equipBuddyItem(res.newConfig, pendingItem);
+      if (pendingItem.colorPicker) {
+        const defaultColor = BUDDY_BASE_COLORS.find((c) => c.id === equipped.baseColor)?.hex || '#3bc0cd';
+        equipped = {
+          ...equipped,
+          equippedColors: {
+            ...(equipped.equippedColors || {}),
+            [pendingItem.category]: defaultColor,
+            [pendingItem.id]: defaultColor,
+          },
+        };
+      }
       setConfig(equipped);
       setPendingItem(null);
     } else {
@@ -822,83 +881,178 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
           )}
 
           {/* SECTION B: ITEMS GRID (FOR ALL OTHER CATEGORIES) */}
-          {activeCategory !== 'body_color' && (
-            <div className="space-y-3 pt-2">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-stone-800">
-                  {categories.find((c) => c.id === activeCategory)?.label || formatCategoryLabel(activeCategory)}
-                </span>
-                <span className="text-[11px] text-stone-400">
-                  {categoryItems.length} {categoryItems.length === 1 ? 'item' : 'items'} available
-                </span>
-              </div>
+          {activeCategory !== 'body_color' && (() => {
+            const activeEquippedItemId = config.equipped[activeCategory];
+            const activeEquippedItem = activeEquippedItemId
+              ? items.find((i) => i.id === activeEquippedItemId)
+              : null;
+            const isColorPickerForCategory = !!activeEquippedItem?.colorPicker;
+            const currentAccessoryColor =
+              (config.equippedColors && (config.equippedColors[activeCategory] || (activeEquippedItem ? config.equippedColors[activeEquippedItem.id] : undefined))) ||
+              '#ffffff';
 
-              {categoryItems.length === 0 ? (
-                <div className="p-8 rounded-2xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-1">
-                  <Shirt className="w-8 h-8 text-stone-300 mx-auto mb-1" />
-                  <p className="text-xs font-semibold text-stone-600">No items in this category yet</p>
-                  <p className="text-[11px] text-stone-400">
-                    Upload new clothes in Developer Mode &rarr; Buddy Assets!
-                  </p>
+            return (
+              <div className="space-y-3 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-stone-800">
+                    {categories.find((c) => c.id === activeCategory)?.label || formatCategoryLabel(activeCategory)}
+                  </span>
+                  <span className="text-[11px] text-stone-400">
+                    {categoryItems.length} {categoryItems.length === 1 ? 'item' : 'items'} available
+                  </span>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {categoryItems.map((item) => {
-                    const isEquipped = config.equipped[item.category] === item.id;
-                    const isUnlocked = config.unlockedItemIds.includes(item.id) || item.price === 0;
 
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => handleItemClick(item)}
-                        className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer relative group ${
-                          isEquipped
-                            ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/20 shadow-xs'
-                            : isUnlocked
-                            ? 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                            : 'border-stone-200 bg-stone-50/60 opacity-85 hover:opacity-100 hover:border-amber-300'
-                        }`}
-                      >
-                        {/* Equipped Indicator Badge */}
-                        {isEquipped && (
-                          <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[9px] uppercase tracking-wider flex items-center gap-0.5 shadow-xs">
-                            <Check className="w-2.5 h-2.5" /> Equipped
-                          </span>
-                        )}
-
-                        {/* Thumbnail / Image Preview */}
-                        <div className="w-full aspect-square rounded-xl bg-stone-100/60 flex items-center justify-center p-2 mb-2 overflow-hidden">
-                          {item.assetUrl ? (
-                            <img
-                              src={item.assetUrl}
-                              alt={item.name}
-                              className="w-full h-full object-contain group-hover:scale-105 transition-transform"
-                            />
-                          ) : (
-                            <div className="text-xs text-stone-400 font-medium">Preview</div>
-                          )}
+                {/* Active Color Tint Picker for Equipped Tintable Item */}
+                {isColorPickerForCategory && activeEquippedItem && (
+                  <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/70 via-orange-50/40 to-stone-50 border border-amber-200/80 shadow-xs space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className="w-5 h-5 rounded-full border border-stone-300 shadow-xs shrink-0"
+                          style={{ backgroundColor: currentAccessoryColor }}
+                        />
+                        <div className="text-xs font-bold text-stone-900 truncate">
+                          Pick Color for <span className="text-orange-600 font-extrabold">{activeEquippedItem.name}</span>
                         </div>
+                      </div>
+                      <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-stone-200 text-[11px] font-bold text-stone-700 hover:bg-stone-50 cursor-pointer shadow-xs transition-colors shrink-0">
+                        <Palette className="w-3.5 h-3.5 text-orange-500" />
+                        <span>Custom Hex</span>
+                        <input
+                          type="color"
+                          value={currentAccessoryColor.startsWith('#') ? currentAccessoryColor : '#ffffff'}
+                          onChange={(e) => handleAccessoryColorChange(activeEquippedItem, e.target.value)}
+                          className="w-0 h-0 opacity-0 absolute pointer-events-none"
+                        />
+                      </label>
+                    </div>
 
-                        {/* Item Details */}
-                        <div>
-                          <div className="text-xs font-bold text-stone-900 leading-tight">
-                            {item.name}
+                    {/* Color Palette Swatches */}
+                    <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                      {ACCESSORY_COLOR_PRESETS.map((swatch) => {
+                        const isCurrent = currentAccessoryColor.toLowerCase() === swatch.hex.toLowerCase();
+                        const isLight = ['#ffffff', '#fff', '#fefefe', '#fbbf24'].includes(swatch.hex.toLowerCase());
+                        return (
+                          <button
+                            key={swatch.hex}
+                            type="button"
+                            onClick={() => handleAccessoryColorChange(activeEquippedItem, swatch.hex)}
+                            title={swatch.name}
+                            className={`w-7 h-7 rounded-xl border-2 transition-all hover:scale-110 flex items-center justify-center cursor-pointer ${
+                              isCurrent ? 'border-stone-900 scale-105 shadow-xs ring-2 ring-orange-500/40' : 'border-white shadow-xs'
+                            }`}
+                            style={{ backgroundColor: swatch.hex }}
+                          >
+                            {isCurrent && (
+                              <Check className={`w-3.5 h-3.5 ${isLight ? 'text-stone-900' : 'text-white'}`} />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {categoryItems.length === 0 ? (
+                  <div className="p-8 rounded-2xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-1">
+                    <Shirt className="w-8 h-8 text-stone-300 mx-auto mb-1" />
+                    <p className="text-xs font-semibold text-stone-600">No items in this category yet</p>
+                    <p className="text-[11px] text-stone-400">
+                      Upload new clothes in Developer Mode &rarr; Buddy Assets!
+                    </p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {categoryItems.map((item) => {
+                      const isEquipped = config.equipped[item.category] === item.id;
+                      const isUnlocked = config.unlockedItemIds.includes(item.id) || item.price === 0;
+
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => handleItemClick(item)}
+                          className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer relative group ${
+                            isEquipped
+                              ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/20 shadow-xs'
+                              : isUnlocked
+                              ? 'border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                              : 'border-stone-200 bg-stone-50/60 opacity-85 hover:opacity-100 hover:border-amber-300'
+                          }`}
+                        >
+                          {/* Equipped Indicator Badge */}
+                          {isEquipped && (
+                            <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[9px] uppercase tracking-wider flex items-center gap-0.5 shadow-xs">
+                              <Check className="w-2.5 h-2.5" /> Equipped
+                            </span>
+                          )}
+
+                          {/* Thumbnail / Image Preview */}
+                          <div className="w-full aspect-square rounded-xl bg-stone-100/60 flex items-center justify-center p-2 mb-2 overflow-hidden relative">
+                            {item.assetUrl ? (
+                              item.colorPicker ? (
+                                <div className="relative w-full h-full flex items-center justify-center">
+                                  <div
+                                    className="absolute inset-0 w-full h-full transition-colors duration-200"
+                                    style={{
+                                      backgroundColor: isEquipped
+                                        ? (config.equippedColors?.[item.category] || config.equippedColors?.[item.id] || '#ffffff')
+                                        : '#3bc0cd',
+                                      WebkitMaskImage: `url(${item.assetUrl})`,
+                                      maskImage: `url(${item.assetUrl})`,
+                                      WebkitMaskSize: 'contain',
+                                      maskSize: 'contain',
+                                      WebkitMaskRepeat: 'no-repeat',
+                                      maskRepeat: 'no-repeat',
+                                      WebkitMaskPosition: 'center',
+                                      maskPosition: 'center',
+                                    }}
+                                  />
+                                  <img
+                                    src={item.assetUrl}
+                                    alt={item.name}
+                                    className="absolute inset-0 w-full h-full object-contain pointer-events-none group-hover:scale-105 transition-transform"
+                                    style={{ mixBlendMode: 'multiply' }}
+                                  />
+                                </div>
+                              ) : (
+                                <img
+                                  src={item.assetUrl}
+                                  alt={item.name}
+                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                />
+                              )
+                            ) : (
+                              <div className="text-xs text-stone-400 font-medium">Preview</div>
+                            )}
                           </div>
-                          {item.artist && (
-                            <div className="text-[10px] text-orange-600 font-semibold mt-0.5 truncate flex items-center gap-1">
-                              <span className="text-[11px]">🎨</span>
-                              <span className="truncate">by {item.artist}</span>
-                            </div>
-                          )}
-                          {item.description && (
-                            <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
 
-                        {/* Price Tag / Lock Status */}
-                        <div className="pt-2 mt-2 border-t border-stone-100 flex items-center justify-between text-[11px]">
+                          {/* Item Details */}
+                          <div>
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-stone-900 leading-tight">
+                                {item.name}
+                              </span>
+                              {item.colorPicker && (
+                                <span className="px-1.5 py-0.5 rounded-md bg-orange-50 border border-orange-200 text-orange-700 font-bold text-[9px] flex items-center gap-0.5">
+                                  <Palette className="w-2.5 h-2.5 text-orange-500" /> Colorable
+                                </span>
+                              )}
+                            </div>
+                            {item.artist && (
+                              <div className="text-[10px] text-orange-600 font-semibold mt-0.5 truncate flex items-center gap-1">
+                                <span className="text-[11px]">🎨</span>
+                                <span className="truncate">by {item.artist}</span>
+                              </div>
+                            )}
+                            {item.description && (
+                              <p className="text-[10px] text-stone-500 line-clamp-1 mt-0.5">
+                                {item.description}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Price Tag / Lock Status */}
+                          <div className="pt-2 mt-2 border-t border-stone-100 flex items-center justify-between text-[11px]">
                           {item.price === 0 ? (
                             <span className="text-emerald-700 font-bold">Free</span>
                           ) : isUnlocked ? (
@@ -916,7 +1070,8 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 
@@ -1250,6 +1405,25 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                     )}
                   </div>
                 </div>
+
+                {/* Color Picker Mode Checkbox */}
+                <label className="flex items-start gap-3 p-3.5 rounded-2xl border border-stone-200 bg-stone-50/60 hover:bg-stone-100/60 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={artColorPicker}
+                    onChange={(e) => setArtColorPicker(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-stone-300 text-orange-600 focus:ring-orange-500 cursor-pointer"
+                  />
+                  <div className="space-y-0.5 select-none">
+                    <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                      <Palette className="w-3.5 h-3.5 text-orange-500" />
+                      <span>Enable Color Picker Mode</span>
+                    </div>
+                    <p className="text-[11px] text-stone-500 leading-snug">
+                      Check this if you uploaded a white silhouette or inked line art. Members will be able to customize this item with a color picker in the wardrobe!
+                    </p>
+                  </div>
+                </label>
 
                 {/* Submission Notice & Google Drive link */}
                 <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-200 text-[11px] text-blue-900 space-y-1">

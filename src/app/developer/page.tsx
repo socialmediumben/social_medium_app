@@ -186,6 +186,7 @@ export default function DeveloperPage() {
   const [newBuddyZIndex, setNewBuddyZIndex] = useState<number>(60);
   const [newBuddyAssetUrl, setNewBuddyAssetUrl] = useState('');
   const [newBuddyDescription, setNewBuddyDescription] = useState('');
+  const [newBuddyColorPicker, setNewBuddyColorPicker] = useState(false);
   const [isSavingBuddyAsset, setIsSavingBuddyAsset] = useState(false);
   const [isSyncingBuddySheet, setIsSyncingBuddySheet] = useState(false);
 
@@ -363,6 +364,7 @@ export default function DeveloperPage() {
         price: Math.max(0, Number(newBuddyPrice) || 0),
         description: newBuddyDescription.trim() || undefined,
         isCustom: true,
+        colorPicker: newBuddyColorPicker,
       };
 
       const updated = saveCustomBuddyItem(newItem);
@@ -372,6 +374,7 @@ export default function DeveloperPage() {
       setNewBuddyName('');
       setNewBuddyAssetUrl('');
       setNewBuddyDescription('');
+      setNewBuddyColorPicker(false);
       setNewBuddyPrice(25);
       setBuddyAssetNotice({
         message: `"${newItem.name}" published successfully! Available to all members in Buddy Builder.`,
@@ -2819,6 +2822,25 @@ export default function DeveloperPage() {
                     className="w-full text-xs bg-stone-50 border border-stone-300 rounded-xl p-2.5 text-stone-900 focus:bg-white focus:outline-hidden focus:border-stone-500"
                   />
                 </div>
+
+                {/* Color Picker Mode Checkbox */}
+                <label className="flex items-start gap-3 p-3 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100/70 cursor-pointer transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={newBuddyColorPicker}
+                    onChange={(e) => setNewBuddyColorPicker(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded border-stone-300 text-stone-900 focus:ring-stone-500 cursor-pointer"
+                  />
+                  <div className="space-y-0.5 select-none">
+                    <div className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
+                      <span>🎨</span>
+                      <span>Color Picker Mode (White silhouette / Line art)</span>
+                    </div>
+                    <p className="text-[11px] text-stone-500 leading-snug">
+                      Allows members to equip this item and dynamically select any color from the wardrobe color palette.
+                    </p>
+                  </div>
+                </label>
 
                 <div className="pt-2">
                   <button

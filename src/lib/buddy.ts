@@ -362,6 +362,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
     let descIdx = -1;
     let activeIdx = -1;
     let artistIdx = -1;
+    let colorPickerIdx = -1;
 
     for (let i = 0; i < header.length; i++) {
       const col = header[i];
@@ -373,6 +374,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       else if (col.includes('desc') || col.includes('detail') || col.includes('note')) descIdx = i;
       else if (col.includes('active') || col.includes('status') || col.includes('enable')) activeIdx = i;
       else if (col.includes('artist') || col.includes('creator') || col.includes('author') || col.includes('by')) artistIdx = i;
+      else if (col.includes('colorpick') || col.includes('tintable') || col === 'picker' || col === 'tint' || col === 'color') colorPickerIdx = i;
     }
 
     if (nameIdx === -1 || (catIdx === -1 && priceIdx === -1 && urlIdx === -1)) {
@@ -424,6 +426,12 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       const description = descIdx !== -1 ? String(row[descIdx] || '').trim() : undefined;
       const artist = artistIdx !== -1 ? String(row[artistIdx] || '').trim() : undefined;
 
+      let colorPicker = false;
+      if (colorPickerIdx !== -1) {
+        const cpVal = String(row[colorPickerIdx] || '').trim().toLowerCase();
+        colorPicker = cpVal === 'true' || cpVal === '1' || cpVal === 'yes' || cpVal === 'y';
+      }
+
       items.push({
         id: `sheet_${r}_${name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
         name,
@@ -434,6 +442,7 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
         description,
         artist: artist || undefined,
         isCustom: true,
+        colorPicker: colorPicker || undefined,
       });
     }
 
@@ -612,6 +621,7 @@ export function loadMemberBuddyConfig(
           unlockedItemIds: Array.isArray(parsed.unlockedItemIds)
             ? Array.from(new Set([...defaultConfig.unlockedItemIds, ...parsed.unlockedItemIds]))
             : defaultConfig.unlockedItemIds,
+          equippedColors: parsed.equippedColors && typeof parsed.equippedColors === 'object' ? parsed.equippedColors : undefined,
           updatedAt: parsed.updatedAt || new Date().toISOString(),
         };
       }
@@ -631,6 +641,7 @@ export function loadMemberBuddyConfig(
             unlockedItemIds: Array.isArray(parsed.unlockedItemIds)
               ? Array.from(new Set([...defaultConfig.unlockedItemIds, ...parsed.unlockedItemIds]))
               : defaultConfig.unlockedItemIds,
+            equippedColors: parsed.equippedColors && typeof parsed.equippedColors === 'object' ? parsed.equippedColors : undefined,
             updatedAt: parsed.updatedAt || new Date().toISOString(),
           };
         }
@@ -767,6 +778,24 @@ export function equipBuddyItem(config: BuddyConfig, item: BuddyItem): BuddyConfi
 }
 
 /**
+ * Sets a custom color for an equipped accessory category or item.
+ */
+export function setBuddyItemColor(
+  config: BuddyConfig,
+  categoryOrId: string,
+  hexColor: string
+): BuddyConfig {
+  const equippedColors = { ...(config.equippedColors || {}) };
+  equippedColors[categoryOrId] = hexColor;
+
+  return {
+    ...config,
+    equippedColors,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+/**
  * Unequips a category of item.
  */
 export function unequipBuddyCategory(
@@ -838,6 +867,7 @@ export interface BuddyArtSubmissionPayload {
   zIndex?: number;
   imageBase64: string; // Base64 data URL
   accountId?: string;
+  colorPicker?: boolean;
 }
 
 export interface BuddyArtSubmissionRecord {
@@ -853,6 +883,7 @@ export interface BuddyArtSubmissionRecord {
   timestamp: string;
   fileId?: string;
   accountId?: string;
+  colorPicker?: boolean;
 }
 
 const PENDING_BUDDY_ART_STORAGE_KEY = 'sm_my_pending_buddy_art';
@@ -893,6 +924,7 @@ export async function uploadBuddyArtItem(
     zIndex,
     imageBase64,
     accountId,
+    colorPicker,
   } = payload;
 
   const timestamp = new Date().toISOString();
@@ -913,6 +945,7 @@ export async function uploadBuddyArtItem(
       artist,
       price,
       image: imageBase64,
+      colorPicker: !!colorPicker,
       timestamp,
     };
 
@@ -945,6 +978,7 @@ export async function uploadBuddyArtItem(
     zIndex,
     assetUrl: directUrl,
     status: 'Pending',
+    colorPicker: !!colorPicker,
     timestamp,
     fileId: fileId || undefined,
     accountId: accountId || undefined,

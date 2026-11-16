@@ -107,6 +107,11 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
       {/* Render all active layers in strict ascending z-index order */}
       {activeLayers.map((layer, index) => {
         const isBaseBody = layer.category === 'base_body';
+        const isTintable = isBaseBody || layer.colorPicker || !!config.equippedColors?.[layer.category] || !!config.equippedColors?.[layer.id];
+        const layerColorHex = isBaseBody
+          ? activeColor.hex
+          : (config.equippedColors?.[layer.category] || config.equippedColors?.[layer.id] || '#ffffff');
+
         return (
           <div
             key={`${layer.id}-${index}`}
@@ -116,13 +121,13 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
             }}
           >
             {layer.assetUrl ? (
-              isBaseBody ? (
+              isTintable ? (
                 <div className="relative w-full h-full flex items-center justify-center">
                   {/* Color Tint Silhouette Layer */}
                   <div
                     className="absolute inset-0 w-full h-full transition-colors duration-200"
                     style={{
-                      backgroundColor: activeColor.hex,
+                      backgroundColor: layerColorHex,
                       WebkitMaskImage: `url(${layer.assetUrl})`,
                       maskImage: `url(${layer.assetUrl})`,
                       WebkitMaskSize: 'contain',
@@ -133,7 +138,7 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
                       maskPosition: 'center',
                     }}
                   />
-                  {/* Crisp Black Outline on top */}
+                  {/* Crisp Ink/Line Art on top */}
                   <img
                     src={layer.assetUrl}
                     alt={layer.name}

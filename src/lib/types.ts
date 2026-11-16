@@ -228,6 +228,7 @@ export interface BuddyItem {
   description?: string;
   artist?: string;           // Artist attribution / creator name
   isCustom?: boolean;        // Uploaded via Developer Module or community
+  colorPicker?: boolean;     // True if item is a white silhouette/line art that supports dynamic color picking
 }
 
 export interface BuddyEquippedLayers {
@@ -238,5 +239,6 @@ export interface BuddyConfig {
   baseColor: string;         // 'cyan' | 'orange' | 'dark-blue' | 'green' | 'purple' | hex
   equipped: BuddyEquippedLayers;
   unlockedItemIds: string[]; // List of unlocked / purchased item IDs
+  equippedColors?: Record<string, string>; // Category or Item ID -> custom hex color
   updatedAt?: string;
 }
