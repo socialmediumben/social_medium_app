@@ -242,3 +242,52 @@ export interface BuddyConfig {
   equippedColors?: Record<string, string>; // Category or Item ID -> custom hex color
   updatedAt?: string;
 }
+
+// ==========================================
+// IMPACT & FUNDRAISING CAMPAIGN TYPES
+// ==========================================
+
+export interface ImpactCampaignSettings {
+  enabled: boolean;
+  campaignId: string;
+  campaignName: string;
+  goalAmount: number;
+  raisedAmount: number;
+  donorCount?: number;
+  donationFormUrl: string;
+  headline?: string;
+  description?: string;
+  thermometerColor?: string;
+  primaryColor?: string;
+  endDate?: string;
+  useLiveNeonStats: boolean;
+  autoSyncNeon?: boolean;
+  updatedAt?: string;
+}
+
+export interface NeonCampaignSummary {
+  id: string;
+  name: string;
+  status: string;
+  code?: string;
+  isDefault?: boolean | null;
+}
+
+export interface NeonCampaignDetail {
+  id: string;
+  name: string;
+  code?: string;
+  goal?: number | null;
+  donationFormUrl?: string;
+  campaignPageUrl?: string;
+  statistics?: {
+    donationCount?: number;
+    donationAmount?: number;
+    pledgeCount?: number;
+    pledgeAmount?: number;
+    grandTotal?: number;
+  };
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+}

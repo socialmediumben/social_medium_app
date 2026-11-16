@@ -48,10 +48,24 @@ import {
   Volume2,
   VolumeX,
   Camera,
+  HeartHandshake,
+  Target,
+  QrCode,
+  TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
-import { getGreetingName, MemberProfile, CommunityAnnouncement, XpActivityRule, XpLevelTier, PortalDoorSettings } from '@/lib/types';
+import {
+  getGreetingName,
+  MemberProfile,
+  CommunityAnnouncement,
+  XpActivityRule,
+  XpLevelTier,
+  PortalDoorSettings,
+  ImpactCampaignSettings,
+  NeonCampaignSummary,
+  NeonCampaignDetail,
+} from '@/lib/types';
 import {
   fetchCommunityAnnouncement,
   updateCommunityAnnouncement,
@@ -74,6 +88,11 @@ import {
   updateGlobalAppSettings,
   fetchPortalDoorSettings,
   updatePortalDoorSettings,
+  fetchNeonCampaigns,
+  fetchNeonCampaignDetail,
+  fetchImpactCampaignSettings,
+  saveImpactCampaignSettings,
+  DEFAULT_IMPACT_SETTINGS,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -105,6 +124,7 @@ import {
   DEFAULT_CATEGORY_LAYER_ORDER,
 } from '@/lib/buddy';
 import { BuddyCanvas } from '@/components/buddy/BuddyCanvas';
+import { DigitalThermometer } from '@/components/impact/DigitalThermometer';
 import { Palette, Shirt, Coins, Crown, Smile, Footprints } from 'lucide-react';
 
 // Import canonical universal certification registry
@@ -120,7 +140,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'portal-door' | 'buddy-assets' | 'store' | 'gamification' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'portal-door' | 'buddy-assets' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -141,6 +161,8 @@ export default function DeveloperPage() {
     openChangelog,
     contestVisibility,
     setContestVisibility,
+    impactVisibility,
+    setImpactVisibility,
     brandLogo,
     setBrandLogo,
   } = useDevMode();
@@ -663,6 +685,23 @@ export default function DeveloperPage() {
     setTimeout(() => setVisNotice(null), 4000);
   };
 
+  const handleImpactVisibilityChange = async (vis: 'all' | 'staff' | 'none') => {
+    setIsUpdatingVis(true);
+    setVisNotice(null);
+    try {
+      const ok = await setImpactVisibility(vis);
+      if (ok) {
+        setVisNotice(`Impact module visibility set to: ${vis.toUpperCase()}`);
+      } else {
+        setVisNotice(`Failed to save Impact visibility change.`);
+      }
+    } catch (e: any) {
+      setVisNotice(`Error: ${e.message}`);
+    }
+    setIsUpdatingVis(false);
+    setTimeout(() => setVisNotice(null), 4000);
+  };
+
   const handleStopAllGameRoomMirrors = async () => {
     try {
       await fetch('https://192.168.12.108:8088/api/mirror/stop-all', { method: 'POST' });
@@ -671,6 +710,106 @@ export default function DeveloperPage() {
       setVisNotice('Remote command dispatched to Game Room network.');
     }
     setTimeout(() => setVisNotice(null), 4000);
+  };
+
+  // ==========================================
+  // IMPACT & FUNDRAISING CAMPAIGN STATE
+  // ==========================================
+  const [impactSettings, setImpactSettings] = useState<ImpactCampaignSettings>(DEFAULT_IMPACT_SETTINGS);
+  const [availableCampaigns, setAvailableCampaigns] = useState<NeonCampaignSummary[]>([]);
+  const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
+  const [isSavingImpact, setIsSavingImpact] = useState(false);
+  const [impactNotice, setImpactNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadImpact() {
+      setIsLoadingCampaigns(true);
+      try {
+        const [settings, campaigns] = await Promise.all([
+          fetchImpactCampaignSettings(),
+          fetchNeonCampaigns(),
+        ]);
+        if (isMounted) {
+          if (settings) setImpactSettings(settings);
+          if (campaigns && campaigns.length > 0) setAvailableCampaigns(campaigns);
+        }
+      } catch (err) {
+        console.error('Failed to load initial impact settings:', err);
+      } finally {
+        if (isMounted) setIsLoadingCampaigns(false);
+      }
+    }
+    loadImpact();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSelectCampaign = async (campaignId: string) => {
+    if (!campaignId) return;
+    setIsLoadingCampaigns(true);
+    setImpactNotice(null);
+    try {
+      const detail = await fetchNeonCampaignDetail(campaignId);
+      if (detail) {
+        setImpactSettings((prev) => ({
+          ...prev,
+          campaignId: detail.id,
+          campaignName: detail.name,
+          goalAmount: (typeof detail.goal === 'number' && detail.goal > 0) ? detail.goal : prev.goalAmount,
+          raisedAmount: detail.statistics?.grandTotal || detail.statistics?.donationAmount || 0,
+          donorCount: detail.statistics?.donationCount || 0,
+          donationFormUrl: detail.donationFormUrl || prev.donationFormUrl,
+        }));
+        setImpactNotice({
+          message: `Loaded details for "${detail.name}" (Goal: $${(detail.goal ?? 0).toLocaleString()}, Raised: $${(detail.statistics?.grandTotal || 0).toLocaleString()})`,
+          type: 'success',
+        });
+      } else {
+        const summary = availableCampaigns.find((c) => c.id === campaignId);
+        if (summary) {
+          setImpactSettings((prev) => ({
+            ...prev,
+            campaignId: summary.id,
+            campaignName: summary.name,
+          }));
+        }
+      }
+    } catch (err: any) {
+      setImpactNotice({
+        message: `Failed to load campaign: ${err.message || 'Unknown error'}`,
+        type: 'error',
+      });
+    } finally {
+      setIsLoadingCampaigns(false);
+    }
+  };
+
+  const handleSaveImpact = async () => {
+    setIsSavingImpact(true);
+    setImpactNotice(null);
+    try {
+      const res = await saveImpactCampaignSettings(impactSettings);
+      if (res.success) {
+        setImpactNotice({
+          message: 'Fundraising campaign and thermometer settings saved successfully across all platforms!',
+          type: 'success',
+        });
+      } else {
+        setImpactNotice({
+          message: res.error || 'Failed to save impact settings',
+          type: 'error',
+        });
+      }
+    } catch (err: any) {
+      setImpactNotice({
+        message: err.message || 'Error saving impact settings',
+        type: 'error',
+      });
+    } finally {
+      setIsSavingImpact(false);
+    }
   };
 
   // ==========================================
@@ -1256,6 +1395,23 @@ export default function DeveloperPage() {
           <Layers className="w-4 h-4 text-amber-400" />
           <span>Module Visibility</span>
         </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('impact')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'impact'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <HeartHandshake className="w-4 h-4 text-rose-400" />
+          <span>Impact & Fundraising</span>
+          {impactSettings.enabled && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" title="Fundraising Campaign Active" />
+          )}
+        </button>
+
         <button
           type="button"
           onClick={() => setActiveTab('portal-door')}
@@ -2028,6 +2184,577 @@ export default function DeveloperPage() {
                 >
                   Open Store Module
                 </Link>
+              </div>
+            </div>
+
+            {/* Card 6: Impact & Fundraising Module */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                  <HeartHandshake className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-lg font-bold text-stone-900">
+                    Impact & Fundraising Module
+                  </h3>
+                  <p className="text-stone-500 text-xs">
+                    Controls whether the Impact page and Digital Thermometer appear in the navigation for members.
+                  </p>
+                </div>
+              </div>
+
+              {/* 3-Way Visibility Radio Toggle */}
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => handleImpactVisibilityChange('all')}
+                  disabled={isUpdatingVis}
+                  className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    impactVisibility === 'all'
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 font-bold shadow-xs'
+                      : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                    <div>
+                      <div className="text-xs font-bold">Visible to All Users (Public)</div>
+                      <div className="text-[11px] text-stone-500 font-normal">
+                        Appears in top navigation and mobile menu for all visitors & members
+                      </div>
+                    </div>
+                  </div>
+                  {impactVisibility === 'all' && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleImpactVisibilityChange('staff')}
+                  disabled={isUpdatingVis}
+                  className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    impactVisibility === 'staff'
+                      ? 'bg-indigo-50 border-indigo-400 text-indigo-950 font-bold shadow-xs'
+                      : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                    <div>
+                      <div className="text-xs font-bold">Staff & Developers Only</div>
+                      <div className="text-[11px] text-stone-500 font-normal">
+                        Hidden from general members; visible only to staff and developers
+                      </div>
+                    </div>
+                  </div>
+                  {impactVisibility === 'staff' && <Check className="w-4 h-4 text-indigo-600 shrink-0" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleImpactVisibilityChange('none')}
+                  disabled={isUpdatingVis}
+                  className={`w-full p-3.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer ${
+                    impactVisibility === 'none'
+                      ? 'bg-red-50 border-red-400 text-red-950 font-bold shadow-xs'
+                      : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-700'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500" />
+                    <div>
+                      <div className="text-xs font-bold">Disabled / Dev Mode Only</div>
+                      <div className="text-[11px] text-stone-500 font-normal">
+                        Completely removed from navigation and hidden from all members
+                      </div>
+                    </div>
+                  </div>
+                  {impactVisibility === 'none' && <Check className="w-4 h-4 text-red-600 shrink-0" />}
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2 border-t border-stone-100">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('impact')}
+                  className="flex-1 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs text-center transition-colors cursor-pointer shadow-xs"
+                >
+                  Configure Campaigns & Thermometer
+                </button>
+                <Link
+                  href="/impact"
+                  className="flex-1 py-2 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 font-semibold text-xs text-center transition-colors"
+                >
+                  Open Live Impact Page
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: IMPACT & FUNDRAISING CAMPAIGNS                                       */}
+      {/* ========================================================================= */}
+      {activeTab === 'impact' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/15 text-rose-600 flex items-center justify-center shrink-0 shadow-xs">
+                <HeartHandshake className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                    Impact & Fundraising Studio
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-600 animate-pulse" />
+                    Cross-Platform Module
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Configure digital thermometer progress, Neon One campaign sync, and donation form endpoints across SM App, Check-In Kiosk, and Portal Door.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setIsLoadingCampaigns(true);
+                  try {
+                    const campaigns = await fetchNeonCampaigns();
+                    if (campaigns && campaigns.length > 0) {
+                      setAvailableCampaigns(campaigns);
+                      setImpactNotice({ message: `Refreshed ${campaigns.length} Neon One campaigns.`, type: 'success' });
+                    }
+                  } catch (err: any) {
+                    setImpactNotice({ message: `Campaign refresh failed: ${err.message}`, type: 'error' });
+                  } finally {
+                    setIsLoadingCampaigns(false);
+                  }
+                }}
+                disabled={isLoadingCampaigns}
+                className="px-3 py-1.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                title="Fetch latest campaign list from Neon One CRM"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCampaigns ? "animate-spin" : ""}`} />
+                <span>Sync CRM</span>
+              </button>
+              <Link
+                href="/impact"
+                target="_blank"
+                className="px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <span>View Live Page</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {impactNotice && (
+            <div
+              className={`p-4 rounded-2xl text-xs font-semibold flex items-center justify-between border ${
+                impactNotice.type === 'success'
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-rose-50 border-rose-200 text-rose-900'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {impactNotice.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                )}
+                <span>{impactNotice.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setImpactNotice(null)}
+                className="p-1 rounded-lg hover:bg-stone-200/50 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          {/* Main 2-Column Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left Column (7 cols): Configuration Controls */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Card 1: Neon One Campaign Discovery */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+                      <Target className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-fredoka text-base font-bold text-stone-900">
+                        Neon One CRM Campaign Discovery
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Select an active campaign to auto-fill goal and real-time donation stats.
+                      </p>
+                    </div>
+                  </div>
+                  {isLoadingCampaigns && (
+                    <span className="flex items-center gap-1.5 text-xs text-stone-400 font-mono">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      Loading...
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                      Selected Neon One Campaign:
+                    </label>
+                    <select
+                      value={impactSettings.campaignId || ''}
+                      onChange={(e) => handleSelectCampaign(e.target.value)}
+                      disabled={isLoadingCampaigns}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 bg-stone-50 text-stone-900 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                    >
+                      <option value="">-- Custom / Manual Campaign --</option>
+                      {availableCampaigns.map((camp) => (
+                        <option key={camp.id} value={camp.id}>
+                          {camp.name} (ID: {camp.id}) {camp.isDefault ? '• Default' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="pt-2 flex flex-col sm:flex-row gap-3">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={impactSettings.enabled !== false}
+                        onChange={(e) => setImpactSettings((prev) => ({ ...prev, enabled: e.target.checked }))}
+                        className="rounded border-stone-300 text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Campaign Active & Displayed</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={impactSettings.autoSyncNeon !== false}
+                        onChange={(e) => setImpactSettings((prev) => ({ ...prev, autoSyncNeon: e.target.checked }))}
+                        className="rounded border-stone-300 text-rose-600 focus:ring-rose-500 w-4 h-4 cursor-pointer"
+                      />
+                      <span>Auto-Sync Live CRM Stats</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Campaign Headline & Appeal Text */}
+                <div className="space-y-3 pt-3 border-t border-stone-100">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Campaign Headline:
+                    </label>
+                    <input
+                      type="text"
+                      value={impactSettings.headline || ''}
+                      onChange={(e) => setImpactSettings((prev) => ({ ...prev, headline: e.target.value }))}
+                      placeholder="e.g. Fuel the Future of Social Medium"
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-stone-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Public Description & Impact Message:
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={impactSettings.description || ''}
+                      onChange={(e) => setImpactSettings((prev) => ({ ...prev, description: e.target.value }))}
+                      placeholder="Tell members how their donations help..."
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-stone-900 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-rose-500 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 2: Donation Form Endpoint Configuration */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+                    <ExternalLink className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-fredoka text-base font-bold text-stone-900">
+                      Donation Form URL & Presets
+                    </h3>
+                    <p className="text-[11px] text-stone-500">
+                      Configure the exact donation link used across Companion App, Kiosk QR Code, and Portal Door.
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Target Donation Form Link:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={impactSettings.donationFormUrl}
+                      onChange={(e) => setImpactSettings((prev) => ({ ...prev, donationFormUrl: e.target.value }))}
+                      placeholder="https://socialmedium.app.neoncrm.com/..."
+                      className="flex-1 px-3.5 py-2.5 rounded-xl border border-stone-200 text-stone-900 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                    <a
+                      href={impactSettings.donationFormUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2.5 rounded-xl border border-stone-200 hover:bg-stone-50 text-stone-600 transition-colors cursor-pointer"
+                      title="Test URL in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  </div>
+                </div>
+
+                {/* Preset Fast-Fill Buttons */}
+                <div className="pt-2">
+                  <span className="text-[11px] font-bold text-stone-500 uppercase tracking-wider block mb-2">
+                    Quick Preset Links:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImpactSettings((prev) => ({
+                          ...prev,
+                          donationFormUrl: `https://socialmedium.app.neoncrm.com/donation.jsp?campaign=${prev.campaignId || '2'}&`,
+                        }))
+                      }
+                      className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs font-semibold text-left flex items-center justify-between cursor-pointer transition-all"
+                    >
+                      <span>Neon Campaign Form</span>
+                      <span className="text-[10px] text-stone-400 font-mono">campaign={impactSettings.campaignId || '2'}</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImpactSettings((prev) => ({
+                          ...prev,
+                          donationFormUrl: 'https://socialmedium.app.neoncrm.com/forms/give',
+                        }))
+                      }
+                      className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs font-semibold text-left flex items-center justify-between cursor-pointer transition-all"
+                    >
+                      <span>General Giving Form</span>
+                      <span className="text-[10px] text-stone-400 font-mono">/forms/give</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImpactSettings((prev) => ({
+                          ...prev,
+                          donationFormUrl: 'https://socialmedium.app.neoncrm.com/forms/donate',
+                        }))
+                      }
+                      className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs font-semibold text-left flex items-center justify-between cursor-pointer transition-all"
+                    >
+                      <span>Standard Donate Form</span>
+                      <span className="text-[10px] text-stone-400 font-mono">/forms/donate</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setImpactSettings((prev) => ({
+                          ...prev,
+                          donationFormUrl: 'https://socialmedium.app.neoncrm.com/forms/store-give',
+                        }))
+                      }
+                      className="p-2 rounded-xl border border-stone-200 bg-stone-50 hover:bg-stone-100 text-stone-800 text-xs font-semibold text-left flex items-center justify-between cursor-pointer transition-all"
+                    >
+                      <span>Store Tab Top-Up Form</span>
+                      <span className="text-[10px] text-stone-400 font-mono">Store Tab</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 3: Goals & Thermometer Stats */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+                    <TrendingUp className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-fredoka text-base font-bold text-stone-900">
+                      Goal, Raised Amount & Thermometer Accent
+                    </h3>
+                    <p className="text-[11px] text-stone-500">
+                      Values update live when synced with CRM, or can be fine-tuned manually here.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Target Goal ($):
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      step="50"
+                      value={impactSettings.goalAmount}
+                      onChange={(e) =>
+                        setImpactSettings((prev) => ({ ...prev, goalAmount: Math.max(1, Number(e.target.value) || 1) }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-stone-900 font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Amount Raised ($):
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="25"
+                      value={impactSettings.raisedAmount}
+                      onChange={(e) =>
+                        setImpactSettings((prev) => ({ ...prev, raisedAmount: Math.max(0, Number(e.target.value) || 0) }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-stone-900 font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-stone-700 mb-1">
+                      Donor Count:
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={impactSettings.donorCount || 0}
+                      onChange={(e) =>
+                        setImpactSettings((prev) => ({ ...prev, donorCount: Math.max(0, Number(e.target.value) || 0) }))
+                      }
+                      className="w-full px-3.5 py-2 rounded-xl border border-stone-200 text-stone-900 font-mono text-sm font-bold focus:outline-none focus:ring-2 focus:ring-rose-500"
+                    />
+                  </div>
+                </div>
+
+                {/* Primary Thermometer Color Picker */}
+                <div className="pt-2">
+                  <label className="block text-xs font-bold text-stone-700 mb-1.5">
+                    Thermometer Fluid Accent Color:
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="color"
+                      value={impactSettings.primaryColor || '#f16622'}
+                      onChange={(e) => setImpactSettings((prev) => ({ ...prev, primaryColor: e.target.value }))}
+                      className="w-10 h-10 rounded-xl cursor-pointer border border-stone-200 p-0.5 bg-white"
+                    />
+                    <div className="flex items-center gap-2">
+                      {['#f16622', '#e11d48', '#4f46e5', '#059669', '#d97706'].map((hex) => (
+                        <button
+                          key={hex}
+                          type="button"
+                          onClick={() => setImpactSettings((prev) => ({ ...prev, primaryColor: hex }))}
+                          className={`w-7 h-7 rounded-full border-2 transition-transform cursor-pointer ${
+                            (impactSettings.primaryColor || '#f16622').toLowerCase() === hex.toLowerCase()
+                              ? 'scale-115 border-stone-900 shadow-xs'
+                              : 'border-transparent hover:scale-105'
+                          }`}
+                          style={{ backgroundColor: hex }}
+                          title={hex}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Save & Deploy Impact Action Button */}
+              <div className="p-4 rounded-3xl bg-stone-900 text-white flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
+                <div>
+                  <h4 className="font-fredoka text-sm font-bold">Synchronize All 3 Platforms</h4>
+                  <p className="text-[11px] text-stone-400">
+                    Saves to cloud settings; instant sync to SM App, Check-in Kiosk, and Portal Door.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSaveImpact}
+                  disabled={isSavingImpact}
+                  className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm disabled:opacity-50"
+                >
+                  {isSavingImpact ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Saving Across Cloud...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      <span>Save & Deploy Impact</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Right Column (5 cols): Live Digital Thermometer & QR Scan Preview */}
+            <div className="lg:col-span-5 space-y-6">
+              <div className="space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-stone-500 block">
+                  Live Digital Thermometer Preview
+                </span>
+                <DigitalThermometer
+                  goal={impactSettings.goalAmount}
+                  raised={impactSettings.raisedAmount}
+                  donorCount={impactSettings.donorCount}
+                  primaryColor={impactSettings.primaryColor || '#f16622'}
+                />
+              </div>
+
+              {/* Scan-to-Donate Mobile QR Code Preview */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-stone-100 text-stone-700 flex items-center justify-center font-bold">
+                    <QrCode className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-fredoka text-sm font-bold text-stone-900">
+                      Scan-To-Donate Mobile QR Code
+                    </h4>
+                    <p className="text-[11px] text-stone-500">
+                      Rendered on the Check-In Kiosk & Portal Door display for smartphone donors.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex flex-col items-center justify-center text-center gap-3">
+                  <div className="p-3 bg-white rounded-2xl border border-stone-200 shadow-xs">
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                        impactSettings.donationFormUrl || 'https://socialmedium.app.neoncrm.com/forms/give'
+                      )}`}
+                      alt="Donation Form QR Code"
+                      className="w-40 h-40 object-contain rounded-lg"
+                    />
+                  </div>
+                  <div className="text-[11px] text-stone-600 font-mono break-all max-w-xs">
+                    {impactSettings.donationFormUrl || 'https://socialmedium.app.neoncrm.com/forms/give'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

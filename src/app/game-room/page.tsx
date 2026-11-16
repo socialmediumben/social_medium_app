@@ -65,7 +65,7 @@ const PRESET_TO_SERVER_ID: Record<string, string> = {
 };
 
 // URL Sanitizer: extracts base origin (e.g. "https://192.168.12.108:8088") even if user pastes "/spellbook"
-export function sanitizeGameRoomUrl(raw: string): string {
+function sanitizeGameRoomUrl(raw: string): string {
   if (!raw) return '';
   let clean = raw.trim();
   if (!/^https?:\/\//i.test(clean)) {
@@ -80,7 +80,7 @@ export function sanitizeGameRoomUrl(raw: string): string {
 }
 
 // Helper to convert HTTP/HTTPS server origin to WS/WSS URL
-export function getWebSocketUrl(rawHttpUrl: string): string {
+function getWebSocketUrl(rawHttpUrl: string): string {
   const clean = sanitizeGameRoomUrl(rawHttpUrl);
   if (!clean) return '';
   return clean.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:') + '/ws';

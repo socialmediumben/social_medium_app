@@ -22,6 +22,7 @@ import {
   Lock,
   Trophy,
   ShoppingBag,
+  HeartHandshake,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -33,6 +34,7 @@ import { syncRecentNeonActivitiesForXp } from '@/lib/neon';
 
 const BASE_NAV_ITEMS = [
   { href: '/profile', label: 'Profile', icon: User, description: 'Member info & certifications' },
+  { href: '/impact', label: 'Impact', icon: HeartHandshake, description: 'Fundraising progress & space impact' },
   { href: '/store', label: 'Store', icon: ShoppingBag, description: 'Snack Shack, Supplies & Tab' },
   { href: '/events', label: 'Events', icon: Calendar, description: 'Upcoming events & RSVP' },
   { href: '/costume-contest', label: 'Costume Contest', icon: Trophy, description: 'Halloween photos & live voting' },
@@ -53,6 +55,7 @@ export function Navbar() {
     openChangelog,
     openIconManager,
     isContestVisible,
+    isImpactVisible,
     brandLogo,
   } = useDevMode();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
@@ -84,8 +87,13 @@ export function Navbar() {
   }, [member?.accountId]);
 
   const baseItems = useMemo(
-    () => BASE_NAV_ITEMS.filter((item) => (item.href === '/costume-contest' ? isContestVisible : true)),
-    [isContestVisible]
+    () =>
+      BASE_NAV_ITEMS.filter((item) => {
+        if (item.href === '/costume-contest') return isContestVisible;
+        if (item.href === '/impact') return isImpactVisible;
+        return true;
+      }),
+    [isContestVisible, isImpactVisible]
   );
 
   const navItems = [

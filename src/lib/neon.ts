@@ -8,6 +8,9 @@ import {
   GameRoomMediaItem,
   StoreItem,
   PortalDoorSettings,
+  ImpactCampaignSettings,
+  NeonCampaignSummary,
+  NeonCampaignDetail,
 } from './types';
 import { calculateLevelFromXp } from './gamification';
 
@@ -987,6 +990,7 @@ export interface GlobalAppSettings {
     costumeContest?: CostumeContestVisibility;
     gameRoom?: 'all' | 'staff' | 'none';
     store?: 'all' | 'staff' | 'none';
+    impact?: 'all' | 'staff' | 'none';
     [key: string]: any;
   };
   portalDoorSettings?: PortalDoorSettings;
@@ -998,7 +1002,121 @@ export interface GlobalAppSettings {
     balanceFieldId?: string;
     xpFieldId?: string;
   };
+  impactSettings?: ImpactCampaignSettings;
   [key: string]: any;
+}
+
+export const DEFAULT_IMPACT_SETTINGS: ImpactCampaignSettings = {
+  enabled: true,
+  campaignId: '2',
+  campaignName: 'Giving Tuesday 2026',
+  goalAmount: 5000,
+  raisedAmount: 0,
+  donorCount: 0,
+  donationFormUrl: 'https://socialmedium.app.neoncrm.com/donation.jsp?campaign=2&',
+  headline: 'Help Us Grow Social Medium Makerspace!',
+  description:
+    'Every dollar supports our accessible community equipment, tools, and hands-on workshops. Thank you for making a difference!',
+  thermometerColor: '#f16622',
+  useLiveNeonStats: true,
+  updatedAt: new Date().toISOString(),
+};
+
+const IMPACT_SETTINGS_STORAGE_KEY = 'sm_impact_settings';
+
+/**
+ * Fetches all available Neon One fundraising campaigns from the backend proxy.
+ */
+export async function fetchNeonCampaigns(): Promise<NeonCampaignSummary[]> {
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/campaigns`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return [];
+  } catch (err) {
+    console.warn('[Impact] Failed to fetch Neon campaigns:', err);
+    return [];
+  }
+}
+
+/**
+ * Fetches complete details & live statistics for a specific Neon One campaign.
+ */
+export async function fetchNeonCampaignDetail(campaignId: string): Promise<NeonCampaignDetail | null> {
+  const cleanId = String(campaignId || '').trim();
+  if (!cleanId) return null;
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/campaigns/${cleanId}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data;
+  } catch (err) {
+    console.warn(`[Impact] Failed to fetch details for campaign ${cleanId}:`, err);
+    return null;
+  }
+}
+
+/**
+ * Retrieves the active Impact fundraising campaign settings with local and global fallback.
+ */
+export async function fetchImpactCampaignSettings(): Promise<ImpactCampaignSettings> {
+  // 1. Try global backend settings first
+  try {
+    const globalSettings = await fetchGlobalAppSettings();
+    if (globalSettings?.impactSettings) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(IMPACT_SETTINGS_STORAGE_KEY, JSON.stringify(globalSettings.impactSettings));
+      }
+      return globalSettings.impactSettings;
+    }
+  } catch (_) {}
+
+  // 2. Check local storage
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(IMPACT_SETTINGS_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (_) {}
+  }
+
+  return DEFAULT_IMPACT_SETTINGS;
+}
+
+/**
+ * Saves and synchronizes Impact fundraising campaign settings locally and globally across all platforms.
+ */
+export async function saveImpactCampaignSettings(
+  settings: Partial<ImpactCampaignSettings>
+): Promise<{ success: boolean; settings?: ImpactCampaignSettings; error?: string }> {
+  const current = await fetchImpactCampaignSettings();
+  const merged: ImpactCampaignSettings = {
+    ...current,
+    ...settings,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(IMPACT_SETTINGS_STORAGE_KEY, JSON.stringify(merged));
+      window.dispatchEvent(new CustomEvent('sm_impact_settings_updated', { detail: merged }));
+    } catch (_) {}
+  }
+
+  const res = await updateGlobalAppSettings({ impactSettings: merged });
+  return {
+    success: res.success,
+    settings: res.settings?.impactSettings || merged,
+    error: res.error,
+  };
 }
 
 /**

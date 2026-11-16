@@ -36,6 +36,9 @@ export interface DevModeContextType {
   contestVisibility: CostumeContestVisibility;
   setContestVisibility: (vis: CostumeContestVisibility) => Promise<boolean>;
   isContestVisible: boolean;
+  impactVisibility: 'all' | 'staff' | 'none';
+  setImpactVisibility: (vis: 'all' | 'staff' | 'none') => Promise<boolean>;
+  isImpactVisible: boolean;
   brandLogo: string | null;
   setBrandLogo: (logo: string | null) => void;
 }
@@ -58,6 +61,9 @@ const DevModeContext = createContext<DevModeContextType>({
   contestVisibility: 'none',
   setContestVisibility: async () => false,
   isContestVisible: false,
+  impactVisibility: 'all',
+  setImpactVisibility: async () => false,
+  isImpactVisible: true,
   brandLogo: null,
   setBrandLogo: () => {},
 });
@@ -77,6 +83,17 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
       } catch (_) {}
     }
     return 'none';
+  });
+  const [impactVisibility, setImpactVisibilityState] = useState<'all' | 'staff' | 'none'>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const savedImpact = localStorage.getItem('sm_impact_visibility');
+        if (savedImpact === 'all' || savedImpact === 'staff' || savedImpact === 'none') {
+          return savedImpact as 'all' | 'staff' | 'none';
+        }
+      } catch (_) {}
+    }
+    return 'all';
   });
   const [brandLogo, setBrandLogoState] = useState<string | null>(null);
 
@@ -150,13 +167,22 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
             } catch (_) {}
           }
 
-          // 2. Module Visibility (e.g. Costume Contest)
+          // 2. Module Visibility (e.g. Costume Contest & Impact)
           if (settings.moduleVisibility?.costumeContest) {
             const vis = settings.moduleVisibility.costumeContest;
             setContestVisibilityState(vis);
             try {
               localStorage.setItem('sm_contest_visibility', vis);
             } catch (_) {}
+          }
+          if (settings.moduleVisibility?.impact) {
+            const vis = settings.moduleVisibility.impact;
+            if (vis === 'all' || vis === 'staff' || vis === 'none') {
+              setImpactVisibilityState(vis);
+              try {
+                localStorage.setItem('sm_impact_visibility', vis);
+              } catch (_) {}
+            }
           }
 
           // 3. Tool Certifications / Mappings
@@ -250,6 +276,18 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
     return res;
   };
 
+  const setImpactVisibility = async (vis: 'all' | 'staff' | 'none'): Promise<boolean> => {
+    setImpactVisibilityState(vis);
+    try {
+      localStorage.setItem('sm_impact_visibility', vis);
+    } catch (_) {}
+
+    const res = await updateGlobalAppSettings({
+      moduleVisibility: { impact: vis },
+    });
+    return res.success;
+  };
+
   // Neon One CRM Role Permissions:
   // - canAccessDev: Checked custom field 118 ("App Developer" = TRUE) or Active Developer Impersonation
   // - canAccessStaff: Neon One CRM System User OR App Developer or Active Developer Impersonation
@@ -327,6 +365,10 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
   const isDevMode = mode === 'developer' && (!member || canAccessDev);
   const isStaffMode = (mode === 'staff' || mode === 'developer') && (!member || canAccessStaff);
   const isContestVisible = canViewContest(contestVisibility, isDevMode, isStaffMode);
+  const isImpactVisible =
+    impactVisibility === 'all' ||
+    (impactVisibility === 'staff' && isStaffMode) ||
+    isDevMode;
 
   const openChangelog = () => setIsChangelogOpen(true);
   const closeChangelog = () => setIsChangelogOpen(false);
@@ -354,6 +396,9 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
         contestVisibility,
         setContestVisibility,
         isContestVisible,
+        impactVisibility,
+        setImpactVisibility,
+        isImpactVisible,
         brandLogo,
         setBrandLogo,
       }}
