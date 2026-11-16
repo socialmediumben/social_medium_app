@@ -143,6 +143,15 @@ export async function fetchMemberProfileByAccountId(
     const accountData = await accountResponse.json();
 
     if (!accountResponse.ok || !accountData.individualAccount) {
+      // If accountId might be a tap card number (e.g. 8-10 digits), fall back to searching by tap card
+      if (typeof accountId === 'string' && /^\d{8,10}$/.test(accountId.trim())) {
+        try {
+          const tapLookup = await searchMemberByTapCard(accountId.trim());
+          if (tapLookup.success && tapLookup.member) {
+            return tapLookup;
+          }
+        } catch (_) {}
+      }
       return { success: false, error: 'Failed to load member details from Neon One.' };
     }
 
@@ -2363,12 +2372,31 @@ export async function syncRecentNeonActivitiesForXp(
 }
 
 /**
+ * Helper to resolve a Neon Account ID from an input that might be a tap card or account ID.
+ */
+async function resolveNeonAccountId(idInput: string): Promise<string> {
+  const clean = String(idInput || '').trim();
+  if (!clean) return '';
+  // If id looks like an 8-10 digit tap card, look up the constituent's real account ID
+  if (/^\d{8,10}$/.test(clean)) {
+    try {
+      const searchRes = await searchMemberByTapCard(clean);
+      if (searchRes.success && searchRes.member?.accountId) {
+        return searchRes.member.accountId;
+      }
+    } catch (_) {}
+  }
+  return clean;
+}
+
+/**
  * Updates a member's Buddy Avatar configuration in local storage and Neon One.
  */
 export async function updateMemberBuddyConfigInNeon(
   accountId: string,
   configJsonStr: string
 ): Promise<{ success: boolean; configJson: string; error?: string }> {
+  let targetAccountId = accountId;
   if (typeof window !== 'undefined' && accountId) {
     try {
       localStorage.setItem(`sm_buddy_avatar_${accountId}`, configJsonStr);
@@ -2387,6 +2415,10 @@ export async function updateMemberBuddyConfigInNeon(
 
   try {
     if (configuredFieldId && accountId) {
+      // 1. Resolve to actual Neon account ID if accountId is a tap card
+      targetAccountId = await resolveNeonAccountId(accountId);
+      if (!targetAccountId) targetAccountId = accountId;
+
       const payload = {
         individualAccount: {
           accountCustomFields: [
@@ -2398,11 +2430,33 @@ export async function updateMemberBuddyConfigInNeon(
         },
       };
 
-      const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+      let res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${targetAccountId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      // 2. If direct PATCH fails with 404, attempt tap card lookup fallback
+      if (!res.ok && res.status === 404 && targetAccountId === accountId) {
+        try {
+          const lookup = await searchMemberByTapCard(accountId);
+          if (lookup.success && lookup.member?.accountId && lookup.member.accountId !== targetAccountId) {
+            targetAccountId = lookup.member.accountId;
+            res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${targetAccountId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          }
+        } catch (_) {}
+      }
+
+      // Also ensure local cache is saved under the resolved accountId
+      if (typeof window !== 'undefined' && targetAccountId && targetAccountId !== accountId) {
+        try {
+          localStorage.setItem(`sm_buddy_avatar_${targetAccountId}`, configJsonStr);
+        } catch (_) {}
+      }
 
       if (!res.ok) {
         return { success: false, configJson: configJsonStr, error: 'Saved locally, but failed to sync with Neon One.' };
@@ -2422,6 +2476,7 @@ export async function updateMemberBuddyBucksInNeon(
   newAmount: number
 ): Promise<{ success: boolean; newAmount: number; error?: string }> {
   const safeAmount = Math.max(0, Math.round(newAmount));
+  let targetAccountId = accountId;
 
   if (typeof window !== 'undefined' && accountId) {
     try {
@@ -2441,6 +2496,9 @@ export async function updateMemberBuddyBucksInNeon(
 
   try {
     if (configuredFieldId && accountId) {
+      targetAccountId = await resolveNeonAccountId(accountId);
+      if (!targetAccountId) targetAccountId = accountId;
+
       const payload = {
         individualAccount: {
           accountCustomFields: [
@@ -2452,11 +2510,31 @@ export async function updateMemberBuddyBucksInNeon(
         },
       };
 
-      const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+      let res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${targetAccountId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      if (!res.ok && res.status === 404 && targetAccountId === accountId) {
+        try {
+          const lookup = await searchMemberByTapCard(accountId);
+          if (lookup.success && lookup.member?.accountId && lookup.member.accountId !== targetAccountId) {
+            targetAccountId = lookup.member.accountId;
+            res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${targetAccountId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+          }
+        } catch (_) {}
+      }
+
+      if (typeof window !== 'undefined' && targetAccountId && targetAccountId !== accountId) {
+        try {
+          localStorage.setItem(`sm_buddy_bucks_${targetAccountId}`, String(safeAmount));
+        } catch (_) {}
+      }
 
       if (!res.ok) {
         return { success: false, newAmount: safeAmount, error: 'Saved locally, but failed to sync with Neon One.' };
