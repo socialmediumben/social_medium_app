@@ -347,7 +347,13 @@ function parseBuddyCsv(csvText: string): string[][] {
  */
 export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
   try {
-    const res = await fetch(`${GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL}&_t=${Date.now()}`);
+    const res = await fetch(`${GOOGLE_SHEET_BUDDY_ITEMS_CSV_URL}&_t=${Date.now()}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+      },
+    });
     if (!res.ok) return [];
     const text = await res.text();
     const rows = parseBuddyCsv(text);

@@ -220,7 +220,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setItems(getAllBuddyItems());
     fetchBuddyItemsFromSheet().then((sheetItems) => {
       if (sheetItems && sheetItems.length > 0) {
-        setItems(getAllBuddyItems());
+        setItems(sheetItems);
       }
     }).catch(() => {});
 
@@ -271,7 +271,11 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setIsSyncingSheet(true);
     try {
       const sheetItems = await fetchBuddyItemsFromSheet();
-      setItems(getAllBuddyItems());
+      if (sheetItems && sheetItems.length > 0) {
+        setItems(sheetItems);
+      } else {
+        setItems(getAllBuddyItems());
+      }
     } catch (_) {}
     finally {
       setIsSyncingSheet(false);
@@ -886,9 +890,11 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
             const activeEquippedItem = activeEquippedItemId
               ? items.find((i) => i.id === activeEquippedItemId)
               : null;
-            const isColorPickerForCategory = !!activeEquippedItem?.colorPicker;
+            // Active tintable item: either the currently equipped tintable item, OR any item in this category with colorPicker
+            const tintableItem = (activeEquippedItem?.colorPicker ? activeEquippedItem : null) || categoryItems.find((i) => i.colorPicker) || null;
+            const isTintableEquipped = !!(tintableItem && config.equipped[tintableItem.category] === tintableItem.id);
             const currentAccessoryColor =
-              (config.equippedColors && (config.equippedColors[activeCategory] || (activeEquippedItem ? config.equippedColors[activeEquippedItem.id] : undefined))) ||
+              (tintableItem && config.equippedColors && (config.equippedColors[tintableItem.category] || config.equippedColors[tintableItem.id])) ||
               '#ffffff';
 
             return (
@@ -902,8 +908,8 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   </span>
                 </div>
 
-                {/* Active Color Tint Picker for Equipped Tintable Item */}
-                {isColorPickerForCategory && activeEquippedItem && (
+                {/* Active Color Tint Picker for Tintable Item in this category */}
+                {tintableItem && (
                   <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50/70 via-orange-50/40 to-stone-50 border border-amber-200/80 shadow-xs space-y-2.5">
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
@@ -912,7 +918,10 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                           style={{ backgroundColor: currentAccessoryColor }}
                         />
                         <div className="text-xs font-bold text-stone-900 truncate">
-                          Pick Color for <span className="text-orange-600 font-extrabold">{activeEquippedItem.name}</span>
+                          Pick Color for <span className="text-orange-600 font-extrabold">{tintableItem.name}</span>
+                          {!isTintableEquipped && (
+                            <span className="ml-1 text-[10px] text-stone-500 font-normal">(Click a color to equip)</span>
+                          )}
                         </div>
                       </div>
                       <label className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white border border-stone-200 text-[11px] font-bold text-stone-700 hover:bg-stone-50 cursor-pointer shadow-xs transition-colors shrink-0">
@@ -921,7 +930,12 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                         <input
                           type="color"
                           value={currentAccessoryColor.startsWith('#') ? currentAccessoryColor : '#ffffff'}
-                          onChange={(e) => handleAccessoryColorChange(activeEquippedItem, e.target.value)}
+                          onChange={(e) => {
+                            handleAccessoryColorChange(tintableItem, e.target.value);
+                            if (!isTintableEquipped && (config.unlockedItemIds.includes(tintableItem.id) || tintableItem.price === 0)) {
+                              handleItemClick(tintableItem);
+                            }
+                          }}
                           className="w-0 h-0 opacity-0 absolute pointer-events-none"
                         />
                       </label>
@@ -936,7 +950,12 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                           <button
                             key={swatch.hex}
                             type="button"
-                            onClick={() => handleAccessoryColorChange(activeEquippedItem, swatch.hex)}
+                            onClick={() => {
+                              handleAccessoryColorChange(tintableItem, swatch.hex);
+                              if (!isTintableEquipped && (config.unlockedItemIds.includes(tintableItem.id) || tintableItem.price === 0)) {
+                                handleItemClick(tintableItem);
+                              }
+                            }}
                             title={swatch.name}
                             className={`w-7 h-7 rounded-xl border-2 transition-all hover:scale-110 flex items-center justify-center cursor-pointer ${
                               isCurrent ? 'border-stone-900 scale-105 shadow-xs ring-2 ring-orange-500/40' : 'border-white shadow-xs'
@@ -1051,22 +1070,83 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                             )}
                           </div>
 
-                          {/* Price Tag / Lock Status */}
-                          <div className="pt-2 mt-2 border-t border-stone-100 flex items-center justify-between text-[11px]">
-                          {item.price === 0 ? (
-                            <span className="text-emerald-700 font-bold">Free</span>
-                          ) : isUnlocked ? (
-                            <span className="text-stone-500 font-medium">Unlocked</span>
-                          ) : (
-                            <span className="text-amber-800 font-bold flex items-center gap-1">
-                              <Lock className="w-3 h-3 text-amber-600" />
-                              <span>{item.price} 🪙 BB</span>
-                            </span>
+                          {/* Price Tag / Lock Status & Color Picker */}
+                          <div className="pt-2 mt-2 border-t border-stone-100 flex items-center justify-between text-[11px] gap-1">
+                            {item.price === 0 ? (
+                              <span className="text-emerald-700 font-bold">Free</span>
+                            ) : isUnlocked ? (
+                              <span className="text-stone-500 font-medium">Unlocked</span>
+                            ) : (
+                              <span className="text-amber-800 font-bold flex items-center gap-1">
+                                <Lock className="w-3 h-3 text-amber-600" />
+                                <span>{item.price} 🪙 BB</span>
+                              </span>
+                            )}
+
+                            {/* Color Picker trigger button right on card */}
+                            {item.colorPicker && (
+                              <label
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-orange-50 border border-orange-200 text-orange-800 font-bold text-[10px] hover:bg-orange-100 cursor-pointer transition-colors shadow-2xs shrink-0"
+                                title="Click to choose custom hex color"
+                              >
+                                <div
+                                  className="w-3.5 h-3.5 rounded-full border border-stone-300 shrink-0"
+                                  style={{
+                                    backgroundColor:
+                                      config.equippedColors?.[item.category] ||
+                                      config.equippedColors?.[item.id] ||
+                                      '#ffffff',
+                                  }}
+                                />
+                                <span>Color</span>
+                                <input
+                                  type="color"
+                                  value={config.equippedColors?.[item.category] || config.equippedColors?.[item.id] || '#ffffff'}
+                                  onChange={(e) => {
+                                    handleAccessoryColorChange(item, e.target.value);
+                                    if (!isEquipped && isUnlocked) {
+                                      handleItemClick(item);
+                                    }
+                                  }}
+                                  className="w-0 h-0 opacity-0 absolute pointer-events-none"
+                                />
+                              </label>
+                            )}
+                          </div>
+
+                          {/* Quick Color Swatches directly on item card */}
+                          {item.colorPicker && (
+                            <div
+                              onClick={(e) => e.stopPropagation()}
+                              className="flex items-center gap-1 pt-2 flex-wrap"
+                            >
+                              {ACCESSORY_COLOR_PRESETS.slice(0, 7).map((swatch) => {
+                                const activeItemColor = config.equippedColors?.[item.category] || config.equippedColors?.[item.id] || '#ffffff';
+                                const isSelected = activeItemColor.toLowerCase() === swatch.hex.toLowerCase();
+                                return (
+                                  <button
+                                    key={swatch.hex}
+                                    type="button"
+                                    onClick={() => {
+                                      handleAccessoryColorChange(item, swatch.hex);
+                                      if (!isEquipped && isUnlocked) {
+                                        handleItemClick(item);
+                                      }
+                                    }}
+                                    className={`w-4 h-4 rounded-full border transition-transform hover:scale-125 cursor-pointer ${
+                                      isSelected ? 'border-stone-900 ring-2 ring-orange-500/50 scale-110 shadow-xs' : 'border-stone-200'
+                                    }`}
+                                    style={{ backgroundColor: swatch.hex }}
+                                    title={swatch.name}
+                                  />
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -1090,6 +1170,37 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
               >
                 🎨
               </div>
+            ) : pendingItem?.colorPicker && pendingItem?.assetUrl ? (
+              <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs relative">
+                <div
+                  className="absolute inset-0 w-full h-full transition-colors duration-200"
+                  style={{
+                    backgroundColor: config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff',
+                    WebkitMaskImage: `url(${pendingItem.assetUrl})`,
+                    maskImage: `url(${pendingItem.assetUrl})`,
+                    WebkitMaskSize: 'contain',
+                    maskSize: 'contain',
+                    WebkitMaskRepeat: 'no-repeat',
+                    maskRepeat: 'no-repeat',
+                    WebkitMaskPosition: 'center',
+                    maskPosition: 'center',
+                  }}
+                />
+                <img
+                  src={pendingItem.assetUrl}
+                  alt={pendingItem.name}
+                  className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                  style={{ mixBlendMode: 'multiply' }}
+                />
+              </div>
+            ) : pendingItem?.assetUrl ? (
+              <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs">
+                <img
+                  src={pendingItem.assetUrl}
+                  alt={pendingItem.name}
+                  className="max-h-full max-w-full object-contain"
+                />
+              </div>
             ) : (
               <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 mx-auto flex items-center justify-center text-2xl shadow-xs">
                 🪙
@@ -1109,6 +1220,49 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   : pendingItem?.description || 'Add this custom accessory to your permanent wardrobe inventory.'}
               </p>
             </div>
+
+            {/* If item has Color Picker, allow choosing starting color right in purchase modal */}
+            {pendingItem?.colorPicker && (
+              <div className="p-3 rounded-2xl bg-orange-50/70 border border-orange-200 text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-orange-950 flex items-center gap-1.5">
+                    <Palette className="w-3.5 h-3.5 text-orange-600" />
+                    Select Starting Color:
+                  </span>
+                  <label className="flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white border border-stone-200 text-[10px] font-bold text-stone-700 hover:bg-stone-50 cursor-pointer shadow-xs">
+                    <div
+                      className="w-3 h-3 rounded-full border border-stone-300 shrink-0"
+                      style={{ backgroundColor: config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff' }}
+                    />
+                    <span>Hex</span>
+                    <input
+                      type="color"
+                      value={config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff'}
+                      onChange={(e) => handleAccessoryColorChange(pendingItem, e.target.value)}
+                      className="w-0 h-0 opacity-0 absolute pointer-events-none"
+                    />
+                  </label>
+                </div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {ACCESSORY_COLOR_PRESETS.slice(0, 10).map((swatch) => {
+                    const activeColor = config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff';
+                    const isSelected = activeColor.toLowerCase() === swatch.hex.toLowerCase();
+                    return (
+                      <button
+                        key={swatch.hex}
+                        type="button"
+                        onClick={() => handleAccessoryColorChange(pendingItem, swatch.hex)}
+                        className={`w-6 h-6 rounded-lg border-2 transition-transform hover:scale-110 cursor-pointer ${
+                          isSelected ? 'border-stone-900 scale-105 shadow-xs' : 'border-white shadow-xs'
+                        }`}
+                        style={{ backgroundColor: swatch.hex }}
+                        title={swatch.name}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Price & Balance Calculation */}
             {(() => {
