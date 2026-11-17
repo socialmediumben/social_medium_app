@@ -13,6 +13,7 @@ import {
   NeonCampaignDetail,
   VolunteerSession,
   GiveGetSummary,
+  GiveGetServiceCategory,
 } from './types';
 import { calculateLevelFromXp } from './gamification';
 
@@ -1020,6 +1021,11 @@ export interface GlobalAppSettings {
     xpFieldId?: string;
   };
   impactSettings?: ImpactCampaignSettings;
+  giveGetSettings?: {
+    hourlyRate?: number;
+    categories?: GiveGetServiceCategory[];
+    defaultCategoryId?: string;
+  };
   [key: string]: any;
 }
 
@@ -2687,6 +2693,67 @@ export async function updateMemberBuddyBucksInNeon(
 
 export const DEFAULT_GIVE_GET_HOURLY_RATE = 10; // $10/hour
 
+export const DEFAULT_GIVE_GET_CATEGORIES: GiveGetServiceCategory[] = [
+  { id: 'board_meeting', label: 'Board Meeting & Governance', icon: '🏛️', isDefault: true },
+  { id: 'committee_work', label: 'Committee Work & Strategy', icon: '💼' },
+  { id: 'fundraising_outreach', label: 'Fundraising & Donor Outreach', icon: '🤝' },
+  { id: 'space_maintenance', label: 'Space Maintenance & Equipment Care', icon: '🛠️' },
+  { id: 'event_hosting', label: 'Event Hosting & Staffing', icon: '🎪' },
+  { id: 'teaching_mentorship', label: 'Teaching & Member Mentorship', icon: '🎓' },
+  { id: 'general_service', label: 'General Community Service', icon: '📋' },
+];
+
+/**
+ * Retrieves the configured Give/Get service categories.
+ * Reads from localStorage or falls back to DEFAULT_GIVE_GET_CATEGORIES.
+ */
+export function getGiveGetServiceCategories(): GiveGetServiceCategory[] {
+  if (typeof window === 'undefined') return DEFAULT_GIVE_GET_CATEGORIES;
+  try {
+    const raw = localStorage.getItem('sm_give_get_categories');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (_) {}
+  return DEFAULT_GIVE_GET_CATEGORIES;
+}
+
+/**
+ * Returns the default category label from a list of categories.
+ */
+export function getDefaultGiveGetServiceCategory(categories?: GiveGetServiceCategory[]): string {
+  const cats = categories && categories.length > 0 ? categories : getGiveGetServiceCategories();
+  const def = cats.find((c) => c.isDefault);
+  return def ? def.label : (cats[0]?.label || 'General Community Service');
+}
+
+/**
+ * Saves Give/Get service categories to localStorage and global app settings.
+ */
+export async function saveGiveGetServiceCategories(
+  categories: GiveGetServiceCategory[]
+): Promise<void> {
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem('sm_give_get_categories', JSON.stringify(categories));
+      window.dispatchEvent(new CustomEvent('sm_give_get_categories_updated', { detail: categories }));
+    } catch (_) {}
+  }
+  // Sync to global app settings on backend proxy
+  try {
+    const defaultCat = categories.find((c) => c.isDefault);
+    await updateGlobalAppSettings({
+      giveGetSettings: {
+        categories,
+        defaultCategoryId: defaultCat?.id || categories[0]?.id,
+      },
+    });
+  } catch (_) {}
+}
+
 /**
  * Retrieves all stored volunteer/service sessions for a board member.
  */
@@ -2705,21 +2772,60 @@ export function getMemberVolunteerSessions(accountId: string): VolunteerSession[
 }
 
 /**
- * Saves a new or updated volunteer service session for a board member.
+ * Saves a new or updated volunteer service session for a board member,
+ * and automatically logs it as an activity in Neon One CRM!
  */
 export async function saveBoardVolunteerSession(
   session: VolunteerSession
 ): Promise<GiveGetSummary> {
   const accountId = session.accountId;
+  let savedSession = { ...session };
+
+  // 1. Sync session as an activity in Neon One CRM
+  try {
+    const hourlyRate = (typeof window !== 'undefined' && localStorage.getItem('sm_give_get_hourly_rate'))
+      ? parseFloat(localStorage.getItem('sm_give_get_hourly_rate') || '10')
+      : DEFAULT_GIVE_GET_HOURLY_RATE;
+    const creditValue = (session.hours * hourlyRate).toFixed(2);
+
+    const activitySubject = `Give/Get: ${session.category} (${session.hours} hrs)`;
+    const notesLines = [
+      `Board Member Volunteer Service: ${session.category}`,
+      `Hours Logged: ${session.hours} hrs (Give/Get Credit: $${creditValue} @ $${hourlyRate}/hr)`,
+      `Date of Service: ${session.date}`,
+      session.notes ? `Details / Notes: ${session.notes}` : null,
+    ].filter(Boolean);
+
+    const targetAccountId = await resolveNeonAccountId(accountId);
+    const actRes = await createNeonActivity({
+      subject: activitySubject,
+      statusId: '4', // Completed
+      priority: 'Normal',
+      startDate: session.date,
+      endDate: session.date,
+      typeId: '5', // Other
+      accountId: targetAccountId || accountId,
+      note: notesLines.join('\n'),
+    });
+
+    if (actRes.success && actRes.activityId) {
+      savedSession.activityId = actRes.activityId;
+    }
+  } catch (actErr) {
+    console.warn('[Give/Get] Background sync of activity to Neon One notice:', actErr);
+  }
+
+  // 2. Persist to local storage
   if (typeof window !== 'undefined' && accountId) {
     try {
       const existing = getMemberVolunteerSessions(accountId);
-      const filtered = existing.filter((s) => s.id !== session.id);
-      const updated = [session, ...filtered];
+      const filtered = existing.filter((s) => s.id !== savedSession.id);
+      const updated = [savedSession, ...filtered];
       localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updated));
       window.dispatchEvent(new CustomEvent('sm_give_get_updated', { detail: { accountId } }));
     } catch (_) {}
   }
+
   return await fetchMemberGiveGetSummary(accountId);
 }
 

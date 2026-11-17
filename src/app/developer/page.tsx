@@ -66,6 +66,7 @@ import {
   ImpactCampaignSettings,
   NeonCampaignSummary,
   NeonCampaignDetail,
+  GiveGetServiceCategory,
 } from '@/lib/types';
 import {
   fetchCommunityAnnouncement,
@@ -96,6 +97,9 @@ import {
   DEFAULT_IMPACT_SETTINGS,
   fetchBoardRosterSummary,
   DEFAULT_GIVE_GET_HOURLY_RATE,
+  DEFAULT_GIVE_GET_CATEGORIES,
+  getGiveGetServiceCategories,
+  saveGiveGetServiceCategories,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -207,6 +211,78 @@ export default function DeveloperPage() {
     } catch (_) {}
     finally {
       setIsLoadingBoardRoster(false);
+    }
+  };
+
+  const [giveGetCategories, setGiveGetCategories] = useState<GiveGetServiceCategory[]>(() => {
+    return getGiveGetServiceCategories();
+  });
+  const [newCatLabel, setNewCatLabel] = useState('');
+  const [newCatIcon, setNewCatIcon] = useState('🤝');
+  const [isSavingCategories, setIsSavingCategories] = useState(false);
+
+  const handleSetDefaultCategory = (catId: string) => {
+    setGiveGetCategories((prev) =>
+      prev.map((c) => ({
+        ...c,
+        isDefault: c.id === catId,
+      }))
+    );
+  };
+
+  const handleDeleteCategory = (catId: string) => {
+    if (giveGetCategories.length <= 1) {
+      setGiveGetNotice('You must keep at least one category.');
+      setTimeout(() => setGiveGetNotice(null), 3000);
+      return;
+    }
+    const cat = giveGetCategories.find((c) => c.id === catId);
+    if (!cat) return;
+    const remaining = giveGetCategories.filter((c) => c.id !== catId);
+    if (cat.isDefault && remaining.length > 0) {
+      remaining[0].isDefault = true;
+    }
+    setGiveGetCategories(remaining);
+  };
+
+  const handleAddCategory = () => {
+    const trimmed = newCatLabel.trim();
+    if (!trimmed) return;
+    const newId = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    if (giveGetCategories.some((c) => c.id === newId || c.label.toLowerCase() === trimmed.toLowerCase())) {
+      setGiveGetNotice('Category already exists.');
+      setTimeout(() => setGiveGetNotice(null), 3000);
+      return;
+    }
+    const newCat: GiveGetServiceCategory = {
+      id: newId,
+      label: trimmed,
+      icon: newCatIcon.trim() || '🤝',
+      isDefault: giveGetCategories.length === 0,
+    };
+    setGiveGetCategories((prev) => [...prev, newCat]);
+    setNewCatLabel('');
+    setNewCatIcon('🤝');
+  };
+
+  const handleResetCategoriesToDefault = async () => {
+    setGiveGetCategories(DEFAULT_GIVE_GET_CATEGORIES);
+    await saveGiveGetServiceCategories(DEFAULT_GIVE_GET_CATEGORIES);
+    setGiveGetNotice('Service categories reset to defaults.');
+    setTimeout(() => setGiveGetNotice(null), 4000);
+  };
+
+  const handleSaveCategories = async () => {
+    setIsSavingCategories(true);
+    try {
+      await saveGiveGetServiceCategories(giveGetCategories);
+      setGiveGetNotice('Service categories and default saved successfully!');
+      setTimeout(() => setGiveGetNotice(null), 4000);
+    } catch (_) {
+      setGiveGetNotice('Failed to save service categories.');
+      setTimeout(() => setGiveGetNotice(null), 4000);
+    } finally {
+      setIsSavingCategories(false);
     }
   };
   // ==========================================
@@ -3023,7 +3099,141 @@ export default function DeveloperPage() {
             </div>
           </div>
 
-          {/* 3. Board of Directors Roster Table */}
+          {/* 3. Service Categories & Default Assignment */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-bold text-stone-900">Volunteer Service Categories & Activity Types</h3>
+                  <span className="px-2 py-0.5 rounded-full bg-blue-100 text-[#344ea2] font-mono text-[10px] font-bold">
+                    Neon One Activities
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Manage the service categories available to board members when logging hours. When saved, each session creates a completed Activity in Neon One.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleResetCategoriesToDefault}
+                  className="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset to Defaults</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleSaveCategories}
+                  disabled={isSavingCategories}
+                  className="py-2 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs disabled:opacity-50"
+                >
+                  <Save className={`w-3.5 h-3.5 ${isSavingCategories ? 'animate-spin' : ''}`} />
+                  <span>{isSavingCategories ? 'Saving...' : 'Save Categories'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Categories Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-stone-200 text-stone-400 font-black uppercase text-[10px] tracking-wider">
+                    <th className="py-2.5 px-3">Icon</th>
+                    <th className="py-2.5 px-3">Category Name</th>
+                    <th className="py-2.5 px-3">Default Selection</th>
+                    <th className="py-2.5 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-stone-100 font-medium text-stone-700">
+                  {giveGetCategories.map((cat) => (
+                    <tr key={cat.id} className="hover:bg-stone-50/70 transition-colors">
+                      <td className="py-3 px-3 text-lg">
+                        <span>{cat.icon || '🤝'}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        <span className="font-bold text-stone-900">{cat.label}</span>
+                        <span className="block text-[10px] text-stone-400 font-mono">id: {cat.id}</span>
+                      </td>
+                      <td className="py-3 px-3">
+                        {cat.isDefault ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] font-bold">
+                            <Check className="w-3 h-3 text-emerald-600" />
+                            Default Category
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleSetDefaultCategory(cat.id)}
+                            className="px-2.5 py-1 rounded-lg bg-stone-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 border border-stone-200 text-stone-600 text-[11px] font-semibold transition-colors cursor-pointer"
+                          >
+                            Set as Default
+                          </button>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteCategory(cat.id)}
+                          className="p-1.5 rounded-lg text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                          title="Delete category"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Add New Category Form */}
+            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex flex-col sm:flex-row items-center gap-3">
+              <div className="w-full sm:w-20">
+                <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">Emoji</label>
+                <input
+                  type="text"
+                  maxLength={4}
+                  value={newCatIcon}
+                  onChange={(e) => setNewCatIcon(e.target.value)}
+                  className="w-full text-center py-2 px-2 rounded-xl bg-white border border-stone-200 text-base font-bold focus:outline-hidden focus:ring-2 focus:ring-[#344ea2]"
+                  placeholder="🤝"
+                />
+              </div>
+
+              <div className="w-full sm:flex-1">
+                <label className="text-[10px] font-bold uppercase text-stone-400 block mb-1">Category Title</label>
+                <input
+                  type="text"
+                  value={newCatLabel}
+                  onChange={(e) => setNewCatLabel(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCategory();
+                    }
+                  }}
+                  className="w-full py-2 px-3 rounded-xl bg-white border border-stone-200 text-xs font-semibold focus:outline-hidden focus:ring-2 focus:ring-[#344ea2]"
+                  placeholder="e.g., Maker Equipment Maintenance & Training"
+                />
+              </div>
+
+              <div className="w-full sm:w-auto sm:self-end">
+                <button
+                  type="button"
+                  onClick={handleAddCategory}
+                  className="w-full sm:w-auto py-2 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Add Category</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Board of Directors Roster Table */}
           <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
               <div>

@@ -41,6 +41,14 @@ export interface VolunteerSession {
   category: string;          // e.g. "Board Meeting", "Committee Work", "Fundraising", "Space Maintenance"
   notes?: string;
   createdAt: string;
+  activityId?: string;       // Synced Neon One CRM Activity ID
+}
+
+export interface GiveGetServiceCategory {
+  id: string;
+  label: string;
+  icon?: string;
+  isDefault?: boolean;
 }
 
 export interface GiveGetSummary {

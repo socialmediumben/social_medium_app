@@ -38,17 +38,10 @@ import {
   saveBoardVolunteerSession,
   deleteBoardVolunteerSession,
   DEFAULT_GIVE_GET_HOURLY_RATE,
+  getGiveGetServiceCategories,
+  getDefaultGiveGetServiceCategory,
 } from '@/lib/neon';
-
-const SERVICE_CATEGORIES = [
-  { id: 'board_meeting', label: 'Board Meeting & Governance', icon: '🏛️' },
-  { id: 'committee_work', label: 'Committee Work & Strategy', icon: '💼' },
-  { id: 'fundraising_outreach', label: 'Fundraising & Donor Outreach', icon: '🤝' },
-  { id: 'space_maintenance', label: 'Space Maintenance & Equipment Care', icon: '🛠️' },
-  { id: 'event_hosting', label: 'Event Hosting & Staffing', icon: '🎪' },
-  { id: 'teaching_mentorship', label: 'Teaching & Member Mentorship', icon: '🎓' },
-  { id: 'general_service', label: 'General Community Service', icon: '📋' },
-];
+import { GiveGetServiceCategory } from '@/lib/types';
 
 export default function GiveGetPage() {
   const { member, isLoading: authLoading } = useAuth();
@@ -56,6 +49,9 @@ export default function GiveGetPage() {
 
   const accountId = member?.accountId || '';
   const isAuthorized = !!(member?.isBoardMember || isBoardMemberPreviewEnabled);
+
+  // Dynamic Service Categories
+  const [categories, setCategories] = useState<GiveGetServiceCategory[]>(() => getGiveGetServiceCategories());
 
   // Give/Get Data State
   const [summary, setSummary] = useState<GiveGetSummary | null>(null);
@@ -68,7 +64,7 @@ export default function GiveGetPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [sessionDate, setSessionDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [sessionHours, setSessionHours] = useState('');
-  const [sessionCategory, setSessionCategory] = useState(SERVICE_CATEGORIES[0].label);
+  const [sessionCategory, setSessionCategory] = useState(() => getDefaultGiveGetServiceCategory());
   const [sessionNotes, setSessionNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,6 +72,19 @@ export default function GiveGetPage() {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Sync categories if updated in Developer Mode
+  useEffect(() => {
+    const handleCategoriesUpdate = () => {
+      const updatedCats = getGiveGetServiceCategories();
+      setCategories(updatedCats);
+      setSessionCategory((prev) => {
+        return updatedCats.some((c) => c.label === prev) ? prev : getDefaultGiveGetServiceCategory(updatedCats);
+      });
+    };
+    window.addEventListener('sm_give_get_categories_updated', handleCategoriesUpdate);
+    return () => window.removeEventListener('sm_give_get_categories_updated', handleCategoriesUpdate);
+  }, []);
 
   // Load summary
   const loadSummary = async () => {
@@ -602,9 +611,20 @@ export default function GiveGetPage() {
                       {sess.date}
                     </td>
                     <td className="py-3 px-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 text-stone-800 font-semibold text-[11px]">
-                        {sess.category}
-                      </span>
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className="px-2 py-0.5 rounded-lg bg-stone-100 border border-stone-200 text-stone-800 font-semibold text-[11px]">
+                          {sess.category}
+                        </span>
+                        {sess.activityId && (
+                          <span
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-semibold"
+                            title={`Synced to Neon One as Activity #${sess.activityId}`}
+                          >
+                            <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600" />
+                            Activity #{sess.activityId}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-3 whitespace-nowrap font-bold text-stone-900">
                       {sess.hours.toFixed(1)} hrs
@@ -700,9 +720,9 @@ export default function GiveGetPage() {
                   onChange={(e) => setSessionCategory(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs font-medium focus:outline-hidden focus:ring-2 focus:ring-[#344ea2]"
                 >
-                  {SERVICE_CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <option key={cat.id} value={cat.label}>
-                      {cat.icon} {cat.label}
+                      {cat.icon || '📋'} {cat.label} {cat.isDefault ? '(Default)' : ''}
                     </option>
                   ))}
                 </select>
