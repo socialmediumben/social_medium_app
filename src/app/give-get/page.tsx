@@ -490,6 +490,10 @@ export default function GiveGetPage() {
                 <span className="text-stone-500">Give/Get Value (@ ${hourlyRate}/hr):</span>
                 <span className="font-bold text-amber-600">${volunteerValue.toFixed(2)}</span>
               </div>
+              <div className="flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 mt-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600 shrink-0" />
+                <span>Live Synced to Neon One (Field 125)</span>
+              </div>
             </div>
           </div>
           <button

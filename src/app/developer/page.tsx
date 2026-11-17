@@ -3057,6 +3057,7 @@ export default function DeveloperPage() {
 
               <div className="text-[11px] text-stone-400 space-y-1">
                 <p>• Active User Board Status: <strong className={member?.isBoardMember ? "text-emerald-600" : "text-stone-600"}>{member?.isBoardMember ? "TRUE (Verified in Neon One)" : "FALSE"}</strong></p>
+                <p>• Live Volunteer Hours (Field 125): <strong className="text-amber-600">{member?.volunteerHours !== undefined ? `${member.volunteerHours.toFixed(1)} hrs` : '0.0 hrs'}</strong></p>
                 <p>• Preview Override: <strong className={isBoardMemberPreviewEnabled ? "text-emerald-600" : "text-stone-500"}>{isBoardMemberPreviewEnabled ? "ENABLED" : "DISABLED"}</strong></p>
               </div>
             </div>

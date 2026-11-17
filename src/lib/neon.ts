@@ -198,6 +198,7 @@ export async function fetchMemberProfileByAccountId(
     let customInterestsStr = '';
     let isAppDeveloper = false;
     let isBoardMember = false;
+    let parsedVolunteerHours: number | undefined = undefined;
     let parsedStoreBalance: number | undefined = undefined;
     let parsedXp: number | undefined = undefined;
     let parsedBuddyAvatar: string | undefined = undefined;
@@ -374,6 +375,26 @@ export async function fetchMemberProfileByAccountId(
           isBoardMember = val === 'TRUE' || val === 'YES' || val === '1';
         }
       }
+
+      // Volunteer Hours (Field 125)
+      if (
+        fieldId === '125' ||
+        fieldId === VOLUNTEER_HOURS_FIELD_ID ||
+        fieldName === 'volunteer hours' ||
+        fieldName.includes('volunteer hour')
+      ) {
+        if (rawVal !== '') {
+          const num = parseFloat(rawVal.replace(/[^0-9.-]/g, ''));
+          if (!isNaN(num) && num >= 0) {
+            parsedVolunteerHours = num;
+            if (typeof window !== 'undefined' && accountId) {
+              try {
+                localStorage.setItem(`sm_volunteer_hours_${accountId}`, String(num));
+              } catch (_) {}
+            }
+          }
+        }
+      }
     }
 
     // Determine if constituent is a Neon One System User (Staff access)
@@ -495,6 +516,7 @@ export async function fetchMemberProfileByAccountId(
       isSystemUser,
       isAppDeveloper,
       isBoardMember,
+      volunteerHours: parsedVolunteerHours,
       storeBalance: finalStoreBalance,
       xp: finalXp,
       level: levelState.level,
@@ -2031,6 +2053,8 @@ export const STORE_BALANCE_FIELD_ID = '119';
 export const BUDDY_AVATAR_FIELD_ID = '120';
 export const BUDDY_BUCKS_FIELD_ID = '121';
 export const XP_FIELD_ID = '122';
+export const BOARD_MEMBER_FIELD_ID = '123';
+export const VOLUNTEER_HOURS_FIELD_ID = '125';
 export const STORE_CAMPAIGN_ID = '1';
 export const STORE_CAMPAIGN_CODE = 'STORE';
 
@@ -2775,6 +2799,61 @@ export function getMemberVolunteerSessions(accountId: string): VolunteerSession[
  * Saves a new or updated volunteer service session for a board member,
  * and automatically logs it as an activity in Neon One CRM!
  */
+/**
+ * Updates a member's "Volunteer Hours" custom field (Field 125) directly in Neon One CRM.
+ */
+export async function updateMemberVolunteerHoursInNeon(
+  accountId: string,
+  newHours: number
+): Promise<{ success: boolean; newHours: number; error?: string }> {
+  const roundedHours = Math.round(newHours * 10) / 10;
+
+  // 1. Optimistically persist to local storage
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      localStorage.setItem(`sm_volunteer_hours_${accountId}`, String(roundedHours));
+      const cachedProf = localStorage.getItem(`sm_profile_${accountId}`);
+      if (cachedProf) {
+        const parsed = JSON.parse(cachedProf);
+        parsed.volunteerHours = roundedHours;
+        localStorage.setItem(`sm_profile_${accountId}`, JSON.stringify(parsed));
+      }
+    } catch (_) {}
+  }
+
+  // 2. Direct PATCH to Neon One CRM (Field 125)
+  try {
+    const targetAccountId = await resolveNeonAccountId(accountId);
+    const accIdToUse = targetAccountId || accountId;
+
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accIdToUse}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        individualAccount: {
+          accountCustomFields: [
+            {
+              id: VOLUNTEER_HOURS_FIELD_ID,
+              value: roundedHours.toFixed(1),
+            },
+          ],
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.warn('[Neon One] Failed to update Volunteer Hours custom field:', errText);
+      return { success: false, newHours: roundedHours, error: errText };
+    }
+
+    return { success: true, newHours: roundedHours };
+  } catch (err: any) {
+    console.warn('[Neon One] Error patching Volunteer Hours:', err);
+    return { success: false, newHours: roundedHours, error: err.message };
+  }
+}
+
 export async function saveBoardVolunteerSession(
   session: VolunteerSession
 ): Promise<GiveGetSummary> {
@@ -2815,35 +2894,61 @@ export async function saveBoardVolunteerSession(
     console.warn('[Give/Get] Background sync of activity to Neon One notice:', actErr);
   }
 
-  // 2. Persist to local storage
+  // 2. Persist session to local storage for timesheet display
+  const existing = getMemberVolunteerSessions(accountId);
+  const filtered = existing.filter((s) => s.id !== savedSession.id);
+  const updatedSessions = [savedSession, ...filtered];
   if (typeof window !== 'undefined' && accountId) {
     try {
-      const existing = getMemberVolunteerSessions(accountId);
-      const filtered = existing.filter((s) => s.id !== savedSession.id);
-      const updated = [savedSession, ...filtered];
-      localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updated));
+      localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updatedSessions));
       window.dispatchEvent(new CustomEvent('sm_give_get_updated', { detail: { accountId } }));
     } catch (_) {}
+  }
+
+  // 3. Sync cumulative Volunteer Hours directly to Neon One Custom Field 125
+  try {
+    const targetAccountId = await resolveNeonAccountId(accountId);
+    const accIdToUse = targetAccountId || accountId;
+    const newCumulativeHours = Math.round(
+      updatedSessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0) * 10
+    ) / 10;
+    await updateMemberVolunteerHoursInNeon(accIdToUse, newCumulativeHours);
+  } catch (vhErr) {
+    console.warn('[Give/Get] Failed to update Volunteer Hours in Neon One:', vhErr);
   }
 
   return await fetchMemberGiveGetSummary(accountId);
 }
 
 /**
- * Deletes a volunteer service session for a board member.
+ * Deletes a volunteer service session for a board member and syncs the updated total to Neon One.
  */
 export async function deleteBoardVolunteerSession(
   accountId: string,
   sessionId: string
 ): Promise<GiveGetSummary> {
+  const existing = getMemberVolunteerSessions(accountId);
+  const updatedSessions = existing.filter((s) => s.id !== sessionId);
+
   if (typeof window !== 'undefined' && accountId) {
     try {
-      const existing = getMemberVolunteerSessions(accountId);
-      const updated = existing.filter((s) => s.id !== sessionId);
-      localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updated));
+      localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updatedSessions));
       window.dispatchEvent(new CustomEvent('sm_give_get_updated', { detail: { accountId } }));
     } catch (_) {}
   }
+
+  // Update Neon One Custom Field 125
+  try {
+    const targetAccountId = await resolveNeonAccountId(accountId);
+    const accIdToUse = targetAccountId || accountId;
+    const newCumulativeHours = Math.round(
+      updatedSessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0) * 10
+    ) / 10;
+    await updateMemberVolunteerHoursInNeon(accIdToUse, newCumulativeHours);
+  } catch (vhErr) {
+    console.warn('[Give/Get] Failed to update Volunteer Hours in Neon One on delete:', vhErr);
+  }
+
   return await fetchMemberGiveGetSummary(accountId);
 }
 
@@ -2851,7 +2956,7 @@ export async function deleteBoardVolunteerSession(
  * Fetches the comprehensive Give/Get summary for a member:
  * - Hard Credit: Direct personal donations from Neon CRM
  * - Soft Credit: Influenced/soft credit gifts from Neon CRM
- * - Volunteer Hours: Self-reported service hours valued at $10/hr
+ * - Volunteer Hours: Synced from Neon One Custom Field 125 ("Volunteer Hours")
  * - Total Give/Get = Hard Credit + Soft Credit + (Volunteer Hours * $10)
  */
 export async function fetchMemberGiveGetSummary(
@@ -2861,14 +2966,52 @@ export async function fetchMemberGiveGetSummary(
   let softCredit = 0;
   let currentYearHardCredit = 0;
   let currentYearSoftCredit = 0;
+  let liveNeonHours: number | null = null;
 
-  // 1. Load volunteer sessions and compute total volunteer hours
+  // 1. Load local sessions
   const sessions = getMemberVolunteerSessions(accountId);
-  const totalVolunteerHours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+  const localSessionHours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
 
-  // 2. Query Neon One CRM for hard and soft credit donation totals
+  // 2. Query Neon One CRM for hard and soft credit donation totals & Custom Field 125
   if (accountId) {
     try {
+      const targetAccountId = await resolveNeonAccountId(accountId);
+      const accIdToUse = targetAccountId || accountId;
+
+      // A. Query live Neon One account for Custom Field 125 ("Volunteer Hours")
+      try {
+        const accRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accIdToUse}`);
+        if (accRes.ok) {
+          const accData = await accRes.json();
+          const ind = accData?.individualAccount || {};
+          const cfs = ind?.accountCustomFields || [];
+          for (const cf of cfs) {
+            if (
+              String(cf.id) === '125' ||
+              String(cf.id) === VOLUNTEER_HOURS_FIELD_ID ||
+              (cf.name || '').toLowerCase().includes('volunteer hour')
+            ) {
+              const raw = String(cf.value || '').trim();
+              if (raw !== '') {
+                const parsed = parseFloat(raw.replace(/[^0-9.-]/g, ''));
+                if (!isNaN(parsed) && parsed >= 0) {
+                  liveNeonHours = parsed;
+                  if (typeof window !== 'undefined') {
+                    try {
+                      localStorage.setItem(`sm_volunteer_hours_${accountId}`, String(parsed));
+                    } catch (_) {}
+                  }
+                }
+              }
+              break;
+            }
+          }
+        }
+      } catch (accErr) {
+        console.warn('Neon account fetch notice for Volunteer Hours:', accErr);
+      }
+
+      // B. Query donation totals via search
       const searchRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -2877,7 +3020,7 @@ export async function fetchMemberGiveGetSummary(
             {
               field: 'Account ID',
               operator: 'EQUAL',
-              value: accountId,
+              value: accIdToUse,
             },
           ],
           outputFields: [
@@ -2910,7 +3053,6 @@ export async function fetchMemberGiveGetSummary(
           const parsedCySoft = parseFloat(record['Current Calendar Year Soft Credit Total'] || '0');
           if (!isNaN(parsedCySoft) && parsedCySoft >= 0) currentYearSoftCredit = parsedCySoft;
 
-          // Cache in local storage for fast offline rendering
           if (typeof window !== 'undefined') {
             try {
               localStorage.setItem(`sm_give_get_hard_${accountId}`, String(hardCredit));
@@ -2934,7 +3076,15 @@ export async function fetchMemberGiveGetSummary(
     }
   }
 
-  // 3. Resolve hourly rate (default $10/hr, customizable via Dev Mode)
+  // 3. Determine final volunteer hours:
+  // Neon One Custom Field 125 is SSOT. If not present yet, use local session hours and sync to Neon.
+  let finalVolunteerHours = liveNeonHours !== null ? liveNeonHours : localSessionHours;
+  if (liveNeonHours === null && localSessionHours > 0 && accountId) {
+    // Auto-sync existing local hours to Neon One Field 125
+    updateMemberVolunteerHoursInNeon(accountId, localSessionHours).catch(() => {});
+  }
+
+  // 4. Resolve hourly rate (default $10/hr, customizable via Dev Mode)
   let hourlyRate = DEFAULT_GIVE_GET_HOURLY_RATE;
   if (typeof window !== 'undefined') {
     try {
@@ -2946,14 +3096,14 @@ export async function fetchMemberGiveGetSummary(
     } catch (_) {}
   }
 
-  const volunteerValue = Math.round(totalVolunteerHours * hourlyRate * 100) / 100;
+  const volunteerValue = Math.round(finalVolunteerHours * hourlyRate * 100) / 100;
   const totalGiveGet = Math.round((hardCredit + softCredit + volunteerValue) * 100) / 100;
 
   return {
     accountId,
     hardCredit,
     softCredit,
-    volunteerHours: totalVolunteerHours,
+    volunteerHours: finalVolunteerHours,
     hourlyRate,
     volunteerValue,
     totalGiveGet,
@@ -2964,7 +3114,8 @@ export async function fetchMemberGiveGetSummary(
 }
 
 /**
- * Fetches all board members (Custom Field 123 = TRUE) and their Give/Get totals for Developer Mode.
+ * Fetches all board members (Custom Field 123 = TRUE) and their Give/Get totals from Neon One CRM for Developer Mode.
+ * Reads Volunteer Hours live from Custom Field 125 in Neon One.
  */
 export async function fetchBoardRosterSummary(): Promise<
   Array<{
@@ -3010,29 +3161,62 @@ export async function fetchBoardRosterSummary(): Promise<
     const data = await searchRes.json();
     const results = data?.searchResults || [];
 
-    return results.map((r: any) => {
-      const accountId = String(r['Account ID'] || '');
-      const sessions = getMemberVolunteerSessions(accountId);
-      const hours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
-      const hard = parseFloat(r['All Time Donation Total'] || '0') || 0;
-      const soft = parseFloat(r['All Time Soft Credit Total'] || '0') || 0;
-      const val = hours * DEFAULT_GIVE_GET_HOURLY_RATE;
+    // Query each board member's account to fetch Field 125 ("Volunteer Hours") from Neon One
+    const roster = await Promise.all(
+      results.map(async (r: any) => {
+        const accountId = String(r['Account ID'] || '');
+        let hours = 0;
 
-      const fName = r['Preferred Name'] || r['First Name'] || '';
-      const lName = r['Last Name'] || '';
-      const name = `${fName} ${lName}`.trim() || `Member #${accountId}`;
+        try {
+          const accRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`);
+          if (accRes.ok) {
+            const accData = await accRes.json();
+            const ind = accData?.individualAccount || {};
+            const cfs = ind?.accountCustomFields || [];
+            for (const cf of cfs) {
+              if (
+                String(cf.id) === '125' ||
+                String(cf.id) === VOLUNTEER_HOURS_FIELD_ID ||
+                (cf.name || '').toLowerCase().includes('volunteer hour')
+              ) {
+                const parsed = parseFloat(String(cf.value || '0').replace(/[^0-9.-]/g, ''));
+                if (!isNaN(parsed) && parsed >= 0) {
+                  hours = parsed;
+                }
+                break;
+              }
+            }
+          }
+        } catch (_) {}
 
-      return {
-        accountId,
-        name,
-        email: r['Email 1'] || undefined,
-        hardCredit: hard,
-        softCredit: soft,
-        volunteerHours: hours,
-        volunteerValue: val,
-        totalGiveGet: hard + soft + val,
-      };
-    });
+        // Fallback to local sessions if Neon One has no hours recorded yet
+        if (hours === 0) {
+          const sessions = getMemberVolunteerSessions(accountId);
+          hours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+        }
+
+        const hard = parseFloat(r['All Time Donation Total'] || '0') || 0;
+        const soft = parseFloat(r['All Time Soft Credit Total'] || '0') || 0;
+        const val = Math.round(hours * DEFAULT_GIVE_GET_HOURLY_RATE * 100) / 100;
+
+        const fName = r['Preferred Name'] || r['First Name'] || '';
+        const lName = r['Last Name'] || '';
+        const name = `${fName} ${lName}`.trim() || `Member #${accountId}`;
+
+        return {
+          accountId,
+          name,
+          email: r['Email 1'] || undefined,
+          hardCredit: hard,
+          softCredit: soft,
+          volunteerHours: hours,
+          volunteerValue: val,
+          totalGiveGet: Math.round((hard + soft + val) * 100) / 100,
+        };
+      })
+    );
+
+    return roster;
   } catch (_) {
     return [];
   }
