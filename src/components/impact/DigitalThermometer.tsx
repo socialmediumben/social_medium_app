@@ -84,7 +84,7 @@ export const DigitalThermometer: React.FC<DigitalThermometerProps> = ({
             }}
           >
             <TrendingUp className="w-3 h-3 text-orange-400" />
-            <span>{Math.round(rawPercent)}%</span>
+            <span>{rawPercent > 0 && rawPercent < 1 ? '<1%' : `${Math.round(rawPercent)}%`}</span>
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export const DigitalThermometer: React.FC<DigitalThermometerProps> = ({
               <div className="absolute top-2 left-3 w-5 h-5 rounded-full bg-white/40 pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-tr from-black/20 via-transparent to-white/30 pointer-events-none" />
               <span className="text-white font-black text-sm drop-shadow-xs">
-                {percent}%
+                {rawPercent > 0 && rawPercent < 1 ? '<1%' : `${percent}%`}
               </span>
             </div>
           </div>
@@ -115,7 +115,7 @@ export const DigitalThermometer: React.FC<DigitalThermometerProps> = ({
           </div>
           <div className="flex items-baseline gap-2 flex-wrap">
             <span className="text-4xl sm:text-5xl font-black text-stone-900 font-fredoka tracking-tight">
-              {currencySymbol}{safeRaised.toLocaleString()}
+              {currencySymbol}{safeRaised % 1 !== 0 ? safeRaised.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : safeRaised.toLocaleString()}
             </span>
             <span className="text-lg font-bold text-stone-600">
               raised of {currencySymbol}{safeGoal.toLocaleString()} goal

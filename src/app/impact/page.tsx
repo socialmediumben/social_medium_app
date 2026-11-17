@@ -73,7 +73,7 @@ export default function ImpactPage() {
         let liveFormUrl = current.donationFormUrl;
 
         // If configured to use live stats from Neon One CRM campaign
-        if (current.useLiveNeonStats && current.campaignId) {
+        if ((current.autoSyncNeon !== false || current.useLiveNeonStats) && current.campaignId) {
           const detail = await fetchNeonCampaignDetail(current.campaignId);
           if (detail) {
             if (typeof detail.statistics?.grandTotal === 'number') {

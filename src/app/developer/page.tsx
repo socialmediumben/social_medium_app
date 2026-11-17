@@ -732,7 +732,23 @@ export default function DeveloperPage() {
           fetchNeonCampaigns(),
         ]);
         if (isMounted) {
-          if (settings) setImpactSettings(settings);
+          if (settings) {
+            let finalSettings = settings;
+            if (settings.campaignId && settings.autoSyncNeon !== false) {
+              try {
+                const detail = await fetchNeonCampaignDetail(settings.campaignId);
+                if (detail) {
+                  finalSettings = {
+                    ...settings,
+                    raisedAmount: Number(detail.statistics?.grandTotal ?? detail.statistics?.donationAmount ?? settings.raisedAmount),
+                    donorCount: Number(detail.statistics?.donationCount ?? settings.donorCount ?? 0),
+                    goalAmount: (typeof detail.goal === 'number' && detail.goal > 0) ? detail.goal : settings.goalAmount,
+                  };
+                }
+              } catch (_) {}
+            }
+            setImpactSettings(finalSettings);
+          }
           if (campaigns && campaigns.length > 0) setAvailableCampaigns(campaigns);
         }
       } catch (err) {
@@ -2332,8 +2348,19 @@ export default function DeveloperPage() {
                     const campaigns = await fetchNeonCampaigns();
                     if (campaigns && campaigns.length > 0) {
                       setAvailableCampaigns(campaigns);
-                      setImpactNotice({ message: `Refreshed ${campaigns.length} Neon One campaigns.`, type: 'success' });
                     }
+                    if (impactSettings.campaignId) {
+                      const detail = await fetchNeonCampaignDetail(impactSettings.campaignId);
+                      if (detail) {
+                        setImpactSettings((prev) => ({
+                          ...prev,
+                          raisedAmount: Number(detail.statistics?.grandTotal ?? detail.statistics?.donationAmount ?? prev.raisedAmount),
+                          donorCount: Number(detail.statistics?.donationCount ?? prev.donorCount ?? 0),
+                          goalAmount: (typeof detail.goal === 'number' && detail.goal > 0) ? detail.goal : prev.goalAmount,
+                        }));
+                      }
+                    }
+                    setImpactNotice({ message: `Synced live donations and ${campaigns?.length || 0} Neon One campaigns!`, type: 'success' });
                   } catch (err: any) {
                     setImpactNotice({ message: `Campaign refresh failed: ${err.message}`, type: 'error' });
                   } finally {
