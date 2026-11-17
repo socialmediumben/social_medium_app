@@ -1,7 +1,5 @@
-:HL["/_next/static/media/1e41be92c43b3255-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-:HL["/_next/static/media/bca7023bf625e650-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/css/aca13ac528b9d875.css","style"]
-:HL["/_next/static/css/4b2cea80b7deeee6.css","style"]
+:HL["/_next/static/css/523d0ed7d4e6327b.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"game-room","h":96,"c":"$Q2"}]]
-0:{"b":"57e94gZOGO1CItM8S8ufy","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"JdPi13WfPLPi_QgLxFcqj","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
