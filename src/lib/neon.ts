@@ -2986,6 +2986,9 @@ export async function fetchMemberHardCreditExcludingStore(accountId: string): Pr
         const amt = Number(d.amount) || 0;
         const campId = String(d.campaign?.id || '');
         const campName = (d.campaign?.name || '').trim().toLowerCase();
+        const originCategory = (d.origin?.originCategory || '').trim().toLowerCase();
+        const originDetail = (d.origin?.originDetail || '').trim().toLowerCase();
+        const acknowledgeeName = (d.acknowledgee?.name || '').trim().toLowerCase();
 
         const isStoreCampaign =
           campId === '1' ||
@@ -2993,7 +2996,11 @@ export async function fetchMemberHardCreditExcludingStore(accountId: string): Pr
           campName === 'store' ||
           campName.includes('store') ||
           campName.includes('wallet') ||
-          campName.includes('tab');
+          campName.includes('tab') ||
+          originCategory === 'store order form' ||
+          originCategory.includes('store') ||
+          originDetail.includes('store') ||
+          acknowledgeeName.includes('store');
 
         if (isStoreCampaign) {
           excludedStoreDonationsTotal += amt;
