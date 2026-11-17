@@ -176,6 +176,7 @@ export default function DeveloperPage() {
     digitalBackground: true,
     sound: true,
     photoboothMode: false,
+    impactMode: false,
   });
   const [isUpdatingPortalSetting, setIsUpdatingPortalSetting] = useState<string | null>(null);
   const [isRefreshingPortal, setIsRefreshingPortal] = useState(false);
@@ -1425,6 +1426,9 @@ export default function DeveloperPage() {
           <span>Portal Door</span>
           {portalSettings.contestMode && (
             <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" title="Contest Mode Active on Door" />
+          )}
+          {portalSettings.impactMode && (
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-0.5" title="Impact Mode Active on Door" />
           )}
         </button>
 
@@ -2756,6 +2760,57 @@ export default function DeveloperPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Portal Door Impact Mode Remote Controller */}
+              <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center font-bold">
+                      <DoorOpen className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-fredoka text-sm font-bold text-stone-900">
+                        Portal Door Home Screen
+                      </h4>
+                      <p className="text-[11px] text-stone-500">
+                        Make Impact thermometer the idle screen on the physical door.
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider ${
+                      portalSettings.impactMode
+                        ? "bg-rose-100 text-rose-900 border border-rose-300"
+                        : "bg-stone-100 text-stone-600"
+                    }`}
+                  >
+                    {portalSettings.impactMode ? "Impact: ON" : "Impact: OFF"}
+                  </span>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <span className="text-xs text-stone-600">
+                    {portalSettings.impactMode ? "Active on Portal Door Home" : "Standard Closed Door Idle"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleTogglePortalSetting("impactMode", !portalSettings.impactMode)}
+                    disabled={isUpdatingPortalSetting === "impactMode"}
+                    className={`px-3.5 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                      portalSettings.impactMode
+                        ? "bg-rose-600 hover:bg-rose-700 text-white"
+                        : "bg-stone-900 hover:bg-stone-800 text-white"
+                    }`}
+                  >
+                    {isUpdatingPortalSetting === "impactMode" ? (
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <HeartHandshake className="w-3.5 h-3.5" />
+                    )}
+                    <span>{portalSettings.impactMode ? "Turn Off on Door" : "Turn On on Door"}</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -2821,8 +2876,67 @@ export default function DeveloperPage() {
             </div>
           )}
 
-          {/* 4 Interactive Remote Control Cards */}
+          {/* 5 Interactive Remote Control Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Control 0: Impact Campaign Home Screen */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4 flex flex-col justify-between">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-600 flex items-center justify-center font-bold">
+                      <HeartHandshake className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-stone-900 text-sm">
+                        Impact Mode (Fundraising Home Screen)
+                      </h3>
+                      <p className="text-[11px] text-stone-500">
+                        Managed via SM App
+                      </p>
+                    </div>
+                  </div>
+                  <span
+                    className={`px-2.5 py-1 rounded-full font-bold text-[11px] uppercase tracking-wider ${
+                      portalSettings.impactMode
+                        ? "bg-rose-100 text-rose-900 border border-rose-300"
+                        : "bg-stone-100 text-stone-600"
+                    }`}
+                  >
+                    {portalSettings.impactMode ? "Impact: ON" : "Impact: OFF"}
+                  </span>
+                </div>
+
+                <p className="text-xs text-stone-600 leading-relaxed">
+                  When enabled, the Portal Door replaces its idle/closed door home screen with the live Impact Campaign digital thermometer and donor QR code. When members tap their badge or snap photos, the door operates completely normally and returns to the Impact screen when idle.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-stone-100 flex items-center justify-between">
+                <span className="text-[11px] text-stone-500 font-medium">
+                  {portalSettings.impactMode ? "Active on Portal Door Home Screen" : "Standard Closed Door Idle"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleTogglePortalSetting("impactMode", !portalSettings.impactMode)}
+                  disabled={isUpdatingPortalSetting === "impactMode"}
+                  className={`px-4 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs ${
+                    portalSettings.impactMode
+                      ? "bg-rose-600 hover:bg-rose-700 text-white"
+                      : "bg-stone-900 hover:bg-stone-800 text-white"
+                  }`}
+                >
+                  {isUpdatingPortalSetting === "impactMode" ? (
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  ) : portalSettings.impactMode ? (
+                    <EyeOff className="w-3.5 h-3.5" />
+                  ) : (
+                    <HeartHandshake className="w-3.5 h-3.5" />
+                  )}
+                  <span>{portalSettings.impactMode ? "Turn Impact Mode OFF" : "Turn Impact Mode ON"}</span>
+                </button>
+              </div>
+            </div>
+
             {/* Control 1: Costume Contest Mode */}
             <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4 flex flex-col justify-between">
               <div className="space-y-3">
@@ -2836,7 +2950,7 @@ export default function DeveloperPage() {
                         Costume Contest Mode
                       </h3>
                       <p className="text-[11px] text-stone-500">
-                        Door Hotkey: <kbd className="px-1.5 py-0.5 bg-stone-100 border border-stone-300 rounded font-mono text-[10px]">C</kbd>
+                        Managed via SM App
                       </p>
                     </div>
                   </div>

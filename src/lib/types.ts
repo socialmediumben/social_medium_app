@@ -205,6 +205,7 @@ export interface PortalDoorSettings {
   digitalBackground: boolean;
   sound: boolean;
   photoboothMode: boolean;
+  impactMode?: boolean;
   activeProfileCardId?: string;
   updatedAt?: string;
   updatedBy?: string;
