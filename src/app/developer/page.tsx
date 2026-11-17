@@ -188,6 +188,7 @@ export default function DeveloperPage() {
   });
   const [boardRoster, setBoardRoster] = useState<any[]>([]);
   const [isLoadingBoardRoster, setIsLoadingBoardRoster] = useState(false);
+  const [hasLoadedBoardRoster, setHasLoadedBoardRoster] = useState(false);
   const [giveGetNotice, setGiveGetNotice] = useState<string | null>(null);
 
   const handleSaveHourlyRate = () => {
@@ -208,8 +209,13 @@ export default function DeveloperPage() {
     try {
       const roster = await fetchBoardRosterSummary();
       setBoardRoster(roster);
-    } catch (_) {}
-    finally {
+      setHasLoadedBoardRoster(true);
+      setGiveGetNotice(`Loaded ${roster.length} board member(s) from Neon One CRM.`);
+      setTimeout(() => setGiveGetNotice(null), 4000);
+    } catch (_) {
+      setGiveGetNotice('Failed to connect to Neon One CRM.');
+      setTimeout(() => setGiveGetNotice(null), 4000);
+    } finally {
       setIsLoadingBoardRoster(false);
     }
   };
@@ -3256,7 +3262,9 @@ export default function DeveloperPage() {
 
             {boardRoster.length === 0 ? (
               <div className="py-8 text-center text-xs text-stone-400">
-                Click &quot;Load Board Roster&quot; to fetch the latest board members and contribution totals from Neon One CRM.
+                {hasLoadedBoardRoster
+                  ? "No board members found in Neon One CRM. Ensure constituent accounts have the 'Board Member' checkbox (Custom Field 123) marked True."
+                  : "Click \"Load Board Roster\" to fetch the latest board members and contribution totals from Neon One CRM."}
               </div>
             ) : (
               <div className="overflow-x-auto">

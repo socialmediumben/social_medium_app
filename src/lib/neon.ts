@@ -3130,6 +3130,9 @@ export async function fetchBoardRosterSummary(): Promise<
   }>
 > {
   try {
+    let results: any[] = [];
+    
+    // Checkbox custom fields in Neon One search API match with NOT_BLANK or Option Value ID "89"
     const searchRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3137,8 +3140,7 @@ export async function fetchBoardRosterSummary(): Promise<
         searchFields: [
           {
             field: 'Board Member',
-            operator: 'EQUAL',
-            value: 'True',
+            operator: 'NOT_BLANK',
           },
         ],
         outputFields: [
@@ -3149,17 +3151,60 @@ export async function fetchBoardRosterSummary(): Promise<
           'Email 1',
           'All Time Donation Total',
           'All Time Soft Credit Total',
+          'Current Calendar Year Donation Total',
+          'Current Calendar Year Soft Credit Total',
         ],
         pagination: {
           currentPage: 0,
-          pageSize: 50,
+          pageSize: 100,
         },
       }),
     });
 
-    if (!searchRes.ok) return [];
-    const data = await searchRes.json();
-    const results = data?.searchResults || [];
+    if (searchRes.ok) {
+      const data = await searchRes.json();
+      results = data?.searchResults || [];
+    }
+
+    // Fallback search with Option ID "89" if NOT_BLANK yielded 0 results
+    if (results.length === 0) {
+      try {
+        const fallbackRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            searchFields: [
+              {
+                field: 'Board Member',
+                operator: 'EQUAL',
+                value: '89',
+              },
+            ],
+            outputFields: [
+              'Account ID',
+              'First Name',
+              'Last Name',
+              'Preferred Name',
+              'Email 1',
+              'All Time Donation Total',
+              'All Time Soft Credit Total',
+              'Current Calendar Year Donation Total',
+              'Current Calendar Year Soft Credit Total',
+            ],
+            pagination: {
+              currentPage: 0,
+              pageSize: 100,
+            },
+          }),
+        });
+        if (fallbackRes.ok) {
+          const fallbackData = await fallbackRes.json();
+          results = fallbackData?.searchResults || [];
+        }
+      } catch (_) {}
+    }
+
+    if (results.length === 0) return [];
 
     // Query each board member's account to fetch Field 125 ("Volunteer Hours") from Neon One
     const roster = await Promise.all(
