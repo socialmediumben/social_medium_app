@@ -2990,7 +2990,13 @@ export async function fetchMemberHardCreditExcludingStore(accountId: string): Pr
         const originDetail = (d.origin?.originDetail || '').trim().toLowerCase();
         const acknowledgeeName = (d.acknowledgee?.name || '').trim().toLowerCase();
 
+        // All previous legacy donations prior to campaign setup were snack store transactions.
+        // A donation counts toward Hard Credit only if it has an explicit philanthropic campaign (not Store).
+        const hasSpecificPhilanthropicCampaign =
+          Boolean(d.campaign && d.campaign.id && String(d.campaign.id) !== '1' && String(d.campaign.id) !== STORE_CAMPAIGN_ID && campName !== 'store' && !campName.includes('store'));
+
         const isStoreCampaign =
+          !hasSpecificPhilanthropicCampaign ||
           campId === '1' ||
           campId === STORE_CAMPAIGN_ID ||
           campName === 'store' ||
