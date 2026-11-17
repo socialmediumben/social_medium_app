@@ -3246,7 +3246,7 @@ export default function DeveloperPage() {
               <div>
                 <h3 className="text-base font-bold text-stone-900">Board Member Roster & Cumulative Give/Get</h3>
                 <p className="text-xs text-stone-500">
-                  Overview of all constituents with the Board Member field enabled in Neon One CRM.
+                  Overview of all constituents with the Board Member field enabled in Neon One CRM. Direct donations automatically exclude the Store campaign.
                 </p>
               </div>
               <button

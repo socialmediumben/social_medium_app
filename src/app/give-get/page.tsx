@@ -429,6 +429,11 @@ export default function GiveGetPage() {
                 <span className="text-stone-500">Current Year ({new Date().getFullYear()}):</span>
                 <span className="font-bold text-stone-700">${(summary?.currentYearHardCredit || 0).toFixed(2)}</span>
               </div>
+              {(summary?.excludedStoreDonationsTotal ?? 0) > 0 && (
+                <div className="text-[10px] text-stone-400 italic pt-0.5">
+                  (Excludes ${(summary?.excludedStoreDonationsTotal || 0).toFixed(2)} in Store / tab purchases)
+                </div>
+              )}
             </div>
           </div>
           <Link

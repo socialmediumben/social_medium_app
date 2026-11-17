@@ -2959,6 +2959,70 @@ export async function deleteBoardVolunteerSession(
  * - Volunteer Hours: Synced from Neon One Custom Field 125 ("Volunteer Hours")
  * - Total Give/Get = Hard Credit + Soft Credit + (Volunteer Hours * $10)
  */
+/**
+ * Fetches direct (hard-credit) donations for an account from Neon One CRM,
+ * automatically excluding donations designated for the "Store" campaign (wallet top-ups / store tabs).
+ */
+export async function fetchMemberHardCreditExcludingStore(accountId: string): Promise<{
+  allTimeHardCredit: number;
+  currentYearHardCredit: number;
+  excludedStoreDonationsTotal: number;
+}> {
+  let allTimeHardCredit = 0;
+  let currentYearHardCredit = 0;
+  let excludedStoreDonationsTotal = 0;
+  const currentYear = new Date().getFullYear();
+
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}/donations?pageSize=100`);
+    if (res.ok) {
+      const data = await res.json();
+      const donations = data?.donations || [];
+      for (const d of donations) {
+        if (d.status && d.status.toLowerCase() !== 'succeeded') {
+          continue;
+        }
+
+        const amt = Number(d.amount) || 0;
+        const campId = String(d.campaign?.id || '');
+        const campName = (d.campaign?.name || '').trim().toLowerCase();
+
+        const isStoreCampaign =
+          campId === '1' ||
+          campId === STORE_CAMPAIGN_ID ||
+          campName === 'store' ||
+          campName.includes('store') ||
+          campName.includes('wallet') ||
+          campName.includes('tab');
+
+        if (isStoreCampaign) {
+          excludedStoreDonationsTotal += amt;
+          continue;
+        }
+
+        allTimeHardCredit += amt;
+        const dYear = d.date ? new Date(d.date).getFullYear() : null;
+        if (dYear === currentYear) {
+          currentYearHardCredit += amt;
+        }
+      }
+      return {
+        allTimeHardCredit: Math.round(allTimeHardCredit * 100) / 100,
+        currentYearHardCredit: Math.round(currentYearHardCredit * 100) / 100,
+        excludedStoreDonationsTotal: Math.round(excludedStoreDonationsTotal * 100) / 100,
+      };
+    }
+  } catch (err) {
+    console.warn('[Give/Get] Failed to fetch member donations breakdown:', err);
+  }
+
+  return {
+    allTimeHardCredit: 0,
+    currentYearHardCredit: 0,
+    excludedStoreDonationsTotal: 0,
+  };
+}
+
 export async function fetchMemberGiveGetSummary(
   accountId: string
 ): Promise<GiveGetSummary> {
@@ -2966,6 +3030,7 @@ export async function fetchMemberGiveGetSummary(
   let softCredit = 0;
   let currentYearHardCredit = 0;
   let currentYearSoftCredit = 0;
+  let excludedStoreDonationsTotal = 0;
   let liveNeonHours: number | null = null;
 
   // 1. Load local sessions
@@ -3011,7 +3076,17 @@ export async function fetchMemberGiveGetSummary(
         console.warn('Neon account fetch notice for Volunteer Hours:', accErr);
       }
 
-      // B. Query donation totals via search
+      // B. Query direct donations excluding the "Store" campaign (wallet top-ups)
+      try {
+        const hardCreditBreakdown = await fetchMemberHardCreditExcludingStore(accIdToUse);
+        hardCredit = hardCreditBreakdown.allTimeHardCredit;
+        currentYearHardCredit = hardCreditBreakdown.currentYearHardCredit;
+        excludedStoreDonationsTotal = hardCreditBreakdown.excludedStoreDonationsTotal;
+      } catch (hcErr) {
+        console.warn('Error fetching hard credit excluding store:', hcErr);
+      }
+
+      // C. Query soft credit donation totals via search
       const searchRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -3025,9 +3100,7 @@ export async function fetchMemberGiveGetSummary(
           ],
           outputFields: [
             'Account ID',
-            'All Time Donation Total',
             'All Time Soft Credit Total',
-            'Current Calendar Year Donation Total',
             'Current Calendar Year Soft Credit Total',
           ],
           pagination: {
@@ -3041,14 +3114,8 @@ export async function fetchMemberGiveGetSummary(
         const searchData = await searchRes.json();
         const record = searchData?.searchResults?.[0];
         if (record) {
-          const parsedHard = parseFloat(record['All Time Donation Total'] || '0');
-          if (!isNaN(parsedHard) && parsedHard >= 0) hardCredit = parsedHard;
-
           const parsedSoft = parseFloat(record['All Time Soft Credit Total'] || '0');
           if (!isNaN(parsedSoft) && parsedSoft >= 0) softCredit = parsedSoft;
-
-          const parsedCyHard = parseFloat(record['Current Calendar Year Donation Total'] || '0');
-          if (!isNaN(parsedCyHard) && parsedCyHard >= 0) currentYearHardCredit = parsedCyHard;
 
           const parsedCySoft = parseFloat(record['Current Calendar Year Soft Credit Total'] || '0');
           if (!isNaN(parsedCySoft) && parsedCySoft >= 0) currentYearSoftCredit = parsedCySoft;
@@ -3109,6 +3176,7 @@ export async function fetchMemberGiveGetSummary(
     totalGiveGet,
     currentYearHardCredit,
     currentYearSoftCredit,
+    excludedStoreDonationsTotal,
     sessions,
   };
 }
@@ -3240,7 +3308,11 @@ export async function fetchBoardRosterSummary(): Promise<
           hours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
         }
 
-        const hard = parseFloat(r['All Time Donation Total'] || '0') || 0;
+        let hard = parseFloat(r['All Time Donation Total'] || '0') || 0;
+        try {
+          const hardBreakdown = await fetchMemberHardCreditExcludingStore(accountId);
+          hard = hardBreakdown.allTimeHardCredit;
+        } catch (_) {}
         const soft = parseFloat(r['All Time Soft Credit Total'] || '0') || 0;
         const val = Math.round(hours * DEFAULT_GIVE_GET_HOURLY_RATE * 100) / 100;
 

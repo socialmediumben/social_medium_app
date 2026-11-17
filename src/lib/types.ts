@@ -61,6 +61,7 @@ export interface GiveGetSummary {
   totalGiveGet: number;      // hardCredit + softCredit + volunteerValue
   currentYearHardCredit?: number;
   currentYearSoftCredit?: number;
+  excludedStoreDonationsTotal?: number; // Store purchases / top-ups excluded from philanthropic Give/Get
   sessions: VolunteerSession[];
 }
 
