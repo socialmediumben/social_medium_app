@@ -52,6 +52,7 @@ import {
   Target,
   QrCode,
   TrendingUp,
+  HandCoins,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -93,6 +94,8 @@ import {
   fetchImpactCampaignSettings,
   saveImpactCampaignSettings,
   DEFAULT_IMPACT_SETTINGS,
+  fetchBoardRosterSummary,
+  DEFAULT_GIVE_GET_HOURLY_RATE,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -140,7 +143,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'portal-door' | 'buddy-assets' | 'store' | 'gamification' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'give-get' | 'portal-door' | 'buddy-assets' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -165,9 +168,47 @@ export default function DeveloperPage() {
     setImpactVisibility,
     brandLogo,
     setBrandLogo,
+    isBoardMemberPreviewEnabled,
+    setIsBoardMemberPreviewEnabled,
   } = useDevMode();
 
   const [activeTab, setActiveTab] = useState<DevSubTab>('impersonate');
+  // ==========================================
+  // GIVE/GET & BOARD MEMBER DEVELOPER STATE
+  // ==========================================
+  const [giveGetHourlyRate, setGiveGetHourlyRate] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sm_give_get_hourly_rate') || '10';
+    }
+    return '10';
+  });
+  const [boardRoster, setBoardRoster] = useState<any[]>([]);
+  const [isLoadingBoardRoster, setIsLoadingBoardRoster] = useState(false);
+  const [giveGetNotice, setGiveGetNotice] = useState<string | null>(null);
+
+  const handleSaveHourlyRate = () => {
+    const val = parseFloat(giveGetHourlyRate);
+    if (isNaN(val) || val <= 0) {
+      setGiveGetNotice('Hourly rate must be a positive number.');
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sm_give_get_hourly_rate', String(val));
+    }
+    setGiveGetNotice(`Saved volunteer credit rate: $${val.toFixed(2)}/hour`);
+    setTimeout(() => setGiveGetNotice(null), 4000);
+  };
+
+  const handleLoadBoardRoster = async () => {
+    setIsLoadingBoardRoster(true);
+    try {
+      const roster = await fetchBoardRosterSummary();
+      setBoardRoster(roster);
+    } catch (_) {}
+    finally {
+      setIsLoadingBoardRoster(false);
+    }
+  };
   // ==========================================
   // PORTAL DOOR REMOTE SETTINGS STATE & HANDLERS
   // ==========================================
@@ -1426,6 +1467,22 @@ export default function DeveloperPage() {
           <span>Impact & Fundraising</span>
           {impactSettings.enabled && (
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse ml-0.5" title="Fundraising Campaign Active" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('give-get')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'give-get'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <HandCoins className="w-4 h-4 text-emerald-500" />
+          <span>Give/Get (Board)</span>
+          {isBoardMemberPreviewEnabled && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse ml-0.5" title="Board Member Preview Enabled" />
           )}
         </button>
 
@@ -2843,6 +2900,197 @@ export default function DeveloperPage() {
         </div>
       )}
 
+
+      {/* ========================================================================= */}
+      {/* TAB: GIVE/GET & BOARD MEMBER SETTINGS                                     */}
+      {/* ========================================================================= */}
+      {activeTab === 'give-get' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-700 flex items-center justify-center shrink-0 shadow-xs">
+                <HandCoins className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                    Give / Get & Board Member Settings
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono text-[10px] font-bold uppercase tracking-wider">
+                    Board Portal
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Track board member giving, configure custom field rules, and view the cumulative Give/Get summary.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Link
+                href="/give-get"
+                className="py-2.5 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-xs"
+              >
+                <span>Open Give/Get Module</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+          </div>
+
+          {giveGetNotice && (
+            <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{giveGetNotice}</span>
+            </div>
+          )}
+
+          {/* Settings Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* 1. Access & Preview Control */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-stone-900">Access Control & Detection</h3>
+                  <p className="text-xs text-stone-500 mt-0.5">
+                    Accounts with Custom Field 123 (<strong>Board Member</strong> = True) can view Give/Get.
+                  </p>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-stone-100 border border-stone-200 text-[10px] font-mono font-bold text-stone-700">
+                  Field 123
+                </span>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200 flex items-center justify-between">
+                <div>
+                  <span className="text-xs font-bold text-stone-800 block">Preview Give/Get as Board Member</span>
+                  <span className="text-[11px] text-stone-500">
+                    Enables the Give/Get tab in the main navigation for testing.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsBoardMemberPreviewEnabled(!isBoardMemberPreviewEnabled)}
+                  className={`w-12 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
+                    isBoardMemberPreviewEnabled ? 'bg-emerald-500 justify-end' : 'bg-stone-300 justify-start'
+                  }`}
+                >
+                  <span className="bg-white w-4 h-4 rounded-full shadow-md transform transition-transform" />
+                </button>
+              </div>
+
+              <div className="text-[11px] text-stone-400 space-y-1">
+                <p>• Active User Board Status: <strong className={member?.isBoardMember ? "text-emerald-600" : "text-stone-600"}>{member?.isBoardMember ? "TRUE (Verified in Neon One)" : "FALSE"}</strong></p>
+                <p>• Preview Override: <strong className={isBoardMemberPreviewEnabled ? "text-emerald-600" : "text-stone-500"}>{isBoardMemberPreviewEnabled ? "ENABLED" : "DISABLED"}</strong></p>
+              </div>
+            </div>
+
+            {/* 2. Valuation Rate Settings */}
+            <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-stone-900">Volunteer Hourly Credit Rate</h3>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  The dollar amount credited toward a board member's Give/Get commitment per volunteer hour.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-stone-700 block">Hourly Rate ($ / hour)</label>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <span className="absolute left-3 top-2 text-xs font-bold text-stone-400">$</span>
+                    <input
+                      type="number"
+                      step="1"
+                      min="1"
+                      value={giveGetHourlyRate}
+                      onChange={(e) => setGiveGetHourlyRate(e.target.value)}
+                      className="w-full pl-7 pr-3 py-2 rounded-xl bg-stone-50 border border-stone-200 text-xs font-bold focus:outline-hidden focus:ring-2 focus:ring-[#344ea2]"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSaveHourlyRate}
+                    className="py-2 px-4 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Save Rate
+                  </button>
+                </div>
+                <p className="text-[11px] text-stone-400">
+                  Default: $10.00/hour. Example: 40 hours logged = $400.00 Give/Get credit.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. Board of Directors Roster Table */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-stone-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-stone-900">Board Member Roster & Cumulative Give/Get</h3>
+                <p className="text-xs text-stone-500">
+                  Overview of all constituents with the Board Member field enabled in Neon One CRM.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleLoadBoardRoster}
+                disabled={isLoadingBoardRoster}
+                className="py-2 px-3.5 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBoardRoster ? 'animate-spin' : ''}`} />
+                <span>{isLoadingBoardRoster ? 'Loading...' : 'Load Board Roster'}</span>
+              </button>
+            </div>
+
+            {boardRoster.length === 0 ? (
+              <div className="py-8 text-center text-xs text-stone-400">
+                Click &quot;Load Board Roster&quot; to fetch the latest board members and contribution totals from Neon One CRM.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-stone-200 text-stone-400 font-black uppercase text-[10px] tracking-wider">
+                      <th className="py-2.5 px-3">Board Member</th>
+                      <th className="py-2.5 px-3">Hard Credit</th>
+                      <th className="py-2.5 px-3">Soft Credit</th>
+                      <th className="py-2.5 px-3">Service Hours</th>
+                      <th className="py-2.5 px-3">Service Value</th>
+                      <th className="py-2.5 px-3 font-extrabold text-stone-900">Total Give/Get</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100 font-medium text-stone-700">
+                    {boardRoster.map((b) => (
+                      <tr key={b.accountId} className="hover:bg-stone-50/70 transition-colors">
+                        <td className="py-3 px-3">
+                          <span className="font-bold text-stone-900 block">{b.name}</span>
+                          <span className="text-[10px] text-stone-400 font-mono">#{b.accountId}</span>
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-blue-700">
+                          ${b.hardCredit.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-purple-700">
+                          ${b.softCredit.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-stone-800">
+                          {b.volunteerHours.toFixed(1)} hrs
+                        </td>
+                        <td className="py-3 px-3 font-semibold text-amber-700">
+                          ${b.volunteerValue.toFixed(2)}
+                        </td>
+                        <td className="py-3 px-3 font-black text-emerald-600 text-sm">
+                          ${b.totalGiveGet.toFixed(2)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* TAB: PORTAL DOOR REMOTE CONTROLLER                                        */}

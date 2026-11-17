@@ -11,6 +11,8 @@ import {
   ImpactCampaignSettings,
   NeonCampaignSummary,
   NeonCampaignDetail,
+  VolunteerSession,
+  GiveGetSummary,
 } from './types';
 import { calculateLevelFromXp } from './gamification';
 
@@ -194,6 +196,7 @@ export async function fetchMemberProfileByAccountId(
     let interestsList: string[] = [];
     let customInterestsStr = '';
     let isAppDeveloper = false;
+    let isBoardMember = false;
     let parsedStoreBalance: number | undefined = undefined;
     let parsedXp: number | undefined = undefined;
     let parsedBuddyAvatar: string | undefined = undefined;
@@ -357,6 +360,19 @@ export async function fetchMemberProfileByAccountId(
           isAppDeveloper = val === 'TRUE' || val === 'YES' || val === '1';
         }
       }
+
+      // Board Member (Field 123)
+      if (fieldId === '123' || fieldName === 'board member' || fieldName.includes('board member')) {
+        if (Array.isArray(field.optionValues) && field.optionValues.length > 0) {
+          isBoardMember = field.optionValues.some((opt: any) => {
+            const val = (opt.name || opt.value || String(opt)).toUpperCase();
+            return val === 'TRUE' || val === 'YES' || val === '1';
+          });
+        } else if (field.value) {
+          const val = String(field.value).toUpperCase();
+          isBoardMember = val === 'TRUE' || val === 'YES' || val === '1';
+        }
+      }
     }
 
     // Determine if constituent is a Neon One System User (Staff access)
@@ -477,6 +493,7 @@ export async function fetchMemberProfileByAccountId(
       customInterests: customInterestsStr,
       isSystemUser,
       isAppDeveloper,
+      isBoardMember,
       storeBalance: finalStoreBalance,
       xp: finalXp,
       level: levelState.level,
@@ -2661,5 +2678,256 @@ export async function updateMemberBuddyBucksInNeon(
     return { success: true, newAmount: safeAmount };
   } catch (err: any) {
     return { success: false, newAmount: safeAmount, error: err.message };
+  }
+}
+
+// ==========================================
+// 10. GIVE / GET & BOARD MEMBER SERVICE
+// ==========================================
+
+export const DEFAULT_GIVE_GET_HOURLY_RATE = 10; // $10/hour
+
+/**
+ * Retrieves all stored volunteer/service sessions for a board member.
+ */
+export function getMemberVolunteerSessions(accountId: string): VolunteerSession[] {
+  if (typeof window === 'undefined' || !accountId) return [];
+  try {
+    const raw = localStorage.getItem(`sm_board_sessions_${accountId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      }
+    }
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Saves a new or updated volunteer service session for a board member.
+ */
+export async function saveBoardVolunteerSession(
+  session: VolunteerSession
+): Promise<GiveGetSummary> {
+  const accountId = session.accountId;
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      const existing = getMemberVolunteerSessions(accountId);
+      const filtered = existing.filter((s) => s.id !== session.id);
+      const updated = [session, ...filtered];
+      localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('sm_give_get_updated', { detail: { accountId } }));
+    } catch (_) {}
+  }
+  return await fetchMemberGiveGetSummary(accountId);
+}
+
+/**
+ * Deletes a volunteer service session for a board member.
+ */
+export async function deleteBoardVolunteerSession(
+  accountId: string,
+  sessionId: string
+): Promise<GiveGetSummary> {
+  if (typeof window !== 'undefined' && accountId) {
+    try {
+      const existing = getMemberVolunteerSessions(accountId);
+      const updated = existing.filter((s) => s.id !== sessionId);
+      localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updated));
+      window.dispatchEvent(new CustomEvent('sm_give_get_updated', { detail: { accountId } }));
+    } catch (_) {}
+  }
+  return await fetchMemberGiveGetSummary(accountId);
+}
+
+/**
+ * Fetches the comprehensive Give/Get summary for a member:
+ * - Hard Credit: Direct personal donations from Neon CRM
+ * - Soft Credit: Influenced/soft credit gifts from Neon CRM
+ * - Volunteer Hours: Self-reported service hours valued at $10/hr
+ * - Total Give/Get = Hard Credit + Soft Credit + (Volunteer Hours * $10)
+ */
+export async function fetchMemberGiveGetSummary(
+  accountId: string
+): Promise<GiveGetSummary> {
+  let hardCredit = 0;
+  let softCredit = 0;
+  let currentYearHardCredit = 0;
+  let currentYearSoftCredit = 0;
+
+  // 1. Load volunteer sessions and compute total volunteer hours
+  const sessions = getMemberVolunteerSessions(accountId);
+  const totalVolunteerHours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+
+  // 2. Query Neon One CRM for hard and soft credit donation totals
+  if (accountId) {
+    try {
+      const searchRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          searchFields: [
+            {
+              field: 'Account ID',
+              operator: 'EQUAL',
+              value: accountId,
+            },
+          ],
+          outputFields: [
+            'Account ID',
+            'All Time Donation Total',
+            'All Time Soft Credit Total',
+            'Current Calendar Year Donation Total',
+            'Current Calendar Year Soft Credit Total',
+          ],
+          pagination: {
+            currentPage: 0,
+            pageSize: 1,
+          },
+        }),
+      });
+
+      if (searchRes.ok) {
+        const searchData = await searchRes.json();
+        const record = searchData?.searchResults?.[0];
+        if (record) {
+          const parsedHard = parseFloat(record['All Time Donation Total'] || '0');
+          if (!isNaN(parsedHard) && parsedHard >= 0) hardCredit = parsedHard;
+
+          const parsedSoft = parseFloat(record['All Time Soft Credit Total'] || '0');
+          if (!isNaN(parsedSoft) && parsedSoft >= 0) softCredit = parsedSoft;
+
+          const parsedCyHard = parseFloat(record['Current Calendar Year Donation Total'] || '0');
+          if (!isNaN(parsedCyHard) && parsedCyHard >= 0) currentYearHardCredit = parsedCyHard;
+
+          const parsedCySoft = parseFloat(record['Current Calendar Year Soft Credit Total'] || '0');
+          if (!isNaN(parsedCySoft) && parsedCySoft >= 0) currentYearSoftCredit = parsedCySoft;
+
+          // Cache in local storage for fast offline rendering
+          if (typeof window !== 'undefined') {
+            try {
+              localStorage.setItem(`sm_give_get_hard_${accountId}`, String(hardCredit));
+              localStorage.setItem(`sm_give_get_soft_${accountId}`, String(softCredit));
+            } catch (_) {}
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Neon Give/Get search notice:', err);
+    }
+
+    // Fallback to cached totals if offline or network error
+    if (hardCredit === 0 && softCredit === 0 && typeof window !== 'undefined') {
+      try {
+        const cachedHard = localStorage.getItem(`sm_give_get_hard_${accountId}`);
+        if (cachedHard) hardCredit = parseFloat(cachedHard) || 0;
+        const cachedSoft = localStorage.getItem(`sm_give_get_soft_${accountId}`);
+        if (cachedSoft) softCredit = parseFloat(cachedSoft) || 0;
+      } catch (_) {}
+    }
+  }
+
+  // 3. Resolve hourly rate (default $10/hr, customizable via Dev Mode)
+  let hourlyRate = DEFAULT_GIVE_GET_HOURLY_RATE;
+  if (typeof window !== 'undefined') {
+    try {
+      const storedRate = localStorage.getItem('sm_give_get_hourly_rate');
+      if (storedRate) {
+        const parsedRate = parseFloat(storedRate);
+        if (!isNaN(parsedRate) && parsedRate > 0) hourlyRate = parsedRate;
+      }
+    } catch (_) {}
+  }
+
+  const volunteerValue = Math.round(totalVolunteerHours * hourlyRate * 100) / 100;
+  const totalGiveGet = Math.round((hardCredit + softCredit + volunteerValue) * 100) / 100;
+
+  return {
+    accountId,
+    hardCredit,
+    softCredit,
+    volunteerHours: totalVolunteerHours,
+    hourlyRate,
+    volunteerValue,
+    totalGiveGet,
+    currentYearHardCredit,
+    currentYearSoftCredit,
+    sessions,
+  };
+}
+
+/**
+ * Fetches all board members (Custom Field 123 = TRUE) and their Give/Get totals for Developer Mode.
+ */
+export async function fetchBoardRosterSummary(): Promise<
+  Array<{
+    accountId: string;
+    name: string;
+    email?: string;
+    hardCredit: number;
+    softCredit: number;
+    volunteerHours: number;
+    volunteerValue: number;
+    totalGiveGet: number;
+  }>
+> {
+  try {
+    const searchRes = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        searchFields: [
+          {
+            field: 'Board Member',
+            operator: 'EQUAL',
+            value: 'True',
+          },
+        ],
+        outputFields: [
+          'Account ID',
+          'First Name',
+          'Last Name',
+          'Preferred Name',
+          'Email 1',
+          'All Time Donation Total',
+          'All Time Soft Credit Total',
+        ],
+        pagination: {
+          currentPage: 0,
+          pageSize: 50,
+        },
+      }),
+    });
+
+    if (!searchRes.ok) return [];
+    const data = await searchRes.json();
+    const results = data?.searchResults || [];
+
+    return results.map((r: any) => {
+      const accountId = String(r['Account ID'] || '');
+      const sessions = getMemberVolunteerSessions(accountId);
+      const hours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+      const hard = parseFloat(r['All Time Donation Total'] || '0') || 0;
+      const soft = parseFloat(r['All Time Soft Credit Total'] || '0') || 0;
+      const val = hours * DEFAULT_GIVE_GET_HOURLY_RATE;
+
+      const fName = r['Preferred Name'] || r['First Name'] || '';
+      const lName = r['Last Name'] || '';
+      const name = `${fName} ${lName}`.trim() || `Member #${accountId}`;
+
+      return {
+        accountId,
+        name,
+        email: r['Email 1'] || undefined,
+        hardCredit: hard,
+        softCredit: soft,
+        volunteerHours: hours,
+        volunteerValue: val,
+        totalGiveGet: hard + soft + val,
+      };
+    });
+  } catch (_) {
+    return [];
   }
 }

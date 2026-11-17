@@ -23,6 +23,7 @@ import {
   Trophy,
   ShoppingBag,
   HeartHandshake,
+  HandCoins,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -57,8 +58,11 @@ export function Navbar() {
     isContestVisible,
     isImpactVisible,
     brandLogo,
+    isBoardMemberPreviewEnabled,
   } = useDevMode();
   const [isModeDropdownOpen, setIsModeDropdownOpen] = useState(false);
+
+  const isBoardMember = !!(member?.isBoardMember || isBoardMemberPreviewEnabled);
 
   // Automated gamification evaluation for active member (first login, daily streak, recent kiosk check-ins)
   useEffect(() => {
@@ -86,15 +90,28 @@ export function Navbar() {
     return () => clearTimeout(timer);
   }, [member?.accountId]);
 
-  const baseItems = useMemo(
-    () =>
-      BASE_NAV_ITEMS.filter((item) => {
-        if (item.href === '/costume-contest') return isContestVisible;
-        if (item.href === '/impact') return isImpactVisible;
-        return true;
-      }),
-    [isContestVisible, isImpactVisible]
-  );
+  const baseItems = useMemo(() => {
+    const items = BASE_NAV_ITEMS.filter((item) => {
+      if (item.href === '/costume-contest') return isContestVisible;
+      if (item.href === '/impact') return isImpactVisible;
+      return true;
+    });
+
+    // Give/Get module: only visible if user is a Board Member (or Dev preview enabled)
+    if (isBoardMember) {
+      const impactIdx = items.findIndex((i) => i.href === '/impact');
+      const profileIdx = items.findIndex((i) => i.href === '/profile');
+      const insertIdx = impactIdx !== -1 ? impactIdx + 1 : (profileIdx !== -1 ? profileIdx + 1 : 1);
+      items.splice(insertIdx, 0, {
+        href: '/give-get',
+        label: 'Give/Get',
+        icon: HandCoins,
+        description: 'Board member giving & service hours',
+      });
+    }
+
+    return items;
+  }, [isContestVisible, isImpactVisible, isBoardMember]);
 
   const navItems = [
     ...baseItems,

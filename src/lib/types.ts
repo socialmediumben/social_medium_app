@@ -26,6 +26,34 @@ export interface MemberProfile {
   levelReward?: string;     // Reward / Perk unlocked at this level
   buddyAvatar?: string;     // Neon One Buddy Avatar JSON config string
   buddyBucks?: number;      // Neon One Buddy Bucks in-app currency balance
+  isBoardMember?: boolean;  // Neon One "Board Member" Custom Field 123 (Give/Get access)
+  hardCreditDonations?: number; // Total direct donations
+  softCreditDonations?: number; // Total influenced/soft-credit donations
+  volunteerHours?: number;      // Self-reported volunteer/service hours
+  giveGetTotal?: number;        // hardCredit + softCredit + (volunteerHours * $10)
+}
+
+export interface VolunteerSession {
+  id: string;
+  accountId: string;
+  date: string;              // YYYY-MM-DD
+  hours: number;             // e.g. 2.5
+  category: string;          // e.g. "Board Meeting", "Committee Work", "Fundraising", "Space Maintenance"
+  notes?: string;
+  createdAt: string;
+}
+
+export interface GiveGetSummary {
+  accountId: string;
+  hardCredit: number;
+  softCredit: number;
+  volunteerHours: number;
+  hourlyRate: number;        // default $10.00 / hr
+  volunteerValue: number;    // volunteerHours * hourlyRate
+  totalGiveGet: number;      // hardCredit + softCredit + volunteerValue
+  currentYearHardCredit?: number;
+  currentYearSoftCredit?: number;
+  sessions: VolunteerSession[];
 }
 
 export interface CommunityAnnouncement {

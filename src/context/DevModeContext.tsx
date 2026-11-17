@@ -41,6 +41,8 @@ export interface DevModeContextType {
   isImpactVisible: boolean;
   brandLogo: string | null;
   setBrandLogo: (logo: string | null) => void;
+  isBoardMemberPreviewEnabled: boolean;
+  setIsBoardMemberPreviewEnabled: (enabled: boolean) => void;
 }
 
 const DevModeContext = createContext<DevModeContextType>({
@@ -66,6 +68,8 @@ const DevModeContext = createContext<DevModeContextType>({
   isImpactVisible: true,
   brandLogo: null,
   setBrandLogo: () => {},
+  isBoardMemberPreviewEnabled: false,
+  setIsBoardMemberPreviewEnabled: () => {},
 });
 
 export function DevModeProvider({ children }: { children: React.ReactNode }) {
@@ -96,6 +100,25 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
     return 'all';
   });
   const [brandLogo, setBrandLogoState] = useState<string | null>(null);
+  const [isBoardMemberPreviewEnabled, setIsBoardMemberPreviewEnabledState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sm_board_member_preview') === 'true';
+    }
+    return false;
+  });
+
+  const setIsBoardMemberPreviewEnabled = (enabled: boolean) => {
+    setIsBoardMemberPreviewEnabledState(enabled);
+    if (typeof window !== 'undefined') {
+      try {
+        if (enabled) {
+          localStorage.setItem('sm_board_member_preview', 'true');
+        } else {
+          localStorage.removeItem('sm_board_member_preview');
+        }
+      } catch (_) {}
+    }
+  };
 
   // Load custom brand logo on mount
   useEffect(() => {
@@ -401,6 +424,8 @@ export function DevModeProvider({ children }: { children: React.ReactNode }) {
         isImpactVisible,
         brandLogo,
         setBrandLogo,
+        isBoardMemberPreviewEnabled,
+        setIsBoardMemberPreviewEnabled,
       }}
     >
       {children}
