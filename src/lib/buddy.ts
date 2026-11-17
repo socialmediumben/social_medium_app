@@ -817,16 +817,35 @@ export function unequipBuddyCategory(
   };
 }
 
+export const ACCESSORY_COLOR_PRESETS = [
+  { name: 'Social Medium Cyan', hex: '#3bc0cd' },
+  { name: 'Maker Orange', hex: '#f16622' },
+  { name: 'Social Medium Navy', hex: '#344ea2' },
+  { name: 'Pure White', hex: '#ffffff' },
+  { name: 'Ink Black', hex: '#1c1917' },
+  { name: 'Crimson Red', hex: '#ef4444' },
+  { name: 'Sunshine Gold', hex: '#fbbf24' },
+  { name: 'Emerald Green', hex: '#10b981' },
+  { name: 'Arcane Purple', hex: '#8b5cf6' },
+  { name: 'Neon Coral', hex: '#f43f5e' },
+  { name: 'Electric Sky', hex: '#0284c7' },
+  { name: 'Sage Green', hex: '#8a9280' },
+  { name: 'Maker Brown', hex: '#78350f' },
+];
+
 /**
- * Generates a fun randomized Buddy configuration from unlocked items.
+ * Generates a fun randomized Buddy configuration strictly from free and unlocked items.
  */
 export function randomizeBuddy(
   currentConfig: BuddyConfig,
-  unlockedOnly: boolean = true
+  unlockedOnly: boolean = true,
+  availableCatalog?: BuddyItem[]
 ): BuddyConfig {
-  const allItems = getAllBuddyItems();
+  const allItems = (availableCatalog && availableCatalog.length > 0) ? availableCatalog : getAllBuddyItems();
+  const unlockedIds = Array.isArray(currentConfig.unlockedItemIds) ? currentConfig.unlockedItemIds : [];
+
   const availableItems = unlockedOnly
-    ? allItems.filter((i) => currentConfig.unlockedItemIds.includes(i.id) || i.price === 0)
+    ? allItems.filter((i) => unlockedIds.includes(i.id) || !i.price || i.price === 0)
     : allItems;
 
   const availableColors = unlockedOnly
@@ -837,17 +856,33 @@ export function randomizeBuddy(
     : BUDDY_BASE_COLORS[0];
 
   const newEquipped: BuddyEquippedLayers = {};
+  const newEquippedColors: Record<string, string> = { ...(currentConfig.equippedColors || {}) };
 
-  // Find unique categories
-  const categories = Array.from(new Set(availableItems.map((i) => i.category)));
+  // Always keep or set the base body
+  const baseBodyItem = availableItems.find((i) => i.category === 'base_body') || {
+    id: 'sheet_1_basic_buddy',
+    category: 'base_body',
+  };
+  newEquipped['base_body'] = baseBodyItem.id;
+
+  // Find unique categories excluding base_body which is always kept
+  const categories = Array.from(new Set(availableItems.map((i) => i.category))).filter((c) => c !== 'base_body');
 
   categories.forEach((cat) => {
     const itemsInCat = availableItems.filter((i) => i.category === cat);
     if (itemsInCat.length > 0) {
-      // Base body always gets picked; others have random chance
-      if (cat === 'base_body' || Math.random() > 0.35) {
+      // Mouth has high probability (90%) so mascot has an expression; others have ~40% chance
+      const equipChance = cat === 'mouth' ? 0.9 : 0.4;
+      if (Math.random() < equipChance) {
         const pick = itemsInCat[Math.floor(Math.random() * itemsInCat.length)];
         newEquipped[cat] = pick.id;
+
+        // If item supports colorPicker, assign a random preset color if not already colored
+        if (pick.colorPicker && !newEquippedColors[cat]) {
+          const randomPreset = ACCESSORY_COLOR_PRESETS[Math.floor(Math.random() * ACCESSORY_COLOR_PRESETS.length)];
+          newEquippedColors[cat] = randomPreset.hex;
+          newEquippedColors[pick.id] = randomPreset.hex;
+        }
       }
     }
   });
@@ -856,6 +891,7 @@ export function randomizeBuddy(
     ...currentConfig,
     baseColor: chosenColor.id,
     equipped: newEquipped,
+    equippedColors: newEquippedColors,
     updatedAt: new Date().toISOString(),
   };
 }

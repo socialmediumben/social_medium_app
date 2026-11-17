@@ -27,6 +27,7 @@ import {
   Footprints,
   RefreshCw,
   Palette,
+  Ban,
 } from 'lucide-react';
 import { BuddyConfig, BuddyItem, BuddyLayerCategory, MemberProfile } from '@/lib/types';
 import {
@@ -282,16 +283,24 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
   };
 
-  // Sync state if active member changes
+  // Track last accountId so we only reset config if the active user account actually changes
+  const lastLoadedAccountIdRef = useRef<string | undefined>(member?.accountId);
+
+  // Sync state ONLY if active account changes (e.g. login/switch profile)
   useEffect(() => {
-    if (member) {
+    if (member?.accountId && member.accountId !== lastLoadedAccountIdRef.current) {
+      lastLoadedAccountIdRef.current = member.accountId;
       setConfig(loadMemberBuddyConfig(member.accountId, member.buddyAvatar));
       setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
+    } else if (member?.buddyBucks !== undefined) {
+      // Keep buddy bucks updated without touching in-progress avatar config
+      setBuddyBucks(loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
     }
-  }, [member]);
+  }, [member?.accountId, member?.buddyBucks]);
 
   // Auto-sync configuration to localStorage & Neon One whenever config changes
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const saveSeqRef = useRef<number>(0);
   const isFirstMount = useRef(true);
 
   useEffect(() => {
@@ -301,24 +310,30 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
     if (!accountId) return;
 
+    // Immediately persist to localStorage so local changes are never lost
+    const configStr = JSON.stringify(config);
+    try {
+      localStorage.setItem(`sm_buddy_avatar_${accountId}`, configStr);
+    } catch (_) {}
+
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    saveTimeoutRef.current = setTimeout(() => {
-      const configStr = JSON.stringify(config);
-      try {
-        localStorage.setItem(`sm_buddy_avatar_${accountId}`, configStr);
-      } catch (_) {}
+    const currentSeq = ++saveSeqRef.current;
 
+    // Debounce remote CRM API call by 1500ms so rapid clicks or "Surprise Me" don't queue conflicting network requests
+    saveTimeoutRef.current = setTimeout(() => {
       updateMemberBuddyConfigInNeon(accountId, configStr)
         .then((res) => {
+          // Discard response if a newer change was triggered while this request was in flight
+          if (currentSeq !== saveSeqRef.current) return;
           if (res.success && onBuddySaved) {
             onBuddySaved(config);
           }
         })
         .catch(() => {});
-    }, 500);
+    }, 1500);
 
     return () => {
       if (saveTimeoutRef.current) {
@@ -380,6 +395,20 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
       }
     }
     setConfig(updated);
+  };
+
+  // Unequip item from a specific category ("None" option)
+  const handleUnequipCategory = (category: string) => {
+    const nextEquipped = { ...config.equipped };
+    delete nextEquipped[category];
+    const nextColors = { ...(config.equippedColors || {}) };
+    delete nextColors[category];
+    setConfig((prev) => ({
+      ...prev,
+      equipped: nextEquipped,
+      equippedColors: nextColors,
+      updatedAt: new Date().toISOString(),
+    }));
   };
 
   // Handle Custom Accessory Color Change for items with colorPicker enabled
@@ -493,9 +522,9 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
   };
 
-  // Randomize Buddy
+  // Randomize Buddy (Free & unlocked items only, using active catalog)
   const handleRandomize = () => {
-    const randomized = randomizeBuddy(config, false);
+    const randomized = randomizeBuddy(config, true, items);
     setConfig(randomized);
   };
 
@@ -972,17 +1001,53 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   </div>
                 )}
 
-                {categoryItems.length === 0 ? (
-                  <div className="p-8 rounded-2xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-1">
-                    <Shirt className="w-8 h-8 text-stone-300 mx-auto mb-1" />
-                    <p className="text-xs font-semibold text-stone-600">No items in this category yet</p>
-                    <p className="text-[11px] text-stone-400">
-                      Upload new clothes in Developer Mode &rarr; Buddy Assets!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {categoryItems.map((item) => {
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {/* Option 1: "None" / Unequip option for this category */}
+                  {(() => {
+                    const isNoneActive = !config.equipped[activeCategory];
+                    return (
+                      <div
+                        onClick={() => handleUnequipCategory(activeCategory)}
+                        className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between cursor-pointer relative group ${
+                          isNoneActive
+                            ? 'border-emerald-500 bg-emerald-50/40 ring-2 ring-emerald-500/20 shadow-xs'
+                            : 'border-dashed border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                        }`}
+                      >
+                        {/* Equipped Indicator Badge */}
+                        {isNoneActive && (
+                          <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded-full bg-emerald-500 text-white font-black text-[9px] uppercase tracking-wider flex items-center gap-0.5 shadow-xs">
+                            <Check className="w-2.5 h-2.5" /> Equipped
+                          </span>
+                        )}
+
+                        {/* Thumbnail Icon Preview */}
+                        <div className="w-full aspect-square rounded-xl bg-stone-100/60 flex items-center justify-center p-2 mb-2 overflow-hidden relative">
+                          <Ban className={`w-10 h-10 transition-transform group-hover:scale-110 ${isNoneActive ? 'text-emerald-500' : 'text-stone-300'}`} />
+                        </div>
+
+                        {/* Item Details */}
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs font-bold text-stone-900 leading-tight">
+                              None
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-stone-400 line-clamp-1 leading-snug">
+                            Unequip {categories.find((c) => c.id === activeCategory)?.label || 'item'}
+                          </p>
+
+                          <div className="pt-1 flex items-center justify-between">
+                            <span className="text-[10px] font-bold text-emerald-600">
+                              Default
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {categoryItems.map((item) => {
                       const isEquipped = config.equipped[item.category] === item.id;
                       const isUnlocked = config.unlockedItemIds.includes(item.id) || item.price === 0;
 
@@ -1148,7 +1213,11 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                       );
                     })}
                 </div>
-              )}
+                {categoryItems.length === 0 && (
+                  <div className="p-4 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center text-xs text-stone-400">
+                    No other items available in this category yet.
+                  </div>
+                )}
             </div>
             );
           })()}
