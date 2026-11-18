@@ -103,6 +103,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
   // Upload Custom Art Modal State
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [artName, setArtName] = useState('');
+  const [artCategory, setArtCategory] = useState<string>('headwear');
   const [artDescription, setArtDescription] = useState('');
   const [artColorPicker, setArtColorPicker] = useState(false);
   const [artArtist, setArtArtist] = useState(() =>
@@ -137,6 +138,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setUploadError(null);
     setUploadSuccess(null);
     setArtName('');
+    setArtCategory('headwear');
     setArtDescription('');
     setArtColorPicker(false);
     setArtFile(null);
@@ -185,14 +187,14 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     setUploadError(null);
 
     try {
-      // Category, Price, and Z-Index will be assigned by the admin during review in the spreadsheet
+      // Submit artwork with creator-selected category and default standard price for spreadsheet
       const res = await uploadBuddyArtItem({
         name: artName.trim(),
-        category: '', // Set by admin upon review
+        category: artCategory.trim() || 'headwear',
         description: artDescription.trim() || undefined,
         artist: artArtist.trim() || 'Maker Community',
-        price: 0,     // Set by admin upon review
-        zIndex: 50,   // Set by admin upon review
+        price: 25,    // Default 25 BB price for spreadsheet review
+        zIndex: 50,   // Handled by category layer manager
         imageBase64: artPreviewUrl,
         accountId: member?.accountId,
         colorPicker: artColorPicker,
@@ -1511,7 +1513,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   </div>
                 )}
 
-                {/* 1. Item Name & Artist Attribution Grid */}
+                {/* 1. Item Name, Wardrobe Slot & Artist Attribution Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-bold text-stone-700 block mb-1">
@@ -1528,6 +1530,29 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                   </div>
 
                   <div>
+                    <label className="text-xs font-bold text-stone-700 block mb-1">
+                      Wardrobe Slot / Category <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={artCategory}
+                      onChange={(e) => setArtCategory(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl border border-stone-200 text-xs text-stone-900 focus:outline-hidden focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+                    >
+                      <option value="headwear">Headwear (Hats, Helmets, Horns)</option>
+                      <option value="capes">Capes & Wings (Behind Body)</option>
+                      <option value="tops">Tops & Outfits (Jackets, Shirts)</option>
+                      <option value="props">Props & Tools (Handhelds)</option>
+                      <option value="face_accessory">Face & Glasses</option>
+                      <option value="shoes">Shoes & Footwear</option>
+                      <option value="tails">Tails (Behind Body)</option>
+                      <option value="expression">Facial Expression</option>
+                      <option value="mouth">Mouth Style</option>
+                      <option value="hair">Hair Style</option>
+                      <option value="bottoms">Pants & Bottoms</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
                     <label className="text-xs font-bold text-stone-700 block mb-1">
                       Artist Attribution <span className="text-red-500">*</span>
                     </label>
