@@ -156,7 +156,7 @@ export default function GameRoomPage() {
   const [tableGridSize, setTableGridSize] = useState<number>(22);
   const [tableGridShape, setTableGridShape] = useState<'square' | 'hex'>('square');
 
-  // Modal for Embedding Neon One Event Registration Portal
+  // Modal for Embedding Game Room Online Reservation Portal
   const [activeEmbedUrl, setActiveEmbedUrl] = useState<string | null>(null);
   const [activeEmbedTitle, setActiveEmbedTitle] = useState<string>('');
 
@@ -1297,7 +1297,7 @@ export default function GameRoomPage() {
                     onClick={() => loadCustomMedia(true)}
                     disabled={isLoadingCustomMedia}
                     className="py-1.5 px-3 rounded-xl bg-white hover:bg-stone-50 border border-stone-200 text-stone-700 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60 shadow-2xs"
-                    title="Refresh media from Google Drive database"
+                    title="Refresh media from cloud database"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isLoadingCustomMedia ? 'animate-spin' : ''}`} />
                     <span>{isLoadingCustomMedia ? 'Refreshing...' : 'Refresh Media'}</span>
@@ -2179,7 +2179,7 @@ export default function GameRoomPage() {
                       rel="noopener noreferrer"
                       className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-[#f16622] to-[#e05511] hover:from-[#e05511] hover:to-[#c44405] text-white font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-sm hover:shadow-md cursor-pointer"
                     >
-                      <span>Book on Neon One</span>
+                      <span>Book Session Online</span>
                       <ExternalLink className="w-4 h-4" />
                     </a>
 
@@ -2276,7 +2276,7 @@ export default function GameRoomPage() {
               <span>Rental Guidelines & Makerspace Etiquette</span>
             </div>
             <ul className="list-disc pl-5 space-y-1 leading-relaxed">
-              <li>Reservations are confirmed immediately through your Neon One member account.</li>
+              <li>Reservations are confirmed immediately through your member account.</li>
               <li>Please arrive 5–10 minutes early to configure your digital maps and sound.</li>
               <li>Food and lidded drinks are welcome (coasters and side tables are provided).</li>
               <li>Please leave the room clean, restore standard lighting, and pack up all miniatures before the conclusion of your 3-hour session.</li>
@@ -2307,7 +2307,7 @@ export default function GameRoomPage() {
             <div className="p-4 sm:p-5 border-b border-stone-200 flex items-center justify-between bg-stone-50">
               <div className="truncate mr-4">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-[#f16622] block">
-                  Neon One Event Registration
+                  Game Room Online Reservation
                 </span>
                 <h3 className="font-fredoka text-base sm:text-lg font-bold text-stone-900 truncate">
                   {activeEmbedTitle}
@@ -2321,7 +2321,7 @@ export default function GameRoomPage() {
                   rel="noopener noreferrer"
                   className="py-1.5 px-3 rounded-xl bg-[#344ea2] hover:bg-[#2b4085] text-white font-bold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
                 >
-                  <span>Open in Neon One</span>
+                  <span>Open Reservation Window</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
 
@@ -2339,7 +2339,7 @@ export default function GameRoomPage() {
             <div className="flex-1 bg-stone-100 relative min-h-[450px]">
               <div className="p-3 bg-amber-50 text-amber-900 border-b border-amber-200 text-xs flex items-center justify-between gap-2">
                 <span>
-                  💡 If Neon One restricts in-frame booking in your browser, click <strong>"Open in Neon One"</strong> above.
+                  💡 If browser security restricts in-frame booking, click <strong>"Open Reservation Window"</strong> above.
                 </span>
                 <a
                   href={activeEmbedUrl}

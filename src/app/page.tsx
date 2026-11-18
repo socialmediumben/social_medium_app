@@ -26,6 +26,7 @@ import {
   EyeOff,
   Trophy,
   ShoppingBag,
+  HeartHandshake,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode } from '@/context/DevModeContext';
@@ -36,7 +37,7 @@ import { APP_VERSION } from '@/lib/version';
 
 export default function HomePage() {
   const { activeCardId, member, isLoading } = useAuth();
-  const { mode, isDevMode, isStaffMode, openChangelog, isContestVisible, contestVisibility } =
+  const { mode, isDevMode, isStaffMode, openChangelog, isContestVisible, contestVisibility, isImpactVisible } =
     useDevMode();
 
   // Community Announcement State
@@ -164,23 +165,16 @@ export default function HomePage() {
               <Shield className="w-3.5 h-3.5" />
             </span>
             <span>
-              <strong>Staff Mode Active</strong> • CRM Activity Logger & Intelligence Center Available
+              <strong>Staff Mode Active</strong> • Operations & Intelligence Center Available
             </span>
           </div>
           <div className="flex items-center gap-2">
             <Link
-              href="/new-activity"
-              className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-semibold transition-colors cursor-pointer"
-            >
-              <ClipboardList className="w-3.5 h-3.5" />
-              <span>Log Activity</span>
-            </Link>
-            <Link
-              href="/neon-dashboard"
+              href="/staff"
               className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold transition-colors cursor-pointer"
             >
-              <BarChart3 className="w-3.5 h-3.5" />
-              <span>Dashboard</span>
+              <Shield className="w-3.5 h-3.5" />
+              <span>Staff Operations</span>
             </Link>
           </div>
         </div>
@@ -374,8 +368,8 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Top-Level Module Cards (4 for Members, 6 for Staff/Dev) */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 ${isStaffMode ? 'lg:grid-cols-3' : 'lg:grid-cols-4'} gap-4`}>
+      {/* Top-Level Module Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {/* Module 1: Profile */}
         <Link
           href="/profile"
@@ -402,6 +396,35 @@ export default function HomePage() {
             <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
           </div>
         </Link>
+
+        {/* Module: Impact */}
+        {isImpactVisible && (
+          <Link
+            href="/impact"
+            className="group p-5 rounded-2xl bg-white border border-stone-200 hover:border-orange-500 hover:shadow-md transition-all flex flex-col justify-between"
+          >
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="w-12 h-12 rounded-xl bg-orange-500/10 text-orange-600 flex items-center justify-center group-hover:scale-105 transition-transform">
+                  <HeartHandshake className="w-6 h-6" />
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-orange-100 text-orange-800">
+                  Community Giving
+                </span>
+              </div>
+              <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-orange-700 transition-colors mb-1">
+                Impact & Giving
+              </h2>
+              <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
+                Track our community fundraising thermometer, support youth workshops, and view board member service hours.
+              </p>
+            </div>
+            <div className="mt-4 pt-3 border-t border-stone-100 flex items-center justify-between text-xs font-semibold text-orange-600">
+              <span>View Impact Campaign</span>
+              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            </div>
+          </Link>
+        )}
 
         {/* Module 2: Events */}
         <Link
@@ -564,63 +587,33 @@ export default function HomePage() {
           </div>
         </Link>
 
-        {/* Module 5: Neon Dashboard (Staff & Dev Mode Only) */}
+        {/* Module: Staff Operations (Staff & Dev Mode Only) */}
         {isStaffMode && (
           <Link
-            href="/neon-dashboard"
-            className="group p-5 rounded-2xl bg-gradient-to-b from-stone-900 via-stone-900 to-[#070b14] text-white border border-indigo-500/30 hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-500/10 transition-all flex flex-col justify-between relative overflow-hidden"
+            href="/staff"
+            className="group p-5 rounded-2xl bg-gradient-to-b from-stone-900 via-stone-900 to-[#121629] text-white border border-indigo-500/30 hover:border-indigo-400 hover:shadow-lg hover:shadow-indigo-500/10 transition-all flex flex-col justify-between relative overflow-hidden"
           >
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                  <BarChart3 className="w-6 h-6" />
+                <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
+                  <Shield className="w-6 h-6" />
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-indigo-500/30 border border-indigo-500/50 text-indigo-200">
                   Staff Only
                 </span>
               </div>
-              <h2 className="font-fredoka text-xl font-bold text-white group-hover:text-cyan-300 transition-colors mb-1">
-                Neon Dashboard
+              <h2 className="font-fredoka text-xl font-bold text-white group-hover:text-indigo-300 transition-colors mb-1">
+                Staff Operations
               </h2>
               <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
-                Live event attendance, check-in trends, staff activity tracking, and searchable activity ledger.
+                Activity logging, tool certification tracking, check-in analytics, and searchable intelligence ledger.
               </p>
             </div>
-            <div className="relative z-10 mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs font-semibold text-cyan-400">
-              <span>Open Intelligence Center</span>
+            <div className="relative z-10 mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs font-semibold text-indigo-400">
+              <span>Open Staff Operations</span>
               <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </div>
-            <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-cyan-500/15 blur-xl pointer-events-none" />
-          </Link>
-        )}
-
-        {/* Module 6: Log Activity (Staff & Dev Mode Only) */}
-        {isStaffMode && (
-          <Link
-            href="/new-activity"
-            className="group p-5 rounded-2xl bg-gradient-to-b from-stone-900 via-stone-900 to-[#160a24] text-white border border-purple-500/30 hover:border-purple-400 hover:shadow-lg hover:shadow-purple-500/10 transition-all flex flex-col justify-between relative overflow-hidden"
-          >
-            <div className="relative z-10">
-              <div className="flex items-center justify-between mb-3">
-                <div className="w-12 h-12 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/30 flex items-center justify-center group-hover:scale-105 transition-transform shadow-xs">
-                  <ClipboardList className="w-6 h-6" />
-                </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-purple-500/30 border border-purple-500/50 text-purple-200">
-                  Staff Only
-                </span>
-              </div>
-              <h2 className="font-fredoka text-xl font-bold text-white group-hover:text-purple-300 transition-colors mb-1">
-                Log Activity
-              </h2>
-              <p className="text-stone-300 text-xs sm:text-sm leading-relaxed">
-                Create new activity records in Neon CRM for tool certifications, safety walkthroughs, or staff notes.
-              </p>
-            </div>
-            <div className="relative z-10 mt-4 pt-3 border-t border-stone-800 flex items-center justify-between text-xs font-semibold text-purple-400">
-              <span>Create CRM Activity</span>
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-            </div>
-            <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-purple-500/15 blur-xl pointer-events-none" />
+            <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-indigo-500/15 blur-xl pointer-events-none" />
           </Link>
         )}
       </div>

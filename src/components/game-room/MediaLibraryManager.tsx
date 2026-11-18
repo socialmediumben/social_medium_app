@@ -643,7 +643,7 @@ export function MediaLibraryManager({
                   Upload Custom Art & Battlemap
                 </h4>
                 <p className="text-xs text-stone-500">
-                  Media will be stored in Google Drive and linked to your profile in the database.
+                  Media will be securely stored and linked to your profile in the cloud database.
                 </p>
               </div>
               <button

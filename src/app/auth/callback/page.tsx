@@ -32,7 +32,7 @@ export default function AuthCallbackPage() {
 
         if (!code) {
           setStatus('error');
-          setErrorMessage('No authorization code was received from Neon One.');
+          setErrorMessage('No authorization code was received.');
           return;
         }
 
@@ -50,7 +50,7 @@ export default function AuthCallbackPage() {
           }, 1500);
         } else {
           setStatus('error');
-          setErrorMessage(res.error || 'Failed to authenticate member with Neon One.');
+          setErrorMessage(res.error || 'Failed to authenticate member account.');
         }
       } catch (err: any) {
         setStatus('error');
@@ -83,10 +83,10 @@ export default function AuthCallbackPage() {
             </div>
             <div>
               <h2 className="font-fredoka text-xl font-bold text-stone-900">
-                Verifying Neon One Account...
+                Verifying Member Account...
               </h2>
               <p className="text-stone-500 text-xs mt-1">
-                Authenticating your credentials with Neon CRM secure Single Sign-On.
+                Authenticating your credentials with secure Single Sign-On.
               </p>
             </div>
           </div>
@@ -103,7 +103,7 @@ export default function AuthCallbackPage() {
                 Welcome back{memberName ? `, ${memberName}` : ''}!
               </h2>
               <p className="text-emerald-700 text-xs font-semibold mt-1">
-                Authenticated securely via Neon One CRM.
+                Authenticated securely.
               </p>
             </div>
             <div className="pt-2 text-stone-400 text-xs flex items-center justify-center gap-1.5">
@@ -124,7 +124,7 @@ export default function AuthCallbackPage() {
                 Authentication Could Not Be Completed
               </h2>
               <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-800 text-xs text-left">
-                {errorMessage || 'Unknown error during Neon One authorization.'}
+                {errorMessage || 'Unknown error during authorization.'}
               </div>
             </div>
             <div className="pt-2">

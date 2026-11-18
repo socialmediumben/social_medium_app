@@ -332,7 +332,7 @@ export default function PortalMediaPage() {
       title: member?.portalMedia ? `${greetingName}'s Portal` : '',
       type: 'video',
       filePath: member?.portalMedia || '',
-      updatedAt: member?.portalMedia ? 'Neon One' : '',
+      updatedAt: member?.portalMedia ? 'Member Account' : '',
     };
     setMedia(initial);
     setTitleInput(initial.title);
@@ -380,7 +380,7 @@ export default function PortalMediaPage() {
     if (member?.accountId) {
       const res = await updatePortalMediaInNeon(member.accountId, filePathInput.trim());
       if (!res.success) {
-        setSaveError(res.error || 'Failed to save directly to Neon One, saved locally.');
+        setSaveError(res.error || 'Failed to sync directly to account, saved locally.');
       }
     }
 
@@ -427,7 +427,7 @@ export default function PortalMediaPage() {
           My Portal Media
         </h1>
         <p className="text-stone-600 text-sm">
-          Media bound to Tap Card <strong>{activeCardId}</strong> (Neon One &quot;Portal Media&quot; field).
+          Media bound to Tap Card <strong>{activeCardId}</strong> (Portal Media).
           When you tap this card at the Portal Door kiosk, this media automatically plays.
         </p>
       </div>
@@ -436,7 +436,7 @@ export default function PortalMediaPage() {
         <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-sm flex items-center gap-2 shadow-xs">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
           <div>
-            <strong>Portal Media Updated & Synced to Neon One!</strong> Saved for Tap Card{' '}
+            <strong>Portal Media Updated & Synced!</strong> Saved for Tap Card{' '}
             <code>{activeCardId}</code>.
           </div>
         </div>
@@ -546,7 +546,7 @@ export default function PortalMediaPage() {
                 ) : (
                   <div className="p-6 text-center text-stone-500 text-xs">
                     <DoorOpen className="w-10 h-10 mx-auto mb-2 text-stone-600" />
-                    No media link assigned yet in Neon One. Enter a video or image link to connect to
+                    No media link assigned yet. Enter a video or image link to connect to
                     this card!
                   </div>
                 )}
@@ -627,8 +627,8 @@ export default function PortalMediaPage() {
               Edit Portal Media
             </h2>
             <p className="text-stone-500 text-xs mb-4">
-              Enter any YouTube video link, direct video/image file URL, or Google Drive link to sync
-              to your Neon One &quot;Portal Media&quot; field.
+              Enter any YouTube video link, direct video/image file URL, or cloud storage link to sync
+              to your member Tap Card.
             </p>
 
             <form onSubmit={handleSave} className="space-y-4">
@@ -680,7 +680,7 @@ export default function PortalMediaPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-stone-700 mb-1">
-                  Portal Media URL (Neon One Field 117)
+                  Portal Media URL
                 </label>
                 <input
                   type="text"
@@ -691,8 +691,8 @@ export default function PortalMediaPage() {
                   className="w-full px-3.5 py-2.5 rounded-xl border border-stone-200 focus:border-[#f16622] focus:ring-2 focus:ring-[#f16622]/20 text-xs font-mono transition-all"
                 />
                 <p className="text-[11px] text-stone-500 mt-1.5 leading-relaxed">
-                  Supports YouTube links (<code>https://youtube.com/watch?v=...</code>), Google Drive
-                  shares, or direct media URLs. Changes update the simulation live!
+                  Supports YouTube links (<code>https://youtube.com/watch?v=...</code>), cloud
+                  storage shares, or direct media URLs. Changes update the simulation live!
                 </p>
               </div>
 
@@ -747,7 +747,7 @@ export default function PortalMediaPage() {
                   {isSaving ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      Saving to Neon One CRM...
+                      Saving to Member Profile...
                     </>
                   ) : (
                     <>

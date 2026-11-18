@@ -39,7 +39,7 @@ export function TapCardLogin() {
   const handleStartNfcScan = async () => {
     setNfcError(null);
     if (typeof window === 'undefined' || !('NDEFReader' in window)) {
-      setNfcError('In-browser NFC scanning is available on Android Chrome. iPhone users can use "Sign In with Neon One" above.');
+      setNfcError('In-browser NFC scanning is available on Android Chrome. iPhone users can use "Sign In with Member Account" above.');
       return;
     }
 
@@ -157,7 +157,7 @@ export function TapCardLogin() {
         </div>
       )}
 
-      {/* PRIMARY LOGIN: Sign In with Neon One (Single Sign-On) */}
+      {/* PRIMARY LOGIN: Sign In with Member Account (Single Sign-On) */}
       <div className="space-y-3 mb-6">
         <button
           type="button"
@@ -168,12 +168,12 @@ export function TapCardLogin() {
           {isRedirectingOAuth ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin text-white" />
-              <span>Redirecting to Neon One...</span>
+              <span>Redirecting to Member Portal...</span>
             </>
           ) : (
             <>
               <Lock className="w-4 h-4 text-[#3bc0cd]" />
-              <span>Sign In with Neon One</span>
+              <span>Sign In with Member Account</span>
               <ArrowRight className="w-4 h-4 text-white/80 group-hover:translate-x-1 transition-transform ml-auto" />
             </>
           )}
@@ -181,7 +181,7 @@ export function TapCardLogin() {
 
         <p className="text-[11px] text-stone-500 flex items-center justify-center gap-1.5 font-medium">
           <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>Uses your existing Social Medium Neon One username & password</span>
+          <span>Uses your existing Social Medium member login & password</span>
         </p>
       </div>
 

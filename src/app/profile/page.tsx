@@ -190,7 +190,7 @@ export default function ProfilePage() {
         phone: phoneInput.trim(),
       });
       if (!res.success) {
-        setContactError(res.error || 'Failed to sync contact with Neon One.');
+        setContactError(res.error || 'Failed to sync contact information.');
       }
     }
 
@@ -245,7 +245,7 @@ export default function ProfilePage() {
       setInterestsSuccess(true);
       setTimeout(() => setInterestsSuccess(false), 4000);
     } else {
-      setInterestsError(res.error || 'Failed to save interests to Neon One.');
+      setInterestsError(res.error || 'Failed to save interests.');
     }
   };
 
@@ -338,7 +338,7 @@ export default function ProfilePage() {
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-xs font-semibold text-[#3bc0cd]">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Connected Member Pass • Neon One Synced
+                Connected Member Pass • Cloud Synced
               </div>
               {member.isAppDeveloper && (
                 <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/25 border border-amber-400/50 text-amber-200 text-xs font-bold">
@@ -731,7 +731,7 @@ export default function ProfilePage() {
                   Certifications
                 </h2>
                 <p className="text-stone-500 text-xs">
-                  Tools and machinery authorized for independent operation (Neon One "Certifications" list).
+                  Tools and machinery authorized for independent operation (Certified Tools list).
                 </p>
               </div>
               <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
@@ -746,7 +746,7 @@ export default function ProfilePage() {
                   No Tool Certifications Recorded Yet
                 </h3>
                 <p className="text-stone-500 text-xs max-w-sm mx-auto leading-relaxed">
-                  Attend an equipment safety walkthrough at the makerspace to receive certifications on your Neon One account.
+                  Attend an equipment safety walkthrough at the makerspace to receive certifications on your member account.
                 </p>
               </div>
             ) : (
@@ -807,7 +807,7 @@ export default function ProfilePage() {
                 <h2 className="font-fredoka text-lg font-bold text-stone-900 flex items-center gap-2">
                   <span>Interests & Passions</span>
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#f16622]/10 text-[#f16622] uppercase tracking-wider">
-                    Neon One Synced
+                    Cloud Synced
                   </span>
                 </h2>
                 <p className="text-stone-500 text-xs mt-0.5">
@@ -860,7 +860,7 @@ export default function ProfilePage() {
             {interestsSuccess && (
               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Interests successfully updated and synced with Neon One!</span>
+                <span>Interests successfully updated and synchronized!</span>
               </div>
             )}
 
@@ -1205,7 +1205,7 @@ export default function ProfilePage() {
                     ))}
                   </select>
                   <span className="text-[10px] text-stone-400 mt-0.5 block">
-                    Synchronized with your Neon One CRM account &quot;Gender&quot; field.
+                    Synchronized with your member profile.
                   </span>
                 </div>
 
@@ -1244,7 +1244,7 @@ export default function ProfilePage() {
                   {isSavingContact ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Saving to Neon One...</span>
+                      <span>Saving Changes...</span>
                     </>
                   ) : (
                     <>

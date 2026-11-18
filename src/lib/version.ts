@@ -1,4 +1,4 @@
-export const APP_VERSION = '3.9';
+export const APP_VERSION = '4.0';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,19 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.0',
+    date: '2026-11-18',
+    title: 'Version 4.0: UI Aesthetic Rehaul, Unified Staff & Impact Modules & White-Labeling',
+    changes: [
+      'UI & Aesthetic Rehaul: Streamlined the mobile bottom navigation bar into a clean 5-slot layout (Home, Profile, Store, Impact, More) with an animated slide-up drawer for secondary modules (Events, Media, Game Room, Costume Contest, Staff, Developer).',
+      'Unified Staff Operations Module: Consolidated separate "Dashboard" and "New Activity" pages into a cohesive Staff Operations hub (/staff) with sub-tab switching between the Live Analytics Dashboard and Activity Logger.',
+      'Impact & Give/Get Integration: Embedded the Board Member Give/Get service & contribution tracking module directly into the Impact page (/impact?tab=give-get) with automatic role-based visibility and deep linking.',
+      'Comprehensive White-Labeling: Removed vendor names (Neon One, Neon CRM, Google Drive, Google Sheets) across member-facing screens including login, events, store checkout, tap card media, and profile settings for a native Social Medium experience.',
+      'Streamlined Desktop Header: Removed redundant developer header pill while preserving release changelog modal access and responsive mode selector dropdown.',
+      'Automatic Route Migration: Added client-side redirect bridges from legacy paths (/neon-dashboard, /new-activity, /give-get) to their respective unified parent modules.',
+    ],
+  },
   {
     version: '3.9',
     date: '2026-11-14',

@@ -190,7 +190,7 @@ export default function EventsPage() {
                 </span>
               ) : (
                 <span className="text-stone-300">
-                  Workshops & guest tickets register on Neon One.
+                  Workshops & guest tickets register online.
                 </span>
               )}
             </div>
@@ -336,7 +336,7 @@ export default function EventsPage() {
         {isLoading ? (
           <div className="py-16 text-center text-stone-500 font-mono text-sm space-y-2">
             <RefreshCw className="w-6 h-6 animate-spin mx-auto text-[#3bc0cd]" />
-            <div>Loading upcoming events from Neon One...</div>
+            <div>Loading upcoming events...</div>
           </div>
         ) : filteredUnregisteredEvents.length === 0 ? (
           <div className="p-10 rounded-xl bg-stone-50 border border-dashed border-stone-200 text-center space-y-2">
@@ -458,7 +458,7 @@ export default function EventsPage() {
                           rel="noopener noreferrer"
                           className="px-4 py-2 rounded-xl bg-[#344ea2] hover:bg-[#2a3f85] text-white font-semibold text-xs transition-colors shadow-xs inline-flex items-center gap-1.5 cursor-pointer"
                         >
-                          <span>{isWorkshop ? 'Register Workshop' : 'Register on Neon One'}</span>
+                          <span>{isWorkshop ? 'Register Workshop' : 'Register Online'}</span>
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       )}
@@ -483,7 +483,7 @@ export default function EventsPage() {
                 Events I&apos;ve RSVP&apos;d To
               </h2>
               <p className="text-stone-500 text-xs">
-                Your confirmed event registrations synchronized with Neon One CRM.
+                Your confirmed event registrations synchronized with your account.
               </p>
             </div>
           </div>
@@ -577,7 +577,7 @@ export default function EventsPage() {
             rel="noopener noreferrer"
             className="text-[#344ea2] hover:text-[#f16622] font-semibold inline-flex items-center gap-1 transition-colors"
           >
-            <span>View Complete Neon One Event Calendar</span>
+            <span>View Complete Event Calendar</span>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
         </div>

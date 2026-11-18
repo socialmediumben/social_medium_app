@@ -169,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (_) {}
 
-      setLoginError(res.error || 'Failed to find account in Neon One.');
+      setLoginError(res.error || 'Failed to find matching member account.');
       setIsLoading(false);
       return false;
     }

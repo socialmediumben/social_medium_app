@@ -96,18 +96,18 @@ export default function StoreAndDonatePage() {
         setIsSheetSynced(true);
         setCheckoutNotice({
           type: 'success',
-          text: `Successfully synced ${items.length} items from Google Sheet "Store_Items"!`,
+          text: `Successfully synced ${items.length} store items from database!`,
         });
       } else {
         setCheckoutNotice({
           type: 'error',
-          text: 'Google Sheet "Store_Items" tab not found or has no active rows. Using standard catalog.',
+          text: 'Store database catalog not found or has no active rows. Using standard catalog.',
         });
       }
     } catch (_) {
       setCheckoutNotice({
         type: 'error',
-        text: 'Error connecting to Google Sheet. Check network connection.',
+        text: 'Error connecting to store database. Check network connection.',
       });
     } finally {
       setIsRefreshingSheet(false);
@@ -216,7 +216,7 @@ export default function StoreAndDonatePage() {
     if (!member?.accountId) {
       setCheckoutNotice({
         type: 'error',
-        text: 'Please sign in with your Social Medium tap card or Neon One account to complete checkout.',
+        text: 'Please sign in with your Social Medium tap card or member account to complete checkout.',
       });
       return;
     }
@@ -226,7 +226,7 @@ export default function StoreAndDonatePage() {
     if (wouldExceedTab) {
       setCheckoutNotice({
         type: 'error',
-        text: `Tab limit exceeded! Your current tab is $${tabDebt.toFixed(2)}, and adding $${cartTotal.toFixed(2)} would surpass the $${MAX_STORE_TAB_LIMIT.toFixed(2)} limit. Please settle your tab via Neon One to proceed.`,
+        text: `Tab limit exceeded! Your current tab is $${tabDebt.toFixed(2)}, and adding $${cartTotal.toFixed(2)} would surpass the $${MAX_STORE_TAB_LIMIT.toFixed(2)} limit. Please settle your tab online to proceed.`,
       });
       return;
     }
@@ -314,7 +314,7 @@ export default function StoreAndDonatePage() {
               Snack Shack, Supplies & Donations
             </h1>
             <p className="text-stone-300 text-xs sm:text-sm max-w-xl leading-relaxed">
-              Self-checkout for snacks, drinks, art supplies, and electronics. Pay via your preloaded balance or active makerspace tab—all credit card processing happens securely through Neon One.
+              Self-checkout for snacks, drinks, art supplies, and electronics. Pay via your preloaded balance or active makerspace tab—all credit card processing happens securely online.
             </p>
           </div>
 
@@ -409,7 +409,7 @@ export default function StoreAndDonatePage() {
                           target="_blank"
                           rel="noreferrer"
                           className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                          title="Settle your active tab securely through Neon One Store Form"
+                          title="Settle your active tab securely online"
                         >
                           <span>Settle Tab (${tabDebt.toFixed(2)})</span>
                           <ExternalLink className="w-3.5 h-3.5" />
@@ -422,7 +422,7 @@ export default function StoreAndDonatePage() {
                         target="_blank"
                         rel="noreferrer"
                         className="px-3.5 py-1.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-                        title="Add $25.00 funds / buy gift card credit via Neon One Store Form"
+                        title="Add $25.00 funds / buy gift card credit online"
                       >
                         <Plus className="w-3.5 h-3.5 text-emerald-400" />
                         <span>Top Up Wallet ($25.00)</span>
@@ -432,7 +432,7 @@ export default function StoreAndDonatePage() {
                         type="button"
                         onClick={() => setShowTopUpModal(true)}
                         className="px-3 py-1.5 rounded-xl border border-stone-300 hover:border-emerald-500 hover:bg-emerald-50/50 text-stone-700 text-xs font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-                        title="Record payment or adjust wallet after paying on Neon One"
+                        title="Record payment or adjust wallet after paying online"
                       >
                         <Check className="w-3.5 h-3.5 text-emerald-600" />
                         <span>Confirm Payment</span>
@@ -488,7 +488,7 @@ export default function StoreAndDonatePage() {
                     Sign in to use Self-Checkout & Tab
                   </h3>
                   <p className="text-xs text-amber-800">
-                    Connect your Social Medium tap card or sign in with Neon One to charge purchases to your balance or tab.
+                    Connect your Social Medium tap card or sign in to charge purchases to your balance or tab.
                   </p>
                 </div>
               </div>
@@ -585,7 +585,7 @@ export default function StoreAndDonatePage() {
                     onClick={handleManualSheetSync}
                     disabled={isRefreshingSheet}
                     className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer"
-                    title="Click to re-fetch live store items from Google Sheet"
+                    title="Click to re-fetch live store items from database"
                   >
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                     <span>SM App Database Live</span>
@@ -597,10 +597,10 @@ export default function StoreAndDonatePage() {
                     onClick={handleManualSheetSync}
                     disabled={isRefreshingSheet}
                     className="flex items-center gap-1.5 text-[11px] font-semibold text-stone-600 bg-stone-100 hover:bg-stone-200 border border-stone-200 px-2.5 py-0.5 rounded-full transition-colors cursor-pointer"
-                    title="Check Google Sheet for Store_Items tab"
+                    title="Check database for Store_Items catalog"
                   >
                     <RefreshCw className={`w-3 h-3 ${isRefreshingSheet ? 'animate-spin' : ''}`} />
-                    <span>Sync Google Sheet</span>
+                    <span>Sync Inventory</span>
                   </button>
                 )}
               </div>
