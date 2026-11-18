@@ -27,7 +27,7 @@ export function TapCardLogin() {
   const [isNfcScanning, setIsNfcScanning] = useState(false);
   const [nfcError, setNfcError] = useState<string | null>(null);
   const [hasNfcSupport, setHasNfcSupport] = useState(false);
-  const { login, loginError, loginAsSandbox } = useAuth();
+  const { login, loginError } = useAuth();
   const { isDevMode, toggleDevMode, openChangelog, brandLogo } = useDevMode();
 
   useEffect(() => {
@@ -263,48 +263,6 @@ export function TapCardLogin() {
             )}
           </button>
         </form>
-      </div>
-
-      {/* DIVIDER: Business Demo / Sandbox Access */}
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-stone-200" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-3 font-bold text-stone-400 tracking-wider">
-            Explore Without Account
-          </span>
-        </div>
-      </div>
-
-      {/* SANDBOX DEMO CARD */}
-      <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-50/90 via-purple-50/70 to-pink-50/80 border border-indigo-200/90 text-left space-y-3 shadow-xs">
-        <div className="flex items-start gap-3">
-          <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-base shadow-xs shrink-0">
-            🧪
-          </div>
-          <div>
-            <div className="font-fredoka font-bold text-sm text-indigo-950 flex items-center gap-1.5">
-              <span>Interactive Sandbox Demo</span>
-              <span className="text-[9px] bg-indigo-200 text-indigo-900 font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wider">
-                Partner Test
-              </span>
-            </div>
-            <div className="text-[11px] text-indigo-700 leading-snug mt-0.5">
-              For business demonstrations and client previews. Test store purchases ($25 credit), buddy builder (175 BB), certifications, and events freely. All activity clears automatically upon logout.
-            </div>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={loginAsSandbox}
-          className="w-full py-3 px-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-xs shadow-xs hover:shadow transition-all flex items-center justify-center gap-2 cursor-pointer group"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-indigo-200 group-hover:rotate-12 transition-transform" />
-          <span>Launch Sandbox Demo Account</span>
-          <ArrowRight className="w-3.5 h-3.5 text-white/80 group-hover:translate-x-1 transition-transform ml-auto" />
-        </button>
       </div>
 
       {/* Active NFC Scanning Modal Prompt */}
