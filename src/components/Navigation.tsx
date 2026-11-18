@@ -36,7 +36,7 @@ const BASE_NAV_ITEMS = [
   { href: '/store', label: 'Store', icon: ShoppingBag, description: 'Snack Shack, Supplies & Tab' },
   { href: '/events', label: 'Events', icon: Calendar, description: 'Upcoming events & RSVP' },
   { href: '/costume-contest', label: 'Costume Contest', icon: Trophy, description: 'Halloween photos & live voting' },
-  { href: '/portal-media', label: 'Portal Media', icon: DoorOpen, description: 'Personal tap card media' },
+  { href: '/portal-media', label: 'Portal Door', icon: DoorOpen, description: 'Personal tap card media' },
   { href: '/game-room', label: 'Game Room', icon: Gamepad2, description: 'Room remote & presets' },
 ];
 
@@ -420,11 +420,11 @@ export function BottomNav() {
 
   // Secondary items shown inside the More drawer
   const secondaryItems = [
-    { href: '/events', label: 'Events & RSVP', icon: Calendar, desc: 'Workshops & community gatherings' },
+    { href: '/events', label: 'Events', icon: Calendar, desc: 'Workshops & community gatherings' },
     ...(isContestVisible
       ? [{ href: '/costume-contest', label: 'Costume Contest', icon: Trophy, desc: 'Photos & community voting' }]
       : []),
-    { href: '/portal-media', label: 'My Portal Media', icon: DoorOpen, desc: 'Personal tap card media' },
+    { href: '/portal-media', label: 'Portal Door', icon: DoorOpen, desc: 'Personal tap card media' },
     { href: '/game-room', label: 'Game Room', icon: Gamepad2, desc: 'Screen controller & lighting' },
     ...(isStaffMode
       ? [{ href: '/staff', label: 'Staff Operations', icon: Shield, desc: 'Dashboard & activity logging' }]

@@ -424,7 +424,7 @@ export default function PortalMediaPage() {
           <span>Interactive Installation</span>
         </div>
         <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-stone-900">
-          My Portal Media
+          Portal Door
         </h1>
         <p className="text-stone-600 text-sm">
           Media bound to Tap Card <strong>{activeCardId}</strong> (Portal Media).
@@ -1035,7 +1035,7 @@ export default function PortalMediaPage() {
                 className="px-4 py-2 rounded-xl bg-[#f16622] hover:bg-[#d95313] text-white font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                <span>Use as My Portal Media</span>
+                <span>Use on Portal Door</span>
               </button>
               <button
                 type="button"

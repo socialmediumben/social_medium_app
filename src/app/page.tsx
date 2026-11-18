@@ -548,7 +548,7 @@ export default function HomePage() {
               </span>
             </div>
             <h2 className="font-fredoka text-xl font-bold text-stone-900 group-hover:text-[#f16622] transition-colors mb-1">
-              My Portal Media
+              Portal Door
             </h2>
             <p className="text-stone-600 text-xs sm:text-sm leading-relaxed">
               View and edit the custom video or photo bound to your physical Tap Card for the interactive Portal Door.
