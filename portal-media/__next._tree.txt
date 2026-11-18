@@ -1,7 +1,5 @@
-:HL["/_next/static/media/1e41be92c43b3255-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
-:HL["/_next/static/media/bca7023bf625e650-s.p.woff2","font",{"crossOrigin":"","type":"font/woff2"}]
 :HL["/_next/static/css/aca13ac528b9d875.css","style"]
-:HL["/_next/static/css/8fe19e6088d0314c.css","style"]
+:HL["/_next/static/css/94e642999a87fbed.css","style"]
 2:[["children",{"s":"__PAGE__","h":160}]]
 1:[["children",{"s":"portal-media","h":96,"c":"$Q2"}]]
-0:{"b":"d10-eCwrJR9AS1luVQ5Z-","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
+0:{"b":"rJktQgZBMVFE_zF7Y4G1A","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
