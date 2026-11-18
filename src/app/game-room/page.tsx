@@ -142,6 +142,7 @@ export default function GameRoomPage() {
   const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'offline'>('unknown');
   const [isCheckingConnection, setIsCheckingConnection] = useState<boolean>(false);
   const [lastCheckError, setLastCheckError] = useState<string | null>(null);
+  const [showSetupInstructions, setShowSetupInstructions] = useState<boolean>(false);
 
   // Screen Mirroring State
   const [isMirrorModalOpen, setIsMirrorModalOpen] = useState<boolean>(false);
@@ -830,7 +831,7 @@ export default function GameRoomPage() {
           }`}
         >
           <Map className="w-4 h-4" />
-          <span>🗺️ Custom Media</span>
+          <span>🗺️ Media Library</span>
         </button>
 
         <button
@@ -862,173 +863,190 @@ export default function GameRoomPage() {
       {/* ========================================================================= */}
       {mainTab === 'remote' && (
         <div className="space-y-6">
-          {/* Wi-Fi & Local Server Connection Card */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                    connectionStatus === 'connected'
-                      ? 'bg-emerald-100 text-emerald-700'
-                      : 'bg-amber-100 text-amber-700'
-                  }`}
-                >
-                  {connectionStatus === 'connected' ? (
-                    <Wifi className="w-5 h-5" />
-                  ) : (
-                    <WifiOff className="w-5 h-5" />
-                  )}
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-stone-900">
-                      {connectionStatus === 'connected'
-                        ? 'Connected to Makerspace Wi-Fi'
-                        : 'Makerspace Wi-Fi Controller (Standby)'}
-                    </span>
-                    <span
-                      className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        connectionStatus === 'connected'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-stone-100 text-stone-600'
-                      }`}
-                    >
-                      {connectionStatus === 'connected' ? '● Online' : '○ Standby / Simulator'}
-                    </span>
-                  </div>
-                  <div className="text-xs text-stone-500 font-mono mt-0.5">
-                    Server: {serverUrl}
-                  </div>
-                </div>
-              </div>
-
+          {/* Wi-Fi & Local Server Connection */}
+          {connectionStatus === 'connected' ? (
+            /* Clean, slim 1-line bar when connected (no bulky instructions) */
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 shadow-xs">
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => checkServerConnection()}
-                  disabled={isCheckingConnection}
-                  className="py-1.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
-                  title="Ping local game room server"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${isCheckingConnection ? 'animate-spin' : ''}`} />
-                  <span>{isCheckingConnection ? 'Testing...' : 'Test Connection'}</span>
-                </button>
-
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-bold">Connected to Makerspace Wi-Fi</span>
+                <span className="font-mono text-[11px] text-emerald-700 hidden sm:inline">• {serverUrl}</span>
+              </div>
+              <div className="flex items-center gap-1.5 self-end sm:self-auto">
                 <button
                   type="button"
                   onClick={() => setIsConfigOpen(!isConfigOpen)}
-                  className="py-1.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="py-1 px-2.5 rounded-lg bg-white hover:bg-emerald-100 border border-emerald-200 text-emerald-900 font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
+                  title="Configure IP address"
                 >
-                  <Settings2 className="w-3.5 h-3.5" />
+                  <Settings2 className="w-3 h-3 text-emerald-700" />
                   <span>Configure IP</span>
                 </button>
-
                 <a
                   href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="py-1.5 px-3 rounded-xl bg-[#344ea2]/10 hover:bg-[#344ea2]/20 text-[#344ea2] font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  className="py-1 px-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-[11px] transition-colors flex items-center gap-1 cursor-pointer"
                   title="Open direct DM Spellbook UI"
                 >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Open Spellbook</span>
+                  <ExternalLink className="w-3 h-3" />
+                  <span>Spellbook</span>
                 </a>
               </div>
             </div>
-
-            {/* Offline Helper Notice */}
-            {connectionStatus !== 'connected' && (
-              <div className="mt-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-3">
-                <div className="flex items-start gap-2.5">
-                  <Info className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-                  <div className="space-y-1">
-                    <strong className="block font-semibold text-sm text-amber-950">
-                      Running in Offline Simulator Mode
-                    </strong>
-                    <p className="text-amber-800 leading-relaxed">
-                      To control the physical room displays and Hubspace ceiling lights, your device must be connected to the <strong>Social Medium Makerspace Wi-Fi</strong>.
-                    </p>
+          ) : (
+            /* Standby Card with collapsible instructions */
+            <div className="p-4 sm:p-5 rounded-2xl bg-white border border-stone-200 shadow-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <WifiOff className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm text-stone-900">
+                        Makerspace Wi-Fi Controller (Standby)
+                      </span>
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-stone-100 text-stone-600">
+                        ○ Standby / Simulator
+                      </span>
+                    </div>
+                    <div className="text-xs text-stone-500 font-mono mt-0.5">
+                      Server: {serverUrl}
+                    </div>
                   </div>
                 </div>
 
-                {/* Step-by-Step Certificate Trust for Phones */}
-                <div className="p-3.5 rounded-xl bg-white/80 border border-amber-300/60 space-y-2">
-                  <div className="font-bold text-xs text-amber-950 uppercase tracking-wide flex items-center gap-1.5">
-                    <span>📱</span>
-                    <span>First Time Connecting a New Phone or Laptop?</span>
-                  </div>
-                  <ol className="list-decimal pl-5 space-y-1.5 text-amber-900 leading-relaxed">
-                    <li>
-                      Confirm this device is connected to the <strong>Makerspace Wi-Fi</strong> (not mobile 5G/cellular data).
-                    </li>
-                    <li>
-                      Tap{' '}
-                      <a
-                        href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-bold underline text-[#344ea2] hover:text-[#2b4085]"
-                      >
-                        <span>Trust Local Security Certificate ↗</span>
-                      </a>
-                      . When the warning appears, tap <strong>Advanced</strong> &rarr; <strong>Proceed to 192.168.12.108 (unsafe)</strong>.
-                    </li>
-                    <li>
-                      Return to this tab and tap <strong>Test Connection</strong> above.
-                    </li>
-                  </ol>
-                  <p className="text-[11px] text-amber-700 italic pt-1">
-                    Note: If a device skips step 2, mobile Chrome blocks untrusted local SSL connections and reports <code className="bg-amber-100 px-1 py-0.5 rounded font-mono text-amber-900">ERR_TOO_MANY_RETRIES</code>.
-                  </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => checkServerConnection()}
+                    disabled={isCheckingConnection}
+                    className="py-1.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+                    title="Ping local game room server"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isCheckingConnection ? 'animate-spin' : ''}`} />
+                    <span>{isCheckingConnection ? 'Testing...' : 'Test Connection'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsConfigOpen(!isConfigOpen)}
+                    className="py-1.5 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>Configure IP</span>
+                  </button>
+
+                  <a
+                    href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="py-1.5 px-3 rounded-xl bg-[#344ea2]/10 hover:bg-[#344ea2]/20 text-[#344ea2] font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+                    title="Open direct DM Spellbook UI"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open Spellbook</span>
+                  </a>
                 </div>
               </div>
-            )}
 
-            {/* IP Configuration Collapsible Form */}
-            {isConfigOpen && (
-              <div className="mt-4 pt-4 border-t border-stone-200 space-y-3">
-                <div className="text-xs font-semibold text-stone-800">
-                  Game Room Controller Mini PC URL / IP:
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={tempUrl}
-                    onChange={(e) => setTempUrl(e.target.value)}
-                    placeholder="e.g. https://192.168.12.108:8088"
-                    className="flex-1 px-3 py-2 rounded-xl border border-stone-300 font-mono text-xs focus:outline-hidden focus:border-[#3bc0cd] focus:ring-2 focus:ring-[#3bc0cd]/20"
-                  />
+              {/* Offline Notice with Collapsible Instructions */}
+              <div className="mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4 text-amber-700 shrink-0" />
+                    <span className="font-semibold text-amber-950">
+                      Running in Offline Simulator Mode
+                    </span>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleSaveServerUrl}
-                    className="py-2 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2b4085] text-white font-bold text-xs cursor-pointer"
+                    onClick={() => setShowSetupInstructions(!showSetupInstructions)}
+                    className="text-xs font-bold text-[#344ea2] hover:underline cursor-pointer"
                   >
-                    Save & Reconnect
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setTempUrl('https://192.168.12.108:8088');
-                      setServerUrl('https://192.168.12.108:8088');
-                      if (typeof window !== 'undefined') {
-                        localStorage.setItem('sm_game_room_server_url', 'https://192.168.12.108:8088');
-                      }
-                      setIsConfigOpen(false);
-                      checkServerConnection('https://192.168.12.108:8088');
-                    }}
-                    className="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs cursor-pointer"
-                  >
-                    Reset Default
+                    {showSetupInstructions ? 'Hide Setup Steps ▲' : 'Show Setup Steps ▼'}
                   </button>
                 </div>
-                {lastCheckError && (
-                  <p className="text-[11px] text-red-600 font-mono">
-                    Last probe status: {lastCheckError}
-                  </p>
+                <p className="text-amber-800 text-[11px] leading-relaxed">
+                  Controls work in virtual simulator mode. To control physical room displays & lights, connect to <strong>Social Medium Wi-Fi</strong>.
+                </p>
+
+                {showSetupInstructions && (
+                  <div className="mt-2.5 pt-2.5 border-t border-amber-200/80 p-3 rounded-xl bg-white/80 space-y-2 text-xs">
+                    <div className="font-bold text-amber-950 uppercase tracking-wide text-[10px]">
+                      First Time Connecting a New Phone or Laptop?
+                    </div>
+                    <ol className="list-decimal pl-4 space-y-1 text-amber-900 text-[11px] leading-relaxed">
+                      <li>
+                        Confirm device is connected to <strong>Makerspace Wi-Fi</strong> (not mobile data).
+                      </li>
+                      <li>
+                        Tap{' '}
+                        <a
+                          href={`${sanitizeGameRoomUrl(serverUrl)}/spellbook`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-bold underline text-[#344ea2] hover:text-[#2b4085]"
+                        >
+                          Trust Local Security Certificate ↗
+                        </a>{' '}
+                        &rarr; Advanced &rarr; Proceed to 192.168.12.108.
+                      </li>
+                      <li>
+                        Return here and tap <strong>Test Connection</strong>.
+                      </li>
+                    </ol>
+                  </div>
                 )}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Collapsible IP Configuration Form (Available in both states) */}
+          {isConfigOpen && (
+            <div className="p-4 rounded-2xl bg-white border border-stone-200 shadow-xs space-y-3">
+              <div className="text-xs font-semibold text-stone-800">
+                Game Room Controller Mini PC URL / IP:
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  type="text"
+                  value={tempUrl}
+                  onChange={(e) => setTempUrl(e.target.value)}
+                  placeholder="e.g. https://192.168.12.108:8088"
+                  className="flex-1 px-3 py-2 rounded-xl border border-stone-300 font-mono text-xs focus:outline-hidden focus:border-[#3bc0cd] focus:ring-2 focus:ring-[#3bc0cd]/20"
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveServerUrl}
+                  className="py-2 px-4 rounded-xl bg-[#344ea2] hover:bg-[#2b4085] text-white font-bold text-xs cursor-pointer"
+                >
+                  Save & Reconnect
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempUrl('https://192.168.12.108:8088');
+                    setServerUrl('https://192.168.12.108:8088');
+                    if (typeof window !== 'undefined') {
+                      localStorage.setItem('sm_game_room_server_url', 'https://192.168.12.108:8088');
+                    }
+                    setIsConfigOpen(false);
+                    checkServerConnection('https://192.168.12.108:8088');
+                  }}
+                  className="py-2 px-3 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 font-semibold text-xs cursor-pointer"
+                >
+                  Reset Default
+                </button>
+              </div>
+              {lastCheckError && (
+                <p className="text-[11px] text-red-600 font-mono">
+                  Last probe status: {lastCheckError}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Connected Displays Status Bar */}
           <div className="p-4 rounded-2xl bg-stone-900 text-stone-300 border border-stone-800 shadow-md">
@@ -1164,7 +1182,7 @@ export default function GameRoomPage() {
               }`}
             >
               <Map className="w-3.5 h-3.5" />
-              <span>🗺️ Custom Media</span>
+              <span>🗺️ Media Library</span>
             </button>
 
             {/* Developer Mode Sub-Tab */}
