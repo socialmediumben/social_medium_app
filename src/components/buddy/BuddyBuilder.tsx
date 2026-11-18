@@ -48,6 +48,7 @@ import {
   BuddyArtSubmissionRecord,
   GOOGLE_DRIVE_BUDDY_ART_FOLDER_URL,
   DEFAULT_CATEGORY_LAYER_ORDER,
+  normalizeGoogleDriveUrl,
 } from '@/lib/buddy';
 import { updateMemberBuddyConfigInNeon } from '@/lib/neon';
 import { BuddyCanvas } from './BuddyCanvas';
@@ -1074,8 +1075,9 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
 
                           {/* Thumbnail / Image Preview */}
                           <div className="w-full aspect-square rounded-xl bg-stone-100/60 flex items-center justify-center p-2 mb-2 overflow-hidden relative">
-                            {item.assetUrl ? (
-                              item.colorPicker ? (
+                            {item.assetUrl ? (() => {
+                              const cleanUrl = normalizeGoogleDriveUrl(item.assetUrl);
+                              return item.colorPicker ? (
                                 <div className="relative w-full h-full flex items-center justify-center">
                                   <div
                                     className="absolute inset-0 w-full h-full transition-colors duration-200"
@@ -1083,8 +1085,8 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                                       backgroundColor: isEquipped
                                         ? (config.equippedColors?.[item.category] || config.equippedColors?.[item.id] || '#ffffff')
                                         : '#3bc0cd',
-                                      WebkitMaskImage: `url(${item.assetUrl})`,
-                                      maskImage: `url(${item.assetUrl})`,
+                                      WebkitMaskImage: `url(${cleanUrl})`,
+                                      maskImage: `url(${cleanUrl})`,
                                       WebkitMaskSize: 'contain',
                                       maskSize: 'contain',
                                       WebkitMaskRepeat: 'no-repeat',
@@ -1094,7 +1096,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                                     }}
                                   />
                                   <img
-                                    src={item.assetUrl}
+                                    src={cleanUrl}
                                     alt={item.name}
                                     className="absolute inset-0 w-full h-full object-contain pointer-events-none group-hover:scale-105 transition-transform"
                                     style={{ mixBlendMode: 'multiply' }}
@@ -1102,12 +1104,12 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                                 </div>
                               ) : (
                                 <img
-                                  src={item.assetUrl}
+                                  src={cleanUrl}
                                   alt={item.name}
                                   className="w-full h-full object-contain group-hover:scale-105 transition-transform"
                                 />
-                              )
-                            ) : (
+                              );
+                            })() : (
                               <div className="text-xs text-stone-400 font-medium">Preview</div>
                             )}
                           </div>
@@ -1241,33 +1243,36 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
               >
                 🎨
               </div>
-            ) : pendingItem?.colorPicker && pendingItem?.assetUrl ? (
-              <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs relative">
-                <div
-                  className="absolute inset-0 w-full h-full transition-colors duration-200"
-                  style={{
-                    backgroundColor: config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff',
-                    WebkitMaskImage: `url(${pendingItem.assetUrl})`,
-                    maskImage: `url(${pendingItem.assetUrl})`,
-                    WebkitMaskSize: 'contain',
-                    maskSize: 'contain',
-                    WebkitMaskRepeat: 'no-repeat',
-                    maskRepeat: 'no-repeat',
-                    WebkitMaskPosition: 'center',
-                    maskPosition: 'center',
-                  }}
-                />
-                <img
-                  src={pendingItem.assetUrl}
-                  alt={pendingItem.name}
-                  className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                  style={{ mixBlendMode: 'multiply' }}
-                />
-              </div>
-            ) : pendingItem?.assetUrl ? (
+            ) : pendingItem?.colorPicker && pendingItem?.assetUrl ? (() => {
+              const cleanUrl = normalizeGoogleDriveUrl(pendingItem.assetUrl);
+              return (
+                <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs relative">
+                  <div
+                    className="absolute inset-0 w-full h-full transition-colors duration-200"
+                    style={{
+                      backgroundColor: config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff',
+                      WebkitMaskImage: `url(${cleanUrl})`,
+                      maskImage: `url(${cleanUrl})`,
+                      WebkitMaskSize: 'contain',
+                      maskSize: 'contain',
+                      WebkitMaskRepeat: 'no-repeat',
+                      maskRepeat: 'no-repeat',
+                      WebkitMaskPosition: 'center',
+                      maskPosition: 'center',
+                    }}
+                  />
+                  <img
+                    src={cleanUrl}
+                    alt={pendingItem.name}
+                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
+                    style={{ mixBlendMode: 'multiply' }}
+                  />
+                </div>
+              );
+            })() : pendingItem?.assetUrl ? (
               <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs">
                 <img
-                  src={pendingItem.assetUrl}
+                  src={normalizeGoogleDriveUrl(pendingItem.assetUrl)}
                   alt={pendingItem.name}
                   className="max-h-full max-w-full object-contain"
                 />
@@ -1757,7 +1762,7 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                     }}
                   >
                     <img
-                      src={sub.assetUrl}
+                      src={normalizeGoogleDriveUrl(sub.assetUrl)}
                       alt={sub.name}
                       className="max-w-full max-h-full object-contain"
                     />

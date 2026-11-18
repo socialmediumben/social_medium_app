@@ -40,6 +40,21 @@ export const BUDDY_ART_UPLOAD_ENDPOINT =
   'https://script.google.com/macros/s/AKfycbw8sI54Tsza9NwwLd-Id3DgGBg69L4N0VxwSp9d3_dryLdSB5CvmPGtPpzt2uymKRjwcQ/exec';
 
 /**
+ * Normalizes Google Drive links (sharing link, uc link, open link) to high-speed direct CDN image URLs.
+ * Example input:  https://drive.google.com/file/d/1DbE8TWFpEqACRCNaqUNk36D6j5j54N8c/view?usp=drive_link
+ * Example output: https://lh3.googleusercontent.com/d/1DbE8TWFpEqACRCNaqUNk36D6j5j54N8c
+ */
+export function normalizeGoogleDriveUrl(url?: string): string {
+  if (!url) return '';
+  const clean = String(url).trim();
+  const driveMatch = clean.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=[a-z]+&)?id=)([a-zA-Z0-9_-]+)/i);
+  if (driveMatch && driveMatch[1]) {
+    return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
+  }
+  return clean;
+}
+
+/**
  * Returns the active category layer stack order (category -> zIndex).
  */
 export function getCategoryLayerOrder(): Record<string, number> {
@@ -417,6 +432,9 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
       let assetUrl = urlIdx !== -1 ? String(row[urlIdx] || '').trim() : '';
       if (!assetUrl) continue;
 
+      // Normalize Google Drive URLs to direct CDN image URLs
+      assetUrl = normalizeGoogleDriveUrl(assetUrl);
+
       // Clean asset URL: if relative path missing leading slash, add it
       if (assetUrl.startsWith('buddies/')) assetUrl = '/' + assetUrl;
 
@@ -512,11 +530,16 @@ export function syncBuddyAssetsFromGlobalSettings(assets?: BuddyItem[] | null): 
  */
 export function saveCustomBuddyItem(item: BuddyItem): BuddyItem[] {
   const allCustom = getCustomBuddyItems();
-  const existingIdx = allCustom.findIndex((i) => i.id === item.id);
+  const cleanedItem: BuddyItem = {
+    ...item,
+    assetUrl: normalizeGoogleDriveUrl(item.assetUrl),
+    isCustom: true,
+  };
+  const existingIdx = allCustom.findIndex((i) => i.id === cleanedItem.id);
   if (existingIdx !== -1) {
-    allCustom[existingIdx] = { ...item, isCustom: true };
+    allCustom[existingIdx] = cleanedItem;
   } else {
-    allCustom.push({ ...item, isCustom: true });
+    allCustom.push(cleanedItem);
   }
 
   if (typeof window !== 'undefined') {
@@ -1003,7 +1026,7 @@ export async function uploadBuddyArtItem(
         const data = await res.json();
         if (data && data.status === 'success') {
           cloudSuccess = true;
-          if (data.url) directUrl = data.url;
+          if (data.url) directUrl = normalizeGoogleDriveUrl(data.url);
           if (data.fileId) fileId = data.fileId;
         }
       }

@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { BuddyConfig, BuddyItem } from '@/lib/types';
-import { getAllBuddyItems, BUDDY_BASE_COLORS, DEFAULT_BUDDY_ITEMS } from '@/lib/buddy';
+import { getAllBuddyItems, BUDDY_BASE_COLORS, DEFAULT_BUDDY_ITEMS, normalizeGoogleDriveUrl } from '@/lib/buddy';
 
 interface BuddyCanvasProps {
   config: BuddyConfig;
@@ -112,6 +112,8 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
           ? activeColor.hex
           : (config.equippedColors?.[layer.category] || config.equippedColors?.[layer.id] || '#ffffff');
 
+        const assetUrl = normalizeGoogleDriveUrl(layer.assetUrl);
+
         return (
           <div
             key={`${layer.id}-${index}`}
@@ -120,7 +122,7 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
               zIndex: layer.zIndex,
             }}
           >
-            {layer.assetUrl ? (
+            {assetUrl ? (
               isTintable ? (
                 <div className="relative w-full h-full flex items-center justify-center">
                   {/* Color Tint Silhouette Layer */}
@@ -128,8 +130,8 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
                     className="absolute inset-0 w-full h-full transition-colors duration-200"
                     style={{
                       backgroundColor: layerColorHex,
-                      WebkitMaskImage: `url(${layer.assetUrl})`,
-                      maskImage: `url(${layer.assetUrl})`,
+                      WebkitMaskImage: `url(${assetUrl})`,
+                      maskImage: `url(${assetUrl})`,
                       WebkitMaskSize: 'contain',
                       maskSize: 'contain',
                       WebkitMaskRepeat: 'no-repeat',
@@ -140,7 +142,7 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
                   />
                   {/* Crisp Ink/Line Art on top */}
                   <img
-                    src={layer.assetUrl}
+                    src={assetUrl}
                     alt={layer.name}
                     className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xs"
                     style={{ mixBlendMode: 'multiply' }}
@@ -148,7 +150,7 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
                 </div>
               ) : (
                 <img
-                  src={layer.assetUrl}
+                  src={assetUrl}
                   alt={layer.name}
                   className="w-full h-full object-contain pointer-events-none drop-shadow-xs"
                 />
