@@ -4340,8 +4340,14 @@ export default function DeveloperPage() {
                   >
                     <div>
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-stone-200/80 text-stone-700 uppercase">
-                          {item.category.replace('_', ' ')}
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                            item.category === 'other'
+                              ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                              : 'bg-stone-200/80 text-stone-700'
+                          }`}
+                        >
+                          {item.category === 'other' ? '⚠️ Uncategorized' : item.category.replace('_', ' ')}
                         </span>
                         {item.id.startsWith('sheet_') ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -4373,6 +4379,11 @@ export default function DeveloperPage() {
                       <div className="font-bold text-stone-900 text-sm mb-1 line-clamp-1">
                         {item.name}
                       </div>
+                      {item.artist && (
+                        <div className="text-[10px] font-medium text-stone-500 mb-1">
+                          Artist: <strong className="text-stone-700">{item.artist}</strong>
+                        </div>
+                      )}
                       {item.description && (
                         <p className="text-stone-500 text-[11px] mb-2 line-clamp-2">
                           {item.description}
@@ -4385,6 +4396,17 @@ export default function DeveloperPage() {
                         <span>🪙 {item.price === 0 ? 'Free Starter' : `${item.price} BB`}</span>
                       </div>
                       <div className="flex items-center gap-2">
+                        {item.id.startsWith('sheet_') && (
+                          <a
+                            href="https://docs.google.com/spreadsheets/d/1vwXuw-TBYxUXKXUSipa2drArRNXZuKNwbXFhxcVbIc0/edit"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-emerald-700 hover:text-emerald-900 hover:underline font-bold"
+                            title="Edit Price, Category, and Active status in Google Sheet"
+                          >
+                            Edit in Sheet ↗
+                          </a>
+                        )}
                         <span className="text-[10px] text-stone-400 font-mono">z: {item.zIndex}</span>
                         {item.isCustom && !item.id.startsWith('sheet_') && (
                           <button
