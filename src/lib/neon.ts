@@ -1632,6 +1632,20 @@ export async function fetchPortalPhotos(cardId?: string): Promise<PortalPhotoRec
       if (p && p.url) photoMap.set(p.url, p);
     });
 
+    // Provide sample photo for sandbox demo account
+    if (cardId && isSandboxAccount(cardId)) {
+      const demoPhoto: PortalPhotoRecord = {
+        id: 'sandbox_demo_photo_1',
+        cardId: 'DEMO-2026',
+        url: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80',
+        downloadUrl: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=1200&q=80',
+        timestamp: '2026-11-15T19:30:00Z',
+      };
+      if (!photoMap.has(demoPhoto.url)) {
+        photoMap.set(demoPhoto.url, demoPhoto);
+      }
+    }
+
     // 2. Fetch from Render proxy / in-memory cache
     try {
       const url = cardId
