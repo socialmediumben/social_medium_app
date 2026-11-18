@@ -398,15 +398,10 @@ export async function fetchBuddyItemsFromSheet(): Promise<BuddyItem[]> {
 
       if (activeIdx !== -1) {
         const activeVal = String(row[activeIdx] || '').trim().toLowerCase();
-        // If pending approval, inactive, false, no, 0, or archived, do NOT show live in wardrobe!
-        if (
-          activeVal === 'pending' ||
-          activeVal === 'false' ||
-          activeVal === 'no' ||
-          activeVal === '0' ||
-          activeVal === 'inactive' ||
-          activeVal === 'archived'
-        ) {
+        // An accessory MUST be explicitly approved (TRUE, 1, YES) to appear live in the member wardrobe!
+        // Anything marked "pending", "false", or left blank until staff review is kept strictly hidden.
+        const isApproved = activeVal === 'true' || activeVal === '1' || activeVal === 'yes';
+        if (!isApproved) {
           continue;
         }
       }
