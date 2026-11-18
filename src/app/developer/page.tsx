@@ -1893,6 +1893,26 @@ export default function DeveloperPage() {
                       Select
                     </button>
                   </div>
+
+                  {/* Persona 5: Sandbox Demo Account */}
+                  <div className="p-4 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold shrink-0">
+                        🧪
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-indigo-950">Interactive Sandbox Demo (Jordan Taylor)</div>
+                        <div className="text-[11px] text-indigo-700">Preloaded $25 credit, 175 BB, 420 XP, certs • Resets on logout</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleQuickPersona({ name: 'Sandbox Demo', cardId: 'DEMO-2026' })}
+                      className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-semibold text-xs transition-colors cursor-pointer shadow-xs"
+                    >
+                      Select
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

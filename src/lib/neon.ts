@@ -16,6 +16,7 @@ import {
   GiveGetServiceCategory,
 } from './types';
 import { calculateLevelFromXp } from './gamification';
+import { isSandboxAccount, INITIAL_SANDBOX_MEMBER } from './sandbox';
 
 export const NEON_PROXY_URL = 'https://neon-kiosk.onrender.com';
 
@@ -142,6 +143,10 @@ export async function fetchMemberProfileByAccountId(
 ): Promise<NeonLookupResult> {
   if (!accountId) {
     return { success: false, error: 'Account ID is required.' };
+  }
+
+  if (isSandboxAccount(accountId)) {
+    return { success: true, member: { ...INITIAL_SANDBOX_MEMBER } };
   }
 
   try {
@@ -680,6 +685,9 @@ export async function searchMemberByTapCard(tapCard: string): Promise<NeonLookup
   if (!cleanCard) {
     return { success: false, error: 'Tap Card cannot be empty.' };
   }
+  if (isSandboxAccount(cleanCard)) {
+    return { success: true, member: { ...INITIAL_SANDBOX_MEMBER } };
+  }
   const normalizedCard = normalizeNfcTapCard(cleanCard);
 
   try {
@@ -825,6 +833,9 @@ export async function updatePortalMediaInNeon(
   if (!accountId) {
     return { success: false, error: 'No account ID provided for update.' };
   }
+  if (isSandboxAccount(accountId)) {
+    return { success: true };
+  }
 
   try {
     const payload = {
@@ -871,6 +882,9 @@ export async function updateMemberInterestsInNeon(
 ): Promise<NeonUpdateResult> {
   if (!accountId) {
     return { success: false, error: 'No account ID provided for update.' };
+  }
+  if (isSandboxAccount(accountId)) {
+    return { success: true };
   }
 
   try {
@@ -2201,6 +2215,21 @@ export async function updateMemberStoreBalance(
 ): Promise<{ success: boolean; newBalance: number; error?: string }> {
   const roundedBal = Math.round(newBalance * 100) / 100;
 
+  if (isSandboxAccount(accountId)) {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(`sm_balance_${accountId}`, roundedBal.toFixed(2));
+        const cachedProf = localStorage.getItem(`sm_profile_${accountId}`);
+        if (cachedProf) {
+          const parsed = JSON.parse(cachedProf);
+          parsed.storeBalance = roundedBal;
+          localStorage.setItem(`sm_profile_${accountId}`, JSON.stringify(parsed));
+        }
+      } catch (_) {}
+    }
+    return { success: true, newBalance: roundedBal };
+  }
+
   // 1. Enforce tab ceiling: Cannot exceed -$25.00 debt
   if (roundedBal < -MAX_STORE_TAB_LIMIT) {
     return {
@@ -2440,6 +2469,9 @@ export async function updateMemberXpInNeon(
 ): Promise<{ success: boolean; newXp: number; error?: string }> {
   // Sanitize XP to ensure no corrupt timestamps or tap card IDs can ever be saved as XP
   const safeXp = Math.max(0, Math.min(newXp >= 1000000 ? 0 : Math.round(newXp), 999999));
+  if (isSandboxAccount(accountId)) {
+    return { success: true, newXp: safeXp };
+  }
 
   // 1. Always persist locally
   if (typeof window !== 'undefined' && accountId) {
@@ -2562,6 +2594,9 @@ export async function updateMemberBuddyConfigInNeon(
   configJsonStr: string
 ): Promise<{ success: boolean; configJson: string; error?: string }> {
   let targetAccountId = accountId;
+  if (isSandboxAccount(accountId)) {
+    return { success: true, configJson: configJsonStr };
+  }
   if (typeof window !== 'undefined' && accountId) {
     try {
       localStorage.setItem(`sm_buddy_avatar_${accountId}`, configJsonStr);
@@ -2641,6 +2676,9 @@ export async function updateMemberBuddyBucksInNeon(
   newAmount: number
 ): Promise<{ success: boolean; newAmount: number; error?: string }> {
   const safeAmount = Math.max(0, Math.round(newAmount));
+  if (isSandboxAccount(accountId)) {
+    return { success: true, newAmount: safeAmount };
+  }
   let targetAccountId = accountId;
 
   if (typeof window !== 'undefined' && accountId) {
@@ -2807,6 +2845,9 @@ export async function updateMemberVolunteerHoursInNeon(
   newHours: number
 ): Promise<{ success: boolean; newHours: number; error?: string }> {
   const roundedHours = Math.round(newHours * 10) / 10;
+  if (isSandboxAccount(accountId)) {
+    return { success: true, newHours: roundedHours };
+  }
 
   // 1. Optimistically persist to local storage
   if (typeof window !== 'undefined' && accountId) {
@@ -2859,6 +2900,18 @@ export async function saveBoardVolunteerSession(
 ): Promise<GiveGetSummary> {
   const accountId = session.accountId;
   let savedSession = { ...session };
+  if (isSandboxAccount(accountId)) {
+    const existing = getMemberVolunteerSessions(accountId);
+    const filtered = existing.filter((s) => s.id !== savedSession.id);
+    const updatedSessions = [savedSession, ...filtered];
+    if (typeof window !== 'undefined' && accountId) {
+      try {
+        localStorage.setItem(`sm_board_sessions_${accountId}`, JSON.stringify(updatedSessions));
+        window.dispatchEvent(new CustomEvent('sm_give_get_updated', { detail: { accountId } }));
+      } catch (_) {}
+    }
+    return fetchMemberGiveGetSummary(accountId);
+  }
 
   // 1. Sync session as an activity in Neon One CRM
   try {
@@ -3036,9 +3089,31 @@ export async function fetchMemberHardCreditExcludingStore(accountId: string): Pr
   };
 }
 
-export async function fetchMemberGiveGetSummary(
-  accountId: string
-): Promise<GiveGetSummary> {
+export async function fetchMemberGiveGetSummary(accountId: string): Promise<GiveGetSummary> {
+  if (isSandboxAccount(accountId)) {
+    const sessions = getMemberVolunteerSessions(accountId);
+    const localSessionHours = sessions.reduce((sum, s) => sum + (Number(s.hours) || 0), 0);
+    const hourlyRate = (typeof window !== 'undefined' && localStorage.getItem('sm_give_get_hourly_rate'))
+      ? parseFloat(localStorage.getItem('sm_give_get_hourly_rate') || '10')
+      : DEFAULT_GIVE_GET_HOURLY_RATE;
+    const volunteerValue = localSessionHours * hourlyRate;
+    const hardCredit = 1250;
+    const softCredit = 500;
+    const totalGiveGet = hardCredit + softCredit + volunteerValue;
+    return {
+      accountId,
+      hardCredit,
+      softCredit,
+      volunteerHours: localSessionHours,
+      hourlyRate,
+      volunteerValue,
+      totalGiveGet,
+      currentYearHardCredit: hardCredit,
+      currentYearSoftCredit: softCredit,
+      excludedStoreDonationsTotal: 0,
+      sessions,
+    };
+  }
   let hardCredit = 0;
   let softCredit = 0;
   let currentYearHardCredit = 0;

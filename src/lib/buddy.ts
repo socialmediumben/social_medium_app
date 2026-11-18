@@ -6,6 +6,7 @@ import {
   BuddyItem,
   BuddyLayerCategory,
 } from './types';
+import { isSandboxAccount } from './sandbox';
 
 // ==========================================
 // 1. LAYER STACK ORDER & DYNAMIC CATEGORIES
@@ -973,31 +974,38 @@ export async function uploadBuddyArtItem(
 
   // 1. Attempt POST to Google Apps Script / Drive & Sheet
   try {
-    const reqBody = {
-      action: 'upload_buddy_art',
-      folderId: GOOGLE_DRIVE_BUDDY_ART_FOLDER_ID,
-      name,
-      category,
-      description,
-      artist,
-      price,
-      image: imageBase64,
-      colorPicker: !!colorPicker,
-      timestamp,
-    };
+    if (isSandboxAccount(artist) || (typeof window !== 'undefined' && localStorage.getItem('sm_is_sandbox') === 'true')) {
+      // In sandbox mode, simulate immediate upload success without writing to production sheet
+      cloudSuccess = true;
+      directUrl = imageBase64;
+      fileId = `sandbox_art_${Date.now()}`;
+    } else {
+      const reqBody = {
+        action: 'upload_buddy_art',
+        folderId: GOOGLE_DRIVE_BUDDY_ART_FOLDER_ID,
+        name,
+        category,
+        description,
+        artist,
+        price,
+        image: imageBase64,
+        colorPicker: !!colorPicker,
+        timestamp,
+      };
 
-    const res = await fetch(BUDDY_ART_UPLOAD_ENDPOINT, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(reqBody),
-    });
+      const res = await fetch(BUDDY_ART_UPLOAD_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(reqBody),
+      });
 
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.status === 'success') {
-        cloudSuccess = true;
-        if (data.url) directUrl = data.url;
-        if (data.fileId) fileId = data.fileId;
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.status === 'success') {
+          cloudSuccess = true;
+          if (data.url) directUrl = data.url;
+          if (data.fileId) fileId = data.fileId;
+        }
       }
     }
   } catch (netErr) {

@@ -1,4 +1,5 @@
 import { NEON_PROXY_URL } from './neon';
+import { isSandboxAccount } from './sandbox';
 
 export interface NeonEvent {
   id: number | string;
@@ -147,6 +148,17 @@ export async function fetchUpcomingEvents(): Promise<NeonEvent[]> {
 export async function fetchAccountRegistrations(accountId: string): Promise<string[]> {
   if (!accountId) return [];
 
+  // Sandbox demo registrations stored locally in ephemeral state
+  if (isSandboxAccount(accountId)) {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem(`sm_event_registrations_${accountId}`);
+        if (stored) return JSON.parse(stored);
+      } catch (_) {}
+    }
+    return ['demo-intro-workshop'];
+  }
+
   try {
     let allEventIds: string[] = [];
     let currentPage = 0;
@@ -196,6 +208,20 @@ export async function rsvpForEvent(
       success: false,
       fallbackUrl: regUrl,
       error: 'Please sign in with your Tap Card to RSVP.',
+    };
+  }
+
+  // Sandbox demo simulated RSVP
+  if (isSandboxAccount(accountId)) {
+    if (typeof window !== 'undefined') {
+      try {
+        const existing = JSON.parse(localStorage.getItem(`sm_event_registrations_${accountId}`) || '[]');
+        const updated = Array.from(new Set([...existing, String(event.id)]));
+        localStorage.setItem(`sm_event_registrations_${accountId}`, JSON.stringify(updated));
+      } catch (_) {}
+    }
+    return {
+      success: true,
     };
   }
 

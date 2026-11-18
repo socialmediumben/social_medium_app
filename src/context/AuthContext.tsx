@@ -3,6 +3,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { MemberProfile } from '@/lib/types';
 import { searchMemberByTapCard, fetchMemberProfileByAccountId } from '@/lib/neon';
+import {
+  isSandboxAccount,
+  initSandboxSession,
+  clearSandboxData,
+  resetSandboxData,
+  SANDBOX_ACCOUNT_ID,
+  SANDBOX_TAP_CARD,
+} from '@/lib/sandbox';
 
 interface AuthContextType {
   activeCardId: string | null;
@@ -18,6 +26,10 @@ interface AuthContextType {
   originalDeveloperUser: MemberProfile | null;
   impersonateUser: (target: MemberProfile | string) => Promise<boolean>;
   stopImpersonating: () => void;
+  // Sandbox Demo Mode
+  isSandboxMode: boolean;
+  loginAsSandbox: () => void;
+  resetSandbox: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -33,6 +45,9 @@ const AuthContext = createContext<AuthContextType>({
   originalDeveloperUser: null,
   impersonateUser: async () => false,
   stopImpersonating: () => {},
+  isSandboxMode: false,
+  loginAsSandbox: () => {},
+  resetSandbox: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -83,7 +98,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           initialAccountId = localStorage.getItem('sm_active_account_id');
         }
 
-        // 3. Try to authenticate via Account ID first (from OAuth) or Tap Card
+        // 3. Check if active session is sandbox demo
+        if (typeof window !== 'undefined') {
+          const isSandboxFlag = localStorage.getItem('sm_is_sandbox') === 'true';
+          if (
+            isSandboxFlag ||
+            isSandboxAccount(initialAccountId) ||
+            isSandboxAccount(initialCard)
+          ) {
+            const savedProfile = localStorage.getItem(`sm_profile_${SANDBOX_ACCOUNT_ID}`);
+            let parsed: MemberProfile | null = null;
+            if (savedProfile) {
+              try {
+                parsed = JSON.parse(savedProfile);
+              } catch (_) {}
+            }
+            if (!parsed) {
+              parsed = initSandboxSession();
+            }
+            setMember(parsed);
+            setActiveCardId(SANDBOX_TAP_CARD);
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        // 4. Try to authenticate via Account ID first (from OAuth) or Tap Card
         if (initialAccountId) {
           const savedProfile = localStorage.getItem(`sm_profile_${initialAccountId}`);
           if (savedProfile) {
@@ -103,6 +143,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             localStorage.setItem(`sm_profile_${initialAccountId}`, JSON.stringify(res.member));
           }
         } else if (initialCard) {
+          // Check if card is sandbox keyword
+          if (isSandboxAccount(initialCard)) {
+            const sandboxMember = initSandboxSession();
+            setMember(sandboxMember);
+            setActiveCardId(SANDBOX_TAP_CARD);
+            setIsLoading(false);
+            return;
+          }
+
           // Load cached member profile first for instant UI response
           const savedProfile = localStorage.getItem(`sm_profile_${initialCard}`);
           if (savedProfile) {
@@ -146,9 +195,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   };
 
+  const loginAsSandbox = () => {
+    const sandboxMember = initSandboxSession();
+    setActiveCardId(SANDBOX_TAP_CARD);
+    setMember(sandboxMember);
+    setLoginError(null);
+    setIsLoading(false);
+  };
+
+  const resetSandbox = () => {
+    const fresh = resetSandboxData();
+    setActiveCardId(SANDBOX_TAP_CARD);
+    setMember(fresh);
+    setLoginError(null);
+  };
+
   const login = async (cardId: string): Promise<boolean> => {
     const cleanId = cardId.trim();
     if (!cleanId) return false;
+
+    // Check for sandbox demo keyword
+    if (isSandboxAccount(cleanId)) {
+      loginAsSandbox();
+      return true;
+    }
+
     setLoginError(null);
     setIsLoading(true);
 
@@ -176,9 +247,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = () => {
+    clearSandboxData();
     try {
       localStorage.removeItem('sm_active_tap_card');
       localStorage.removeItem('sm_active_account_id');
+      localStorage.removeItem('sm_is_sandbox');
       localStorage.removeItem('sm_impersonation_orig_member');
       localStorage.removeItem('sm_impersonation_orig_card');
       localStorage.removeItem('sm_impersonation_target');
@@ -210,23 +283,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } else {
       const query = String(target).trim();
       if (!query) return false;
-      setIsLoading(true);
-      // Try searching by tap card first
-      const tapRes = await searchMemberByTapCard(query);
-      if (tapRes.success && tapRes.member) {
-        targetProfile = tapRes.member;
+
+      if (isSandboxAccount(query)) {
+        targetProfile = initSandboxSession();
       } else {
-        // Try searching by account ID
-        const accRes = await fetchMemberProfileByAccountId(query);
-        if (accRes.success && accRes.member) {
-          targetProfile = accRes.member;
+        setIsLoading(true);
+        // Try searching by tap card first
+        const tapRes = await searchMemberByTapCard(query);
+        if (tapRes.success && tapRes.member) {
+          targetProfile = tapRes.member;
         } else {
-          // Check cached local profile
-          const cached = localStorage.getItem(`sm_profile_${query}`);
-          if (cached) {
-            try {
-              targetProfile = JSON.parse(cached);
-            } catch (_) {}
+          // Try searching by account ID
+          const accRes = await fetchMemberProfileByAccountId(query);
+          if (accRes.success && accRes.member) {
+            targetProfile = accRes.member;
+          } else {
+            // Check cached local profile
+            const cached = localStorage.getItem(`sm_profile_${query}`);
+            if (cached) {
+              try {
+                targetProfile = JSON.parse(cached);
+              } catch (_) {}
+            }
           }
         }
       }
@@ -278,6 +356,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (_) {}
   };
 
+  const isSandboxMode =
+    isSandboxAccount(member?.accountId) ||
+    isSandboxAccount(activeCardId) ||
+    (typeof window !== 'undefined' && localStorage.getItem('sm_is_sandbox') === 'true');
+
   return (
     <AuthContext.Provider
       value={{
@@ -293,6 +376,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         originalDeveloperUser: originalDevMember,
         impersonateUser,
         stopImpersonating,
+        isSandboxMode,
+        loginAsSandbox,
+        resetSandbox,
       }}
     >
       {children}
