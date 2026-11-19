@@ -19,6 +19,8 @@ import {
   Layers,
   Smile,
   X,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   BuddyBubbleMember,
@@ -79,6 +81,19 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
   const [joinPassBubble, setJoinPassBubble] = useState<CustomBubbleGroup | null>(null);
   const [settingsBubble, setSettingsBubble] = useState<CustomBubbleGroup | null>(null);
   const [assignBuddy, setAssignBuddy] = useState<BuddyBubbleMember | null>(null);
+  const [expandedBuddyIds, setExpandedBuddyIds] = useState<Set<string>>(new Set());
+
+  const toggleExpandBuddy = (buddyAccountId: string) => {
+    setExpandedBuddyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(buddyAccountId)) {
+        next.delete(buddyAccountId);
+      } else {
+        next.add(buddyAccountId);
+      }
+      return next;
+    });
+  };
 
   // Sync state with local updates & Neon refresh
   useEffect(() => {
@@ -482,8 +497,9 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
       {/* GRID OF BUDDY CARDS                                      */}
       {/* ======================================================== */}
       {filteredBuddies.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 items-start">
           {filteredBuddies.map((buddy) => {
+            const isExpanded = expandedBuddyIds.has(buddy.accountId);
             const buddyInterests = buddy.interests || [];
             const shared = buddyInterests.filter((i) => myInterests.includes(i.toLowerCase()));
 
@@ -494,23 +510,64 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
               )
             );
 
+            // Collapsed Preview Card
+            if (!isExpanded) {
+              return (
+                <div
+                  key={buddy.accountId}
+                  onClick={() => toggleExpandBuddy(buddy.accountId)}
+                  className="relative bg-white rounded-2xl p-3 sm:p-3.5 border border-stone-200/90 shadow-xs hover:shadow-md hover:border-teal-300 transition-all flex items-center justify-between gap-3 cursor-pointer select-none group"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      toggleExpandBuddy(buddy.accountId);
+                    }
+                  }}
+                  title="Click to view details"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <BuddyAvatarBadge
+                      accountId={buddy.accountId}
+                      avatarJson={buddy.buddyAvatar}
+                      size={44}
+                      borderClassName="border-2 border-amber-300 bg-amber-50 shadow-xs shrink-0"
+                    />
+                    <h4 className="font-fredoka text-base sm:text-lg font-bold text-stone-900 truncate group-hover:text-teal-700 transition-colors">
+                      {buddy.preferredName || buddy.name}
+                    </h4>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0 text-stone-400 group-hover:text-teal-600 transition-colors">
+                    <ChevronDown className="w-5 h-5" />
+                  </div>
+                </div>
+              );
+            }
+
+            // Expanded Full Card
             return (
               <div
                 key={buddy.accountId}
-                className="relative bg-white rounded-3xl p-5 border border-stone-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all flex flex-col justify-between overflow-hidden group"
+                className="relative bg-white rounded-3xl p-5 border border-stone-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between overflow-hidden group"
               >
                 {/* Floating bubble background decoration */}
                 <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-teal-50 rounded-full opacity-60 pointer-events-none group-hover:scale-125 transition-transform" />
 
                 <div>
-                  {/* Card Header: Avatar, Name, Star Favorite & Menu */}
+                  {/* Card Header: Avatar, Name, Star Favorite, Remove & Collapse Button */}
                   <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      onClick={() => toggleExpandBuddy(buddy.accountId)}
+                      className="flex items-center gap-3 min-w-0 cursor-pointer"
+                      title="Click to collapse"
+                    >
                       <BuddyAvatarBadge
                         accountId={buddy.accountId}
                         avatarJson={buddy.buddyAvatar}
                         size={56}
-                        borderClassName="border-2 border-amber-300 bg-amber-50 shadow-xs"
+                        borderClassName="border-2 border-amber-300 bg-amber-50 shadow-xs shrink-0"
                       />
 
                       <div className="min-w-0">
@@ -538,7 +595,7 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Quick Card Controls: Favorite Star & Remove */}
+                    {/* Quick Card Controls: Favorite Star, Remove, Collapse */}
                     <div className="flex items-center gap-0.5 shrink-0">
                       <button
                         type="button"
@@ -567,6 +624,15 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
+
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandBuddy(buddy.accountId)}
+                        className="p-1.5 rounded-xl text-stone-400 hover:text-stone-700 hover:bg-stone-100 transition-colors shrink-0 cursor-pointer ml-0.5"
+                        title="Collapse card"
+                      >
+                        <ChevronUp className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
 
@@ -592,7 +658,7 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                         <div className="space-y-1">
                           <div className="text-[11px] font-bold text-amber-800 flex items-center gap-1">
                             <Heart className="w-3 h-3 text-rose-500 fill-rose-500" />
-                            <span>Common maker ground:</span>
+                            <span>Common interests:</span>
                           </div>
                           <div className="flex flex-wrap gap-1">
                             {shared.map((tag) => (

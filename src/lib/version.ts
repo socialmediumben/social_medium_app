@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.3.1';
+export const APP_VERSION = '4.3.2';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.3.2',
+    date: '2026-11-19',
+    title: 'Compact Expandable Buddy Bubble Cards & "Common Interests" Label',
+    changes: [
+      'Compact Buddy Cards: Buddy Bubble cards now display as a clean, compact preview card showing only the member\'s mascot avatar, name, and an expand indicator.',
+      'Tap-to-Expand Details: Clicking anywhere on a buddy card smoothly expands it to reveal full details (pronouns, level, star favorite, custom circle badges, interests, Circles assignment, and mascot viewer).',
+      'One-Click Collapse: Expanded cards feature an interactive header and collapse chevron to quickly tuck details back away.',
+      'Refined Nomenclature: Renamed "Common maker ground:" to "Common interests:" for clearer community discovery.',
+      'Balanced Grid Layout: Applied intrinsic-height alignment so expanded cards do not distort neighbouring compact cards in the grid.',
+    ],
+  },
   {
     version: '4.3.1',
     date: '2026-11-19',
