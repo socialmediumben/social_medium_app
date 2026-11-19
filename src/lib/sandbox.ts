@@ -1,4 +1,4 @@
-import { MemberProfile, VolunteerSession, GiveGetSummary } from './types';
+import { MemberProfile, VolunteerSession, GiveGetSummary, BuddyBubbleMember } from './types';
 
 export const SANDBOX_ACCOUNT_ID = 'sandbox-demo';
 export const SANDBOX_TAP_CARD = 'DEMO-2026';
@@ -78,6 +78,70 @@ export const INITIAL_SANDBOX_GIVE_GET_SUMMARY: GiveGetSummary = {
 export const INITIAL_SANDBOX_REGISTERED_EVENT_IDS = ['demo-intro-workshop'];
 
 /**
+ * Pre-populated friendly makers in the Sandbox Buddy Bubble for demonstrations.
+ */
+export const INITIAL_SANDBOX_BUDDIES: BuddyBubbleMember[] = [
+  {
+    accountId: 'demo-buddy-sam',
+    name: 'Sam Spark',
+    preferredName: 'Sam',
+    pronouns: 'He/Him',
+    tapCard: '20260001',
+    level: 4,
+    levelBadge: '⚙️',
+    levelTitle: 'Tinkerer',
+    interests: ['Robotics', 'Electronics', '3D Printing'],
+    buddyAvatar: JSON.stringify({
+      bodyColor: '#f783ac',
+      eyeStyle: 'wink',
+      mouthStyle: 'open',
+      hat: 'cap',
+      accessory: 'soldering_iron',
+    }),
+    addedAt: '2026-11-10T14:20:00Z',
+    lastCheeredAt: '2026-11-16T10:15:00Z',
+  },
+  {
+    accountId: 'demo-buddy-alex',
+    name: 'Alex River',
+    preferredName: 'Alex',
+    pronouns: 'She/Her',
+    tapCard: '20260002',
+    level: 6,
+    levelBadge: '🚀',
+    levelTitle: 'Pro Maker',
+    interests: ['Woodworking', 'Laser Cutting', 'Tabletop Gaming'],
+    buddyAvatar: JSON.stringify({
+      bodyColor: '#ffd43b',
+      eyeStyle: 'glasses',
+      mouthStyle: 'smile',
+      hat: 'beanie',
+      clothes: 'flannel',
+    }),
+    addedAt: '2026-11-12T16:45:00Z',
+    lastCheeredAt: '2026-11-17T18:30:00Z',
+  },
+  {
+    accountId: 'demo-buddy-maya',
+    name: 'Maya Chen',
+    preferredName: 'Maya',
+    pronouns: 'They/Them',
+    tapCard: '20260003',
+    level: 2,
+    levelBadge: '🌱',
+    levelTitle: 'Novice Maker',
+    interests: ['Vinyl Cutting', '3D Printing', 'Cosplay'],
+    buddyAvatar: JSON.stringify({
+      bodyColor: '#69db7c',
+      eyeStyle: 'star',
+      mouthStyle: 'grin',
+      hat: 'wizard_hat',
+    }),
+    addedAt: '2026-11-15T09:10:00Z',
+  },
+];
+
+/**
  * Rich pristine member profile for interactive business demonstrations.
  */
 export const INITIAL_SANDBOX_MEMBER: MemberProfile = {
@@ -112,6 +176,7 @@ export const INITIAL_SANDBOX_MEMBER: MemberProfile = {
   customInterests: 'Rapid prototyping, smart home gadgets & cosplay prop design',
   storeBalance: 25.0, // $25.00 preloaded credit for trying store checkouts
   buddyBucks: 175, // 175 BB for customizing the Buddy in Buddy Builder
+  buddyCount: 3, // 3 friends in the Buddy Bubble
   xp: 420, // 420 XP (Level 3 Apprentice Tinkerer ⚙️)
   level: 3,
   levelTitle: 'Apprentice Tinkerer',

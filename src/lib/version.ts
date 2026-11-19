@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.1';
+export const APP_VERSION = '4.2';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,22 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.2',
+    date: '2026-11-18',
+    title: 'Buddy Bubble: Proximity Friend Pairing via NFC Tap & QR Passes',
+    changes: [
+      'Buddy Bubble Sub-Module: Added a dedicated "Buddy Bubble" tab to Member Profile for connecting with makers you meet at the makerspace.',
+      'Strict No Public Directory Policy: Zero public browsing or user directories; connections strictly require in-person proximity pairing or direct mutual consent.',
+      'NFC Band-to-Phone Pairing: Tap a member\'s physical Buddy Band wristband or card against any NFC-enabled phone to instantly look up and add them to your bubble.',
+      'Phone-to-Phone NFC Beam: Android devices running Chrome can broadcast an NDEF URL beam to touch phones together and connect.',
+      'Universal QR Code Fallback: "My Buddy Pass" displays a high-contrast QR code with the member\'s customized mascot in the center, scannable by in-app camera or native iOS Camera.',
+      'Mutual Consent & Delight: Displays an animated encounter modal with the friend\'s mascot avatar, preferred name, pronouns, level badge, and common maker interests ("Both nerdy for 3D Printing!").',
+      'Interactive Bubble Cards: Floating glassmorphic cards with "Blow Bubble 🫧" celebrations, "View Costume" outfit previews, and friend management.',
+      'Sandbox Demo Pre-Seeding: Demo accounts come pre-loaded with friendly sample makers (Sam Spark, Alex River, Maya Chen) so business demonstrations work out-of-the-box.',
+      'Developer Proximity Simulator: Added dedicated "Buddy Bubble" tools in Developer Mode to simulate NFC Band taps, test QR deep links, and inject custom test friends.',
+    ],
+  },
   {
     version: '4.1',
     date: '2026-11-18',

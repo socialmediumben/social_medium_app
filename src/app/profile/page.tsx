@@ -47,8 +47,11 @@ import {
 import SMCertifications from '../../../public/shared/sm-certifications.js';
 import { BuddyBuilder } from '@/components/buddy/BuddyBuilder';
 import { BuddyAvatarBadge } from '@/components/buddy/BuddyAvatarBadge';
+import { BuddyBubbleView } from '@/components/bubble/BuddyBubbleView';
 import { loadMemberBuddyBucks } from '@/lib/buddy';
-import { Palette, Sparkles as SparklesIcon, Coins } from 'lucide-react';
+import { loadBuddyBubble } from '@/lib/bubble';
+import { BuddyBubbleMember } from '@/lib/types';
+import { Palette, Sparkles as SparklesIcon, Coins, Users } from 'lucide-react';
 
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
@@ -63,12 +66,53 @@ export default function ProfilePage() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeProfileTab, setActiveProfileTab] = useState<'passport' | 'buddy'>('passport');
+  const [activeProfileTab, setActiveProfileTab] = useState<'passport' | 'buddy' | 'bubble'>('passport');
   const [buddyBucks, setBuddyBucks] = useState<number>(() => loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
+  const [bubbleCount, setBubbleCount] = useState<number>(() => loadBuddyBubble(member?.accountId).length);
+  const [initialAddBuddy, setInitialAddBuddy] = useState<BuddyBubbleMember | null>(null);
+
+  // Deep-link handling: ?tab=bubble&action=add&buddy=...
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'bubble' || tabParam === 'buddy' || tabParam === 'passport') {
+        setActiveProfileTab(tabParam as any);
+      }
+      const actionParam = params.get('action');
+      const buddyParam = params.get('buddy');
+      const nameParam = params.get('name');
+      const bandParam = params.get('band');
+
+      if (actionParam === 'add' && (buddyParam || bandParam)) {
+        setActiveProfileTab('bubble');
+        import('@/lib/bubble').then(({ resolveBuddyFromScanOrUid }) => {
+          resolveBuddyFromScanOrUid(buddyParam || bandParam || '').then((res) => {
+            if (res.success && res.member) {
+              setInitialAddBuddy(res.member);
+            } else if (buddyParam || nameParam) {
+              setInitialAddBuddy({
+                accountId: buddyParam || bandParam || 'buddy_' + Date.now(),
+                name: decodeURIComponent(nameParam || 'Fellow Maker'),
+                preferredName: decodeURIComponent(nameParam || 'Fellow Maker'),
+                tapCard: bandParam || undefined,
+                level: 1,
+                levelBadge: '🌱',
+                levelTitle: 'Maker',
+                addedAt: new Date().toISOString(),
+              });
+            }
+          });
+        });
+      }
+    } catch (_) {}
+  }, []);
 
   useEffect(() => {
     if (member?.accountId) {
       setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
+      setBubbleCount(loadBuddyBubble(member.accountId).length);
       try {
         const localCachedAvatar = localStorage.getItem(`sm_buddy_avatar_${member.accountId}`);
         if (localCachedAvatar && localCachedAvatar.trim().startsWith('{') && !member.buddyAvatar) {
@@ -81,11 +125,18 @@ export default function ProfilePage() {
         setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
       }
     };
+    const handleBubbleUpdate = (e: any) => {
+      if (member?.accountId) {
+        setBubbleCount(loadBuddyBubble(member.accountId).length);
+      }
+    };
     window.addEventListener('sm_buddy_bucks_updated', handleBucksUpdate);
     window.addEventListener('sm_buddy_updated', handleBucksUpdate);
+    window.addEventListener('sm_buddy_bubble_updated', handleBubbleUpdate);
     return () => {
       window.removeEventListener('sm_buddy_bucks_updated', handleBucksUpdate);
       window.removeEventListener('sm_buddy_updated', handleBucksUpdate);
+      window.removeEventListener('sm_buddy_bubble_updated', handleBubbleUpdate);
     };
   }, [member?.accountId, member?.buddyBucks]);
 
@@ -268,20 +319,26 @@ export default function ProfilePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-stone-900">
-            {activeProfileTab === 'buddy' ? 'Buddy Builder' : 'Member Profile'}
+            {activeProfileTab === 'buddy'
+              ? 'Buddy Builder'
+              : activeProfileTab === 'bubble'
+              ? 'Buddy Bubble'
+              : 'Member Profile'}
           </h1>
           <p className="text-stone-600 text-sm">
             {activeProfileTab === 'buddy'
               ? 'Customize your personal Social Medium mascot avatar with dress-up accessories and outfits.'
+              : activeProfileTab === 'bubble'
+              ? 'Connect with fellow makers in person using NFC tap or personal QR passes.'
               : <>Account details and authorized tool Certifications for Tap Card <strong>{member.tapCard}</strong>.</>}
           </p>
         </div>
 
         {/* Sub-Module Switcher */}
-        <div className="flex items-center gap-2 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs">
+        <div className="flex items-center gap-2 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs flex-wrap">
           <button
             onClick={() => setActiveProfileTab('passport')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition-all ${
               activeProfileTab === 'passport'
                 ? 'bg-white text-stone-900 shadow-sm'
                 : 'text-stone-600 hover:text-stone-900'
@@ -292,7 +349,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setActiveProfileTab('buddy')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition-all ${
               activeProfileTab === 'buddy'
                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm'
                 : 'text-stone-600 hover:text-stone-900'
@@ -306,6 +363,24 @@ export default function ProfilePage() {
                 : 'bg-amber-100 text-amber-900 border border-amber-200'
             }`}>
               🪙 {buddyBucks} BB
+            </span>
+          </button>
+          <button
+            onClick={() => setActiveProfileTab('bubble')}
+            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition-all ${
+              activeProfileTab === 'bubble'
+                ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Users className="w-4 h-4" />
+            <span>Buddy Bubble</span>
+            <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-bold ${
+              activeProfileTab === 'bubble'
+                ? 'bg-black/20 text-white'
+                : 'bg-teal-100 text-teal-900 border border-teal-200'
+            }`}>
+              🫧 {bubbleCount}
             </span>
           </button>
         </div>
@@ -328,6 +403,10 @@ export default function ProfilePage() {
               }
             }}
           />
+        </div>
+      ) : activeProfileTab === 'bubble' ? (
+        <div className="space-y-4">
+          <BuddyBubbleView member={member} initialAddBuddy={initialAddBuddy} />
         </div>
       ) : (
         <div className="space-y-6">
