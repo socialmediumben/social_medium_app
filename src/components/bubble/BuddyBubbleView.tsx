@@ -221,8 +221,13 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                         <div className="text-xs text-stone-500 font-mono mt-0.5 flex items-center gap-1">
                           <span>{buddy.levelBadge || '🌱'}</span>
                           <span>Level {buddy.level || 1}</span>
-                          <span>•</span>
-                          <span className="truncate">{buddy.levelTitle || 'Maker'}</span>
+                          {buddy.levelTitle &&
+                            buddy.levelTitle.trim().toLowerCase() !== `level ${buddy.level}` && (
+                              <>
+                                <span>•</span>
+                                <span className="truncate">{buddy.levelTitle}</span>
+                              </>
+                            )}
                         </div>
                       </div>
                     </div>
@@ -389,7 +394,11 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                   {inspectBuddy.preferredName || inspectBuddy.name}
                 </h4>
                 <p className="text-xs text-stone-500 font-mono mt-0.5">
-                  {inspectBuddy.levelBadge || '🌱'} Level {inspectBuddy.level || 1} • {inspectBuddy.levelTitle || 'Maker'}
+                  {inspectBuddy.levelBadge || '🌱'} Level {inspectBuddy.level || 1}
+                  {inspectBuddy.levelTitle &&
+                    inspectBuddy.levelTitle.trim().toLowerCase() !== `level ${inspectBuddy.level}` && (
+                      <span> • {inspectBuddy.levelTitle}</span>
+                    )}
                 </p>
               </div>
 

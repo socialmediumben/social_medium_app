@@ -31,6 +31,15 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
 }
 
+/* Safe area padding utilities for mobile viewports */
+.safe-area-pb {
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-area-bottom-offset {
+  bottom: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Thermal Printer Nametag Component Styles (2" Tall x 3" Wide) */
 .nametag-preview-wrap {
   display: flex;

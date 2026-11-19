@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.2';
+export const APP_VERSION = '4.2.1';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.2.1',
+    date: '2026-11-18',
+    title: 'Mobile Viewport Safe-Area & Bottom Navigation Clearance Fix',
+    changes: [
+      'Mobile Bottom Navigation Clearance: Fixed an issue where the bottom of lists and cards (e.g. Buddy Bubble cards) was hidden behind the fixed mobile bottom navigation bar when scrolled down.',
+      'Container Padding Architecture: Transferred scrollable padding from the flex body to the main content container (<main pb-36 md:pb-12>) ensuring browsers always calculate full scroll height.',
+      'Viewport Safe-Area Inset Support: Added CSS safe-area-pb utilities honoring device home indicator and gesture navigation bar insets (env(safe-area-inset-bottom)).',
+      'Drawer Offset Calibration: Calibrated the secondary module slide-up drawer to align seamlessly above the mobile toolbar on all device aspect ratios.',
+      'Title Deduplication: Cleaned up redundant level label duplication (e.g. Level 3 • Level 3) across Buddy Bubble cards and mascot inspector modals.',
+    ],
+  },
   {
     version: '4.2',
     date: '2026-11-18',

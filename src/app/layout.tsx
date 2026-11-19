@@ -42,12 +42,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={`${fredoka.variable} ${roboto.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col bg-[#f4f4f4] text-stone-800 font-roboto pb-20 md:pb-8">
+      <body className="min-h-full flex flex-col bg-[#f4f4f4] text-stone-800 font-roboto">
         <AuthProvider>
           <DevModeProvider>
             <ImpersonationBanner />
             <Navbar />
-            <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">
+            <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-36 md:pb-12">
               {children}
             </main>
             <BottomNav />

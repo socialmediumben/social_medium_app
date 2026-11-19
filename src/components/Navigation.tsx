@@ -492,7 +492,7 @@ export function BottomNav() {
             className="md:hidden fixed inset-0 z-40 bg-black/50 backdrop-blur-xs transition-opacity"
             onClick={() => setIsMoreOpen(false)}
           />
-          <div className="md:hidden fixed bottom-16 left-0 right-0 z-50 bg-white rounded-t-3xl border-t border-stone-200 p-5 shadow-2xl max-w-lg mx-auto animate-in slide-in-from-bottom duration-200">
+          <div className="md:hidden fixed safe-area-bottom-offset left-0 right-0 z-50 bg-white rounded-t-3xl border-t border-stone-200 p-5 shadow-2xl max-w-lg mx-auto animate-in slide-in-from-bottom duration-200">
             <div className="flex items-center justify-between pb-3 border-b border-stone-100 mb-3">
               <span className="font-fredoka text-lg font-bold text-stone-900">
                 More Modules
@@ -541,7 +541,7 @@ export function BottomNav() {
       )}
 
       {/* 5-Slot Mobile Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3 py-1 shadow-lg safe-area-pb">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-stone-200 px-3 py-1.5 shadow-lg safe-area-pb">
         <div className="grid grid-cols-5 items-center justify-around max-w-md mx-auto">
           {primaryTabs.map((item) => {
             const Icon = item.icon;
