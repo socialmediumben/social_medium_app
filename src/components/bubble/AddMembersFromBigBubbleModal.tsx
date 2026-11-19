@@ -73,7 +73,7 @@ export const AddMembersFromBigBubbleModal: React.FC<AddMembersFromBigBubbleModal
             <div>
               <h3 className="font-fredoka text-xl font-bold">Add to {bubble.name}</h3>
               <p className="text-[11px] text-stone-300">
-                Select friends from your Big Bubble to add to this circle.
+                Select friends from your Big Bubble to add to this bubble.
               </p>
             </div>
           </div>

@@ -55,7 +55,7 @@ export const JoinBubbleConfirmationModal: React.FC<JoinBubbleConfirmationModalPr
             <span className="text-xl">{invite.icon}</span>
             <div>
               <h3 className="font-fredoka text-lg font-bold">Bubble Invitation</h3>
-              <p className="text-[10px] text-stone-300">Join a maker circle</p>
+              <p className="text-[10px] text-stone-300">Join a maker bubble</p>
             </div>
           </div>
           <button
@@ -92,7 +92,7 @@ export const JoinBubbleConfirmationModal: React.FC<JoinBubbleConfirmationModalPr
             </div>
             <ul className="list-disc pl-4 space-y-0.5 text-stone-500">
               <li>{invite.name} will be added to your custom bubbles.</li>
-              <li>You will see fellow circle members in your bubble list.</li>
+              <li>You will see fellow bubble members in your bubble list.</li>
               <li>{invite.inviterName} will also be added to your Big Bubble.</li>
             </ul>
           </div>

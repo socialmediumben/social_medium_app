@@ -388,12 +388,12 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
               {activeBubbleId === 'best-buddies' ? (
                 <>
                   <Star className="w-3.5 h-3.5 fill-amber-200 text-amber-200" />
-                  <span>Favorites Circle</span>
+                  <span>Favorites Bubble</span>
                 </>
               ) : activeCustomGroup ? (
                 <>
                   <Users className="w-3.5 h-3.5" />
-                  <span>Custom Maker Circle</span>
+                  <span>Custom Maker Bubble</span>
                   {isCurrentAdminOfActive && (
                     <span className="ml-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-stone-900 text-[10px] font-bold">
                       👑 Admin
@@ -422,12 +422,12 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
               {activeBubbleId === 'best-buddies'
                 ? 'Your top favorites! Star any friend in your Big Bubble to keep them pinned here.'
                 : activeCustomGroup
-                ? activeCustomGroup.description || 'Custom circle for collaborating on shared passions and projects.'
+                ? activeCustomGroup.description || 'Custom bubble for collaborating on shared passions and projects.'
                 : <>Add friends you meet at the makerspace by tapping their <strong>Buddy Band</strong> or scanning their <strong>Buddy Pass QR code</strong>.</>}
             </p>
           </div>
 
-          {/* Action Buttons based on active circle */}
+          {/* Action Buttons based on active bubble */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 shrink-0">
             {activeCustomGroup ? (
               <>
@@ -474,7 +474,7 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                     className="py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm bg-white text-stone-900 hover:bg-stone-100 shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
                   >
                     <Settings className="w-4 h-4 text-stone-700" />
-                    <span>Circle Info & Leave</span>
+                    <span>Bubble Info & Leave</span>
                   </button>
                 )}
               </>
@@ -508,7 +508,7 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
             <span>
               <strong>{activeCircleBuddies.length}</strong>{' '}
               {activeCircleBuddies.length === 1 ? 'Buddy' : 'Buddies'} in{' '}
-              {activeCustomGroup ? activeCustomGroup.name : 'this circle'}
+              {activeCustomGroup ? activeCustomGroup.name : 'this bubble'}
             </span>
           </div>
 
@@ -816,7 +816,7 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                     title="Assign to custom bubbles or favorites"
                   >
                     <Layers className="w-3.5 h-3.5 text-stone-500" />
-                    <span>Circles...</span>
+                    <span>Bubbles...</span>
                   </button>
 
                   <button

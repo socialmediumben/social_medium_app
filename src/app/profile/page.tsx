@@ -91,7 +91,7 @@ export default function ProfilePage() {
         setActiveProfileTab('bubble');
         setBubbleJoinInvite({
           bubbleId: joinBubbleId,
-          name: decodeURIComponent(params.get('name') || 'Maker Circle'),
+          name: decodeURIComponent(params.get('name') || 'Maker Bubble'),
           icon: decodeURIComponent(params.get('icon') || '🫧'),
           description: decodeURIComponent(params.get('desc') || params.get('description') || ''),
           inviterName: decodeURIComponent(params.get('admin') || 'Fellow Maker'),

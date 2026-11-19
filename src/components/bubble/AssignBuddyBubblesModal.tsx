@@ -72,7 +72,7 @@ export const AssignBuddyBubblesModal: React.FC<AssignBuddyBubblesModalProps> = (
               <h3 className="font-fredoka text-base font-bold text-white">
                 Assign {buddy.preferredName || buddy.name}
               </h3>
-              <p className="text-[10px] text-stone-300">Choose which circles this buddy belongs to</p>
+              <p className="text-[10px] text-stone-300">Choose which bubbles this buddy belongs to</p>
             </div>
           </div>
           <button
@@ -201,7 +201,7 @@ export const AssignBuddyBubblesModal: React.FC<AssignBuddyBubblesModalProps> = (
               onClick={handleSave}
               className="flex-1 py-2 rounded-xl text-xs font-bold bg-[#344ea2] hover:bg-[#2a3f85] text-white shadow-xs transition-colors cursor-pointer"
             >
-              Save Circles
+              Save Bubbles
             </button>
           </div>
         </div>

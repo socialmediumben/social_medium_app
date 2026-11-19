@@ -1182,7 +1182,7 @@ export async function checkInMemberToBubble(
       fullPartyBonus: false,
       bubble: null as any,
       memberName: memberName || 'Maker',
-      error: 'Bubble circle not found.',
+      error: 'Bubble not found.',
     };
   }
 

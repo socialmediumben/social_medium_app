@@ -8,12 +8,10 @@ import {
   QrCode,
   Users,
   Sparkles,
-  CheckCircle2,
   AlertCircle,
   Copy,
   Check,
   Award,
-  Zap,
   RefreshCw,
   Gift,
 } from 'lucide-react';
@@ -48,7 +46,7 @@ export const BubbleCheckInModal: React.FC<BubbleCheckInModalProps> = ({
   allBuddies = [],
   onCheckInSuccess,
 }) => {
-  const [activeTab, setActiveTab] = useState<'scan' | 'show-qr' | 'roster'>('scan');
+  const [activeTab, setActiveTab] = useState<'scan' | 'show-qr'>('scan');
   const [currentBubble, setCurrentBubble] = useState<CustomBubbleGroup | null>(bubble);
 
   // Status and feedback
@@ -431,14 +429,14 @@ export const BubbleCheckInModal: React.FC<BubbleCheckInModalProps> = ({
               setActiveTab('scan');
               stopCameraStream();
             }}
-            className={`py-2 px-3 text-xs font-bold rounded-t-xl transition-colors flex items-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-3 text-xs font-bold rounded-t-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'scan'
                 ? 'bg-white text-teal-800 border-t-2 border-x border-stone-200 border-t-teal-600 -mb-[1px]'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
             <Radio className="w-3.5 h-3.5 text-teal-600" />
-            <span>NFC & Camera</span>
+            <span>NFC & Camera Scanner</span>
           </button>
 
           <button
@@ -447,30 +445,14 @@ export const BubbleCheckInModal: React.FC<BubbleCheckInModalProps> = ({
               setActiveTab('show-qr');
               stopCameraStream();
             }}
-            className={`py-2 px-3 text-xs font-bold rounded-t-xl transition-colors flex items-center gap-1.5 cursor-pointer ${
+            className={`flex-1 py-2 px-3 text-xs font-bold rounded-t-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'show-qr'
                 ? 'bg-white text-teal-800 border-t-2 border-x border-stone-200 border-t-teal-600 -mb-[1px]'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
             <QrCode className="w-3.5 h-3.5 text-teal-600" />
-            <span>Display QR</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab('roster');
-              stopCameraStream();
-            }}
-            className={`py-2 px-3 text-xs font-bold rounded-t-xl transition-colors flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'roster'
-                ? 'bg-white text-teal-800 border-t-2 border-x border-stone-200 border-t-teal-600 -mb-[1px]'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Users className="w-3.5 h-3.5 text-teal-600" />
-            <span>Quick Roster ({currentBubble.memberAccountIds.length})</span>
+            <span>Display QR Pass</span>
           </button>
         </div>
 
@@ -599,79 +581,6 @@ export const BubbleCheckInModal: React.FC<BubbleCheckInModalProps> = ({
                   </>
                 )}
               </button>
-            </div>
-          )}
-
-          {/* TAB 3: QUICK ROSTER */}
-          {activeTab === 'roster' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs text-stone-600 px-1">
-                <span>Members of {currentBubble.name}</span>
-                <span>Limit: 1 check-in / day</span>
-              </div>
-
-              <div className="divide-y divide-stone-100 border border-stone-200 rounded-2xl overflow-hidden bg-white shadow-2xs">
-                {currentBubble.memberAccountIds.map((memberId) => {
-                  const buddy = allBuddies.find(
-                    (b) => b.accountId.toLowerCase() === memberId.toLowerCase()
-                  );
-                  const isCheckedIn = hasMemberCheckedInToday(currentBubble, memberId, today);
-                  const displayName = buddy
-                    ? buddy.preferredName || buddy.name
-                    : memberId === adminMember?.accountId
-                    ? adminMember.name || 'You (Admin)'
-                    : memberId;
-
-                  return (
-                    <div
-                      key={memberId}
-                      className="p-3 flex items-center justify-between gap-3 hover:bg-stone-50/80 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <BuddyAvatarBadge
-                          accountId={memberId}
-                          avatarJson={buddy?.buddyAvatar}
-                          size={40}
-                          borderClassName="border border-stone-200 bg-amber-50 shrink-0"
-                        />
-                        <div className="min-w-0">
-                          <div className="font-fredoka text-sm font-bold text-stone-900 truncate">
-                            {displayName}
-                          </div>
-                          <div className="text-[11px] text-stone-500 font-mono">
-                            {isCheckedIn ? (
-                              <span className="text-emerald-600 font-semibold flex items-center gap-1">
-                                <CheckCircle2 className="w-3 h-3" /> Checked in today
-                              </span>
-                            ) : (
-                              <span>Not checked in yet</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div>
-                        {isCheckedIn ? (
-                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200">
-                            <Check className="w-3.5 h-3.5" />
-                            <span>Done</span>
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            disabled={isProcessing}
-                            onClick={() => executeCheckIn(memberId, displayName)}
-                            className="py-1.5 px-3 rounded-xl text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50"
-                          >
-                            <Zap className="w-3 h-3 text-teal-600" />
-                            <span>Check In</span>
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
             </div>
           )}
         </div>

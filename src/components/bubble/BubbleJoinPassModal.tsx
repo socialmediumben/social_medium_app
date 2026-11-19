@@ -42,7 +42,7 @@ export const BubbleJoinPassModal: React.FC<BubbleJoinPassModalProps> = ({
             <span className="text-xl">{bubble.icon}</span>
             <div>
               <h3 className="font-fredoka text-lg font-bold">{bubble.name} Pass</h3>
-              <p className="text-[10px] text-stone-300">Invite fellow makers to join this circle</p>
+              <p className="text-[10px] text-stone-300">Invite fellow makers to join this bubble</p>
             </div>
           </div>
           <button

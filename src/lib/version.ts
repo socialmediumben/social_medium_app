@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.4';
+export const APP_VERSION = '4.4.1';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,15 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.4.1',
+    date: '2026-11-19',
+    title: 'Physical In-Person Verification Only & Universal "Bubble" Nomenclature',
+    changes: [
+      'Strict In-Person Verification: Removed the manual Quick Roster check-in panel from the Bubble Check-In kiosk. Check-ins now strictly require both parties to be physically present with either an NFC Buddy Band tap, a live camera Buddy Pass scan, or member scanning the admin\'s Check-In QR pass.',
+      'Universal "Bubble" Terminology: Replaced all legacy references to "circles" across cards, headers, modal dialogs, and button actions to consistently and exclusively use "Bubble" throughout the app (e.g. "Bubbles...", "Custom Maker Bubble", "Favorites Bubble").',
+    ],
+  },
   {
     version: '4.4',
     date: '2026-11-19',

@@ -312,7 +312,7 @@ export const BubbleSettingsModal: React.FC<BubbleSettingsModalProps> = ({
               <div className="text-xs text-stone-500 mb-2">
                 {isAdmin
                   ? 'As an Admin, you can promote other members to co-admins or remove members.'
-                  : 'Fellow makers in this circle:'}
+                  : 'Fellow makers in this bubble:'}
               </div>
               <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
                 {memberBuddies.map((buddy) => {
