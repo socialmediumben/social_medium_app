@@ -48,9 +48,10 @@ import SMCertifications from '../../../public/shared/sm-certifications.js';
 import { BuddyBuilder } from '@/components/buddy/BuddyBuilder';
 import { BuddyAvatarBadge } from '@/components/buddy/BuddyAvatarBadge';
 import { BuddyBubbleView } from '@/components/bubble/BuddyBubbleView';
+import { JoinBubbleConfirmationModal } from '@/components/bubble/JoinBubbleConfirmationModal';
 import { loadMemberBuddyBucks } from '@/lib/buddy';
 import { loadBuddyBubble } from '@/lib/bubble';
-import { BuddyBubbleMember } from '@/lib/types';
+import { BuddyBubbleMember, BubbleJoinInvite } from '@/lib/types';
 import { Palette, Sparkles as SparklesIcon, Coins, Users } from 'lucide-react';
 
 export default function ProfilePage() {
@@ -70,6 +71,8 @@ export default function ProfilePage() {
   const [buddyBucks, setBuddyBucks] = useState<number>(() => loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
   const [bubbleCount, setBubbleCount] = useState<number>(() => loadBuddyBubble(member?.accountId).length);
   const [initialAddBuddy, setInitialAddBuddy] = useState<BuddyBubbleMember | null>(null);
+  const [bubbleJoinInvite, setBubbleJoinInvite] = useState<BubbleJoinInvite | null>(null);
+  const [initialActiveBubbleId, setInitialActiveBubbleId] = useState<string>('big-bubble');
   const [bubbleToast, setBubbleToast] = useState<string | null>(null);
 
   // Deep-link handling: handles ?add=..., ?buddy=..., ?card=..., ?tapCard=..., ?band=...
@@ -80,6 +83,20 @@ export default function ProfilePage() {
       const tabParam = params.get('tab');
       if (tabParam === 'bubble' || tabParam === 'buddy' || tabParam === 'passport') {
         setActiveProfileTab(tabParam as any);
+      }
+
+      // Check for custom bubble join invitation: ?joinBubble=... or ?joinGroup=...
+      const joinBubbleId = params.get('joinBubble') || params.get('joinGroup');
+      if (joinBubbleId) {
+        setActiveProfileTab('bubble');
+        setBubbleJoinInvite({
+          bubbleId: joinBubbleId,
+          name: decodeURIComponent(params.get('name') || 'Maker Circle'),
+          icon: decodeURIComponent(params.get('icon') || '🫧'),
+          description: decodeURIComponent(params.get('desc') || params.get('description') || ''),
+          inviterName: decodeURIComponent(params.get('admin') || 'Fellow Maker'),
+          inviterAccountId: params.get('adminId') || '',
+        });
       }
 
       // Check all possible parameters where a friend's card or account ID might be passed
@@ -491,7 +508,11 @@ export default function ProfilePage() {
         </div>
       ) : activeProfileTab === 'bubble' ? (
         <div className="space-y-4">
-          <BuddyBubbleView member={member} initialAddBuddy={initialAddBuddy} />
+          <BuddyBubbleView
+            member={member}
+            initialAddBuddy={initialAddBuddy}
+            initialActiveBubbleId={initialActiveBubbleId}
+          />
         </div>
       ) : (
         <div className="space-y-6">
@@ -1486,6 +1507,19 @@ export default function ProfilePage() {
       </div>
       </div>
       )}
+
+      {/* Custom Bubble Join Handshake Modal */}
+      <JoinBubbleConfirmationModal
+        invite={bubbleJoinInvite}
+        currentMember={member}
+        isOpen={!!bubbleJoinInvite}
+        onClose={() => setBubbleJoinInvite(null)}
+        onJoinedSuccess={(joinedGroup) => {
+          setInitialActiveBubbleId(joinedGroup.id);
+          setActiveProfileTab('bubble');
+          setBubbleToast(`You've joined ${joinedGroup.icon} ${joinedGroup.name}!`);
+        }}
+      />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { MemberProfile, VolunteerSession, GiveGetSummary, BuddyBubbleMember } from './types';
+import { MemberProfile, VolunteerSession, GiveGetSummary, BuddyBubbleMember, CustomBubbleGroup } from './types';
 
 export const SANDBOX_ACCOUNT_ID = 'sandbox-demo';
 export const SANDBOX_TAP_CARD = 'DEMO-2026';
@@ -120,6 +120,8 @@ export const INITIAL_SANDBOX_BUDDIES: BuddyBubbleMember[] = [
     }),
     addedAt: '2026-11-12T16:45:00Z',
     lastCheeredAt: '2026-11-17T18:30:00Z',
+    isFavorite: true,
+    bubbleIds: ['demo-bubble-dnd'],
   },
   {
     accountId: 'demo-buddy-maya',
@@ -138,6 +140,37 @@ export const INITIAL_SANDBOX_BUDDIES: BuddyBubbleMember[] = [
       hat: 'wizard_hat',
     }),
     addedAt: '2026-11-15T09:10:00Z',
+    bubbleIds: ['demo-bubble-denim'],
+  },
+];
+
+/**
+ * Initial custom maker bubbles for the Sandbox demonstration.
+ */
+export const INITIAL_SANDBOX_CUSTOM_BUBBLES: CustomBubbleGroup[] = [
+  {
+    id: 'demo-bubble-dnd',
+    name: 'D&D Club',
+    description: 'Tabletop RPG makers, miniature painters & dungeon masters!',
+    icon: '🐉',
+    color: '#ef4444',
+    creatorAccountId: SANDBOX_ACCOUNT_ID,
+    adminAccountIds: [SANDBOX_ACCOUNT_ID, 'demo-buddy-alex'],
+    memberAccountIds: [SANDBOX_ACCOUNT_ID, 'demo-buddy-alex', 'demo-buddy-sam'],
+    createdAt: '2026-11-10T12:00:00Z',
+    updatedAt: '2026-11-16T14:00:00Z',
+  },
+  {
+    id: 'demo-bubble-denim',
+    name: 'Denim Jacket Squad',
+    description: 'Custom embroidered patches, fabric dyeing & wearable tech',
+    icon: '🧥',
+    color: '#344ea2',
+    creatorAccountId: 'demo-buddy-maya',
+    adminAccountIds: ['demo-buddy-maya'],
+    memberAccountIds: ['demo-buddy-maya', SANDBOX_ACCOUNT_ID],
+    createdAt: '2026-11-14T10:00:00Z',
+    updatedAt: '2026-11-15T16:00:00Z',
   },
 ];
 
@@ -253,6 +286,10 @@ export function initSandboxSession(): MemberProfile {
       localStorage.setItem(
         `sm_event_registrations_${SANDBOX_ACCOUNT_ID}`,
         JSON.stringify(INITIAL_SANDBOX_REGISTERED_EVENT_IDS)
+      );
+      localStorage.setItem(
+        `sm_custom_bubbles_${SANDBOX_ACCOUNT_ID}`,
+        JSON.stringify(INITIAL_SANDBOX_CUSTOM_BUBBLES)
       );
     } catch (_) {}
   }

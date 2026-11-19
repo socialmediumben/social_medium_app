@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.2.1';
+export const APP_VERSION = '4.3';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,22 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.3',
+    date: '2026-11-18',
+    title: 'Multi-Bubble Architecture, Best Buddies Favorites & Custom Maker Circles',
+    changes: [
+      'Multi-Bubble Network: Expanded Buddy Bubble into a multi-circle ecosystem. Members can now organize friends across distinct bubbles with an interactive chip navigation bar.',
+      'Big Bubble Master Directory: Serves as the overarching connection directory housing everyone you have ever paired with at the makerspace.',
+      'Best Buddies (Favorites): 1-click ⭐ starring on any buddy card pins friends to your dedicated Best Buddies favorites circle.',
+      'Custom Maker Circles: Members can create their own custom bubbles (e.g. "D&D Club", "Denim Jacket Squad", "Robotics Guild") with custom emoji icons and descriptions.',
+      'Administrator Ownership & Delegation: Bubble creators automatically become primary Admins with rights to add members, manage bubble settings, and promote fellow members to Co-Admins.',
+      'Dual Member Addition: Admins can add members either directly from their Big Bubble pick-list or by presenting an unobstructed Bubble Join Pass (QR Code / NFC Beam).',
+      'In-Person Join Handshake: Scanning a Bubble Join Pass triggers a confirmation modal that adds the member to the circle and bidirectionally connects them with the inviting admin.',
+      'Rapid Circle Assignment: Buddy cards now feature a "Circles..." assignment dialog to quickly manage a friend\'s membership across multiple custom bubbles at once.',
+      'Interactive Sandbox Demo: Pre-loaded with demo custom bubbles (🐉 D&D Club, 🧥 Denim Jacket Squad) and favorited friends for immediate testing.',
+    ],
+  },
   {
     version: '4.2.1',
     date: '2026-11-18',

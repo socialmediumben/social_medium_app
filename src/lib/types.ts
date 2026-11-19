@@ -358,11 +358,36 @@ export interface BuddyBubbleMember {
   addedAt: string;            // ISO timestamp
   lastCheeredAt?: string;     // ISO timestamp of last bubble blow / high-five
   isFavorite?: boolean;
+  bubbleIds?: string[];       // IDs of custom bubbles this buddy is assigned to
 }
 
 export interface BuddyBubbleState {
   accountId: string;
   buddies: BuddyBubbleMember[];
   updatedAt: string;
+}
+
+export type BuiltInBubbleId = 'big-bubble' | 'best-buddies';
+
+export interface CustomBubbleGroup {
+  id: string;                 // Unique identifier: "bubble_grp_<timestamp>_<rand>"
+  name: string;               // e.g. "D&D Club", "Denim Jacket Squad"
+  description?: string;       // e.g. "Roll for initiative every Thursday!"
+  icon: string;               // Emoji icon: "🐉", "🧥", "🤖", "🧶", "🎨", "🚀"
+  color?: string;             // Accent theme color
+  creatorAccountId: string;   // Account ID of bubble creator
+  adminAccountIds: string[];  // Account IDs with admin privileges
+  memberAccountIds: string[]; // Account IDs of all members in this bubble
+  createdAt: string;          // ISO timestamp
+  updatedAt: string;          // ISO timestamp
+}
+
+export interface BubbleJoinInvite {
+  bubbleId: string;
+  name: string;
+  icon: string;
+  description?: string;
+  inviterName: string;
+  inviterAccountId: string;
 }
 
