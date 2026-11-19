@@ -26,6 +26,7 @@ export interface MemberProfile {
   levelReward?: string;     // Reward / Perk unlocked at this level
   buddyAvatar?: string;     // Neon One Buddy Avatar JSON config string
   buddyBucks?: number;      // Neon One Buddy Bucks in-app currency balance
+  buddyCount?: number;      // Number of friends in Member's Buddy Bubble
   isBoardMember?: boolean;  // Neon One "Board Member" Custom Field 123 (Give/Get access)
   hardCreditDonations?: number; // Total direct donations
   softCreditDonations?: number; // Total influenced/soft-credit donations
@@ -337,5 +338,31 @@ export interface NeonCampaignDetail {
   startDate?: string;
   endDate?: string;
   status?: string;
+}
+
+// ==========================================
+// BUDDY BUBBLE (PROXIMITY FRIEND PAIRING)
+// ==========================================
+
+export interface BuddyBubbleMember {
+  accountId: string;
+  name: string;
+  preferredName?: string;
+  pronouns?: string;
+  tapCard?: string;
+  buddyAvatar?: string;       // JSON string config for BuddyCanvas mascot
+  level?: number;
+  levelBadge?: string;        // e.g. "🌱", "⚙️", "🚀"
+  levelTitle?: string;        // e.g. "Tinkerer", "Pro Maker"
+  interests?: string[];       // Member maker interests
+  addedAt: string;            // ISO timestamp
+  lastCheeredAt?: string;     // ISO timestamp of last bubble blow / high-five
+  isFavorite?: boolean;
+}
+
+export interface BuddyBubbleState {
+  accountId: string;
+  buddies: BuddyBubbleMember[];
+  updatedAt: string;
 }
 

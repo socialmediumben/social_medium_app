@@ -11,11 +11,15 @@ export const CHANGELOG: ChangelogRelease[] = [
   {
     version: '4.2',
     date: '2026-11-18',
-    title: 'Hardware NFC Serial Number Prioritization & Band URL Handling',
+    title: 'Buddy Bubble Proximity Friend Pairing & Hardware NFC Serial Number Prioritization',
     changes: [
-      'NFC Hardware Serial Number Prioritization: Web NFC now strictly reads the band chip\'s physical hardware serial number (UID) during card tap login and lookups, ignoring any preset app URLs stored in the tag NDEF records.',
-      'Delimiter-Free Hex & Multi-Candidate UID Derivation: Enhanced getCandidateTapCardIds to automatically derive unspaced hex, big-endian, little-endian, and BigInt decimal values even when the chip UID contains colons (e.g. 04:5a:e6:da:54:25:41).',
-      'Retired Buddy Bubble: Cleanly removed the experimental Buddy Bubble sub-module and profile tabs for future re-architecture.',
+      'Buddy Bubble Sub-Module: Dedicated peer-to-peer friend network on Member Profile with zero public member directories.',
+      'Automatic Bidirectional Connections: Adding a friend to your Buddy Bubble automatically adds you to their bubble too, both locally and via cloud settings sync.',
+      'Hardware NFC Serial Number Priority: Web NFC now strictly reads the band chip\'s physical hardware serial number (UID), ignoring any preset website URLs stored on the wristband.',
+      'Multi-Endian & Delimiter-Free UID Derivation: Automatically derives unspaced hex, reverse-endian decimals, direct decimals, and BigInts for accurate Neon One CRM lookups.',
+      'Unobstructed QR Passes & jsQR Engine: Level H error-corrected QR passes with real-time in-app camera decoding across iOS Safari, Android Chrome, and Desktop.',
+      'Streamlined Buddy Cards: Displays fellow makers\' customized mascot avatars, pronouns, level badges, shared maker interests, and full costume previews.',
+      'Sandbox Demo & Dev Simulator: Pre-loaded with demo friends (Sam Spark, Alex River, Maya Chen) and an interactive pairing simulator in Developer Mode.',
     ],
   },
   {
