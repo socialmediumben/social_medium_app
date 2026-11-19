@@ -140,24 +140,14 @@ export const BuddyPassModal: React.FC<BuddyPassModalProps> = ({
             </div>
           </div>
 
-          {/* QR Code Graphic */}
-          <div className="relative p-3 bg-white rounded-2xl border-2 border-stone-200 shadow-sm">
+          {/* QR Code Graphic - completely unobstructed for instant optical scanning */}
+          <div className="relative p-4 bg-white rounded-2xl border-2 border-stone-200 shadow-sm flex items-center justify-center">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={qrCodeUrl}
               alt={`${greetingName}'s Buddy Pass QR Code`}
-              className="w-56 h-56 object-contain rounded-xl"
+              className="w-60 h-60 object-contain rounded-lg"
             />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="p-1 bg-white rounded-xl shadow-md border border-stone-200">
-                <BuddyAvatarBadge
-                  accountId={member.accountId}
-                  avatarJson={member.buddyAvatar}
-                  size={42}
-                  borderClassName="border-none"
-                />
-              </div>
-            </div>
           </div>
 
           <p className="text-stone-600 text-xs">

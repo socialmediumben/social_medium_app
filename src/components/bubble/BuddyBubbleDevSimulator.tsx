@@ -99,7 +99,7 @@ export const BuddyBubbleDevSimulator: React.FC<BuddyBubbleDevSimulatorProps> = (
     setIsProcessing(false);
 
     if (res.success && res.member) {
-      const addRes = addBuddyToBubble(accountId, res.member);
+      const addRes = addBuddyToBubble(accountId, res.member, member);
       if (addRes.success) {
         setBuddies(addRes.buddies);
         setSimulationStatus(
@@ -130,7 +130,7 @@ export const BuddyBubbleDevSimulator: React.FC<BuddyBubbleDevSimulatorProps> = (
       addedAt: new Date().toISOString(),
     };
 
-    const res = addBuddyToBubble(accountId, newBuddy);
+    const res = addBuddyToBubble(accountId, newBuddy, member);
     if (res.success) {
       setBuddies(res.buddies);
       setCustomName('');

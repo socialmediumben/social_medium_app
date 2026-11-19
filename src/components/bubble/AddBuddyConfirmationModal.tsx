@@ -52,7 +52,7 @@ export const AddBuddyConfirmationModal: React.FC<AddBuddyConfirmationModalProps>
       return;
     }
 
-    const res = addBuddyToBubble(currentAccountId, buddy);
+    const res = addBuddyToBubble(currentAccountId, buddy, currentMember);
     if (res.success) {
       setIsAdded(true);
       onAddedSuccess(buddy);
@@ -167,15 +167,15 @@ export const AddBuddyConfirmationModal: React.FC<AddBuddyConfirmationModalProps>
             </div>
           ) : (
             <div className="w-full space-y-3 pt-2 animate-in fade-in">
-              <div className="flex items-center justify-center gap-2 text-emerald-700 bg-emerald-50 py-2.5 px-3 rounded-2xl border border-emerald-200 text-xs font-bold">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                <span>{buddy.preferredName || buddy.name} is now in your Bubble!</span>
+              <div className="flex items-center justify-center gap-2 text-emerald-800 bg-emerald-50 py-2.5 px-3 rounded-2xl border border-emerald-200 text-xs font-bold text-center">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>You and {buddy.preferredName || buddy.name} are now in each other&apos;s Buddy Bubbles! 🫧</span>
               </div>
 
-              {/* One-tap add back shortcut */}
-              <div className="p-3 rounded-2xl bg-stone-50 border border-stone-200 text-stone-700 text-xs space-y-2">
+              {/* Bidirectional confirmation note */}
+              <div className="p-3 rounded-2xl bg-teal-50/80 border border-teal-200 text-teal-900 text-xs space-y-2">
                 <p>
-                  Want <strong>{buddy.preferredName || buddy.name}</strong> to add you back to their Bubble?
+                  Connection complete! <strong>{buddy.preferredName || buddy.name}</strong> will automatically see you in their Buddy Bubble on their phone too.
                 </p>
                 <button
                   onClick={() => {

@@ -17,6 +17,7 @@ import {
 import { BuddyBubbleMember } from '@/lib/types';
 import { resolveBuddyFromScanOrUid } from '@/lib/bubble';
 import { normalizeNfcTapCard } from '@/lib/neon';
+import jsQR from 'jsqr';
 
 interface AddBuddyScannerModalProps {
   isOpen: boolean;
@@ -96,19 +97,29 @@ export const AddBuddyScannerModal: React.FC<AddBuddyScannerModalProps> = ({
 
         ndef.onreading = async (event: any) => {
           let detected = '';
+          // 1. Capture hardware serial number (UID) from wristband
           if (event.serialNumber) {
             detected = normalizeNfcTapCard(event.serialNumber);
           }
+
+          // 2. Check NDEF records for explicit Buddy deep-link URLs or card IDs
           if (event.message?.records) {
             for (const record of event.message.records) {
               if (record.recordType === 'url') {
                 const decoder = new TextDecoder();
-                detected = decoder.decode(record.data);
-                break;
+                const urlStr = decoder.decode(record.data);
+                // Only override hardware UID if the URL contains specific buddy or card parameters
+                if (/[?&](?:add|buddy|card|tapCard|band)=/i.test(urlStr)) {
+                  detected = urlStr;
+                  break;
+                }
               } else if (record.recordType === 'text') {
                 const decoder = new TextDecoder(record.encoding || 'utf-8');
-                detected = decoder.decode(record.data);
-                break;
+                const text = decoder.decode(record.data).trim();
+                if (text && (/^\d{8,10}$/.test(text) || text.startsWith('demo-') || text.startsWith('sandbox'))) {
+                  detected = text;
+                  break;
+                }
               }
             }
           }
@@ -179,32 +190,39 @@ export const AddBuddyScannerModal: React.FC<AddBuddyScannerModalProps> = ({
         }
         setIsCameraActive(true);
 
-        // Check for native BarcodeDetector API
-        if ('BarcodeDetector' in window) {
-          const barcodeDetector = new (window as any).BarcodeDetector({
-            formats: ['qr_code'],
-          });
+        // Pure client-side frame decoding with jsQR - works on iOS Safari, Android Chrome, and Desktop!
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
-          scanIntervalRef.current = setInterval(async () => {
-            if (videoRef.current && videoRef.current.readyState === 4) {
-              try {
-                const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0 && barcodes[0].rawValue) {
-                  const rawValue = barcodes[0].rawValue;
-                  stopCameraStream();
-                  setIsResolving(true);
-                  const res = await resolveBuddyFromScanOrUid(rawValue);
-                  setIsResolving(false);
-                  if (res.success && res.member) {
-                    onBuddyFound(res.member);
-                  } else {
-                    setCameraError(res.error || 'Invalid Buddy QR Code.');
-                  }
-                }
-              } catch (_) {}
+        scanIntervalRef.current = setInterval(async () => {
+          if (videoRef.current && videoRef.current.readyState >= 2 && ctx) {
+            const video = videoRef.current;
+            if (video.videoWidth === 0 || video.videoHeight === 0) return;
+
+            // Sample frame at video dimensions
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const code = jsQR(imageData.data, imageData.width, imageData.height, {
+              inversionAttempts: 'attemptBoth',
+            });
+
+            if (code && code.data) {
+              const rawValue = code.data.trim();
+              stopCameraStream();
+              setIsResolving(true);
+              const res = await resolveBuddyFromScanOrUid(rawValue);
+              setIsResolving(false);
+              if (res.success && res.member) {
+                onBuddyFound(res.member);
+              } else {
+                setCameraError(res.error || 'Could not find a member for this QR code.');
+              }
             }
-          }, 350);
-        }
+          }
+        }, 160);
       } catch (err: any) {
         if (isMounted) {
           setIsCameraActive(false);

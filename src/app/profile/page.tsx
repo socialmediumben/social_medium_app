@@ -70,8 +70,9 @@ export default function ProfilePage() {
   const [buddyBucks, setBuddyBucks] = useState<number>(() => loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
   const [bubbleCount, setBubbleCount] = useState<number>(() => loadBuddyBubble(member?.accountId).length);
   const [initialAddBuddy, setInitialAddBuddy] = useState<BuddyBubbleMember | null>(null);
+  const [bubbleToast, setBubbleToast] = useState<string | null>(null);
 
-  // Deep-link handling: ?tab=bubble&action=add&buddy=...
+  // Deep-link handling: handles ?add=..., ?buddy=..., ?card=..., ?tapCard=..., ?band=...
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -80,20 +81,33 @@ export default function ProfilePage() {
       if (tabParam === 'bubble' || tabParam === 'buddy' || tabParam === 'passport') {
         setActiveProfileTab(tabParam as any);
       }
-      const actionParam = params.get('action');
-      const buddyParam = params.get('buddy');
-      const nameParam = params.get('name');
-      const bandParam = params.get('band');
 
-      if (actionParam === 'add' && (buddyParam || bandParam)) {
+      // Check all possible parameters where a friend's card or account ID might be passed
+      const targetToAdd =
+        params.get('add') ||
+        params.get('buddy') ||
+        (params.get('action') === 'add' ? params.get('band') : null) ||
+        params.get('card') ||
+        params.get('tapCard') ||
+        params.get('band');
+
+      const nameParam = params.get('name');
+      const bandParam = params.get('band') || params.get('card') || params.get('tapCard');
+
+      // Check if target matches own account or own card
+      const myCard = member?.tapCard || '';
+      const myAcc = member?.accountId || '';
+      const isSelf = targetToAdd && (targetToAdd === myCard || targetToAdd === myAcc);
+
+      if (targetToAdd && !isSelf) {
         setActiveProfileTab('bubble');
         import('@/lib/bubble').then(({ resolveBuddyFromScanOrUid }) => {
-          resolveBuddyFromScanOrUid(buddyParam || bandParam || '').then((res) => {
+          resolveBuddyFromScanOrUid(targetToAdd).then((res) => {
             if (res.success && res.member) {
               setInitialAddBuddy(res.member);
-            } else if (buddyParam || nameParam) {
+            } else {
               setInitialAddBuddy({
-                accountId: buddyParam || bandParam || 'buddy_' + Date.now(),
+                accountId: targetToAdd,
                 name: decodeURIComponent(nameParam || 'Fellow Maker'),
                 preferredName: decodeURIComponent(nameParam || 'Fellow Maker'),
                 tapCard: bandParam || undefined,
@@ -107,7 +121,78 @@ export default function ProfilePage() {
         });
       }
     } catch (_) {}
-  }, []);
+  }, [member?.tapCard, member?.accountId]);
+
+  // Background Web NFC Tap Listener on Profile: tap any wristband against phone to add friend!
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('NDEFReader' in window) || !member) return;
+
+    let isMounted = true;
+    let abortController: AbortController | null = null;
+
+    const startBackgroundNfc = async () => {
+      try {
+        abortController = new AbortController();
+        const NDEFReaderClass = (window as any).NDEFReader;
+        const ndef = new NDEFReaderClass();
+        await ndef.scan({ signal: abortController.signal });
+
+        ndef.onreading = async (event: any) => {
+          let detected = '';
+          if (event.serialNumber) {
+            const { normalizeNfcTapCard } = await import('@/lib/neon');
+            detected = normalizeNfcTapCard(event.serialNumber);
+          }
+          if (event.message?.records) {
+            for (const record of event.message.records) {
+              if (record.recordType === 'url') {
+                const decoder = new TextDecoder();
+                const urlStr = decoder.decode(record.data);
+                if (/[?&](?:add|buddy|card|tapCard|band)=/i.test(urlStr)) {
+                  detected = urlStr;
+                  break;
+                }
+              } else if (record.recordType === 'text') {
+                const decoder = new TextDecoder(record.encoding || 'utf-8');
+                const text = decoder.decode(record.data).trim();
+                if (text && (/^\d{8,10}$/.test(text) || text.startsWith('demo-') || text.startsWith('sandbox'))) {
+                  detected = text;
+                  break;
+                }
+              }
+            }
+          }
+
+          if (detected && isMounted) {
+            const myCard = member?.tapCard || '';
+            const myAcc = member?.accountId || '';
+            const isSelf = detected === myCard || detected === myAcc;
+
+            if (isSelf) {
+              setBubbleToast("That's your own Buddy Band! Tap another maker's band to connect.");
+              setTimeout(() => setBubbleToast(null), 3500);
+            } else {
+              setActiveProfileTab('bubble');
+              const { resolveBuddyFromScanOrUid } = await import('@/lib/bubble');
+              const res = await resolveBuddyFromScanOrUid(detected);
+              if (res.success && res.member) {
+                setInitialAddBuddy(res.member);
+              }
+            }
+          }
+        };
+      } catch (_) {}
+    };
+
+    startBackgroundNfc();
+
+    return () => {
+      isMounted = false;
+      if (abortController) {
+        abortController.abort();
+      }
+    };
+  }, [member?.tapCard, member?.accountId]);
 
   useEffect(() => {
     if (member?.accountId) {
@@ -390,6 +475,13 @@ export default function ProfilePage() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>Profile information successfully updated!</span>
+        </div>
+      )}
+
+      {bubbleToast && (
+        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
+          <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
+          <span>{bubbleToast}</span>
         </div>
       )}
 
