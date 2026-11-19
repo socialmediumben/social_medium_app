@@ -969,6 +969,38 @@ export function generateBubbleJoinQrCodeUrl(joinUrl: string, size = 320): string
 }
 
 /**
+ * Generates an in-person check-in URL for members to scan with their phone camera.
+ */
+export function generateBubbleCheckInUrl(
+  bubble: CustomBubbleGroup,
+  adminMember?: MemberProfile | null
+): string {
+  if (!bubble) return '';
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://app.socialmedium.space';
+  const today = getLocalDateString();
+  const params = new URLSearchParams({
+    action: 'bubble-checkin',
+    bubbleId: bubble.id,
+    date: today,
+    bubbleName: bubble.name,
+    bubbleIcon: bubble.icon,
+  });
+  if (adminMember?.accountId) {
+    params.set('adminId', adminMember.accountId);
+  }
+  return `${baseUrl}?${params.toString()}`;
+}
+
+/**
+ * Generates a high-contrast QR code URL for in-person bubble check-in.
+ */
+export function generateBubbleCheckInQrCodeUrl(checkInUrl: string, size = 320): string {
+  if (!checkInUrl) return '';
+  const encoded = encodeURIComponent(checkInUrl);
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encoded}&ecc=H&qzone=4&margin=4`;
+}
+
+/**
  * Handles a user accepting a join invite to a custom bubble.
  */
 export async function joinCustomBubbleFromInvite(
@@ -1036,6 +1068,262 @@ export async function joinCustomBubbleFromInvite(
   }
 
   return { success: true, bubble: targetGroup };
+}
+
+// ==========================================
+// IN-PERSON CHECK-IN & REWARD LOGIC
+// ==========================================
+
+/**
+ * Returns local calendar date formatted as YYYY-MM-DD.
+ */
+export function getLocalDateString(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Returns today's check-in record for a given custom bubble, if it exists.
+ */
+export function getBubbleTodayCheckIn(
+  bubble: CustomBubbleGroup,
+  dateStr: string = getLocalDateString()
+) {
+  if (!bubble.checkIns || !Array.isArray(bubble.checkIns)) return undefined;
+  return bubble.checkIns.find((c) => c.date === dateStr);
+}
+
+/**
+ * Checks whether a specific member has already checked in to this bubble today.
+ */
+export function hasMemberCheckedInToday(
+  bubble: CustomBubbleGroup,
+  memberAccountId: string,
+  dateStr: string = getLocalDateString()
+): boolean {
+  const cleanId = String(memberAccountId || '').trim().toLowerCase();
+  if (!cleanId) return false;
+  const todayRecord = getBubbleTodayCheckIn(bubble, dateStr);
+  if (!todayRecord || !Array.isArray(todayRecord.checkedInAccountIds)) return false;
+  return todayRecord.checkedInAccountIds.some(
+    (id) => String(id).trim().toLowerCase() === cleanId
+  );
+}
+
+export interface BubbleCheckInResult {
+  success: boolean;
+  alreadyCheckedIn?: boolean;
+  pointsAwarded: number;
+  bubblePointsAwarded: number;
+  fullPartyBonus: boolean;
+  bubble: CustomBubbleGroup;
+  memberName: string;
+  error?: string;
+}
+
+/**
+ * Processes an in-person check-in for a member in a custom bubble:
+ * - Awards +5 Buddy Bucks to the member
+ * - Awards +5 Buddy Bucks to the bubble wallet
+ * - Enforces 1 check-in per member per bubble per calendar day
+ * - Awards Full Party Bonus (+5 extra to everyone and bubble) if 100% of bubble members checked in today
+ */
+export async function checkInMemberToBubble(
+  bubbleId: string,
+  memberAccountId: string,
+  memberName?: string,
+  activeViewerAccountId?: string
+): Promise<BubbleCheckInResult> {
+  const cleanMemberId = String(memberAccountId || '').trim();
+  const cleanViewerId = String(activeViewerAccountId || cleanMemberId).trim();
+  const today = getLocalDateString();
+
+  if (!bubbleId) {
+    return {
+      success: false,
+      pointsAwarded: 0,
+      bubblePointsAwarded: 0,
+      fullPartyBonus: false,
+      bubble: null as any,
+      memberName: memberName || 'Maker',
+      error: 'Missing bubble ID.',
+    };
+  }
+
+  if (!cleanMemberId) {
+    return {
+      success: false,
+      pointsAwarded: 0,
+      bubblePointsAwarded: 0,
+      fullPartyBonus: false,
+      bubble: null as any,
+      memberName: memberName || 'Maker',
+      error: 'Missing member account ID.',
+    };
+  }
+
+  // 1. Load bubble groups for viewer (or search across storage)
+  let groups = loadUserCustomBubbles(cleanViewerId);
+  let bubbleIdx = groups.findIndex((g) => g.id === bubbleId);
+
+  // If not found in viewer's list, attempt to load from member's list
+  if (bubbleIdx === -1 && cleanMemberId !== cleanViewerId) {
+    groups = loadUserCustomBubbles(cleanMemberId);
+    bubbleIdx = groups.findIndex((g) => g.id === bubbleId);
+  }
+
+  if (bubbleIdx === -1) {
+    return {
+      success: false,
+      pointsAwarded: 0,
+      bubblePointsAwarded: 0,
+      fullPartyBonus: false,
+      bubble: null as any,
+      memberName: memberName || 'Maker',
+      error: 'Bubble circle not found.',
+    };
+  }
+
+  const currentBubble = { ...groups[bubbleIdx] };
+  currentBubble.buddyBucks = currentBubble.buddyBucks ?? 0;
+  currentBubble.checkIns = Array.isArray(currentBubble.checkIns) ? [...currentBubble.checkIns] : [];
+
+  // If member is not yet in memberAccountIds, add them so they become part of the bubble
+  if (!currentBubble.memberAccountIds.some((id) => id.toLowerCase() === cleanMemberId.toLowerCase())) {
+    currentBubble.memberAccountIds = [...currentBubble.memberAccountIds, cleanMemberId];
+  }
+
+  // 2. Find or initialize today's record
+  let todayRecordIdx = currentBubble.checkIns.findIndex((c) => c.date === today);
+  let todayRecord = todayRecordIdx >= 0 ? { ...currentBubble.checkIns[todayRecordIdx] } : null;
+
+  if (!todayRecord) {
+    todayRecord = {
+      date: today,
+      checkedInAccountIds: [],
+      fullPartyBonusAwarded: false,
+      checkInTimestamps: {},
+    };
+  } else {
+    todayRecord.checkedInAccountIds = [...todayRecord.checkedInAccountIds];
+    todayRecord.checkInTimestamps = { ...(todayRecord.checkInTimestamps || {}) };
+  }
+
+  // 3. Enforce 1 check-in per user per bubble per day
+  const alreadyCheckedIn = todayRecord.checkedInAccountIds.some(
+    (id) => id.toLowerCase() === cleanMemberId.toLowerCase()
+  );
+
+  if (alreadyCheckedIn) {
+    return {
+      success: false,
+      alreadyCheckedIn: true,
+      pointsAwarded: 0,
+      bubblePointsAwarded: 0,
+      fullPartyBonus: false,
+      bubble: currentBubble,
+      memberName: memberName || 'Maker',
+      error: 'Already checked in today! (1 check-in per member per day)',
+    };
+  }
+
+  // 4. Award standard +5 Buddy Bucks to member and bubble wallet
+  const { awardBuddyBucks } = await import('./buddy');
+  await awardBuddyBucks(
+    cleanMemberId,
+    5,
+    `Checked in to ${currentBubble.name} in person`
+  );
+
+  currentBubble.buddyBucks += 5;
+  todayRecord.checkedInAccountIds.push(cleanMemberId);
+  todayRecord.checkInTimestamps = todayRecord.checkInTimestamps || {};
+  todayRecord.checkInTimestamps[cleanMemberId] = new Date().toISOString();
+
+  let memberPointsTotal = 5;
+  let bubblePointsTotal = 5;
+  let fullPartyBonus = false;
+
+  // 5. Check Full Party Condition: Did 100% of members check in today?
+  const allMembersCheckedIn =
+    currentBubble.memberAccountIds.length > 0 &&
+    currentBubble.memberAccountIds.every((mId) =>
+      todayRecord!.checkedInAccountIds.some(
+        (checkedId) => checkedId.toLowerCase() === mId.toLowerCase()
+      )
+    );
+
+  if (allMembersCheckedIn && !todayRecord.fullPartyBonusAwarded) {
+    todayRecord.fullPartyBonusAwarded = true;
+    fullPartyBonus = true;
+
+    // Award +5 extra to bubble wallet
+    currentBubble.buddyBucks += 5;
+    bubblePointsTotal += 5;
+
+    // Award +5 extra to EVERY member in the bubble!
+    for (const memberId of currentBubble.memberAccountIds) {
+      await awardBuddyBucks(
+        memberId,
+        5,
+        `🎉 Full Party attendance bonus with ${currentBubble.name}!`
+      );
+    }
+    memberPointsTotal += 5;
+  }
+
+  // 6. Save updated record into bubble
+  if (todayRecordIdx >= 0) {
+    currentBubble.checkIns[todayRecordIdx] = todayRecord;
+  } else {
+    currentBubble.checkIns.push(todayRecord);
+  }
+  currentBubble.updatedAt = new Date().toISOString();
+
+  // 7. Update storage for viewer and sync
+  groups[bubbleIdx] = currentBubble;
+  saveUserCustomBubbles(cleanViewerId, groups);
+
+  // If member is different account, also ensure their local storage is updated if accessible
+  if (cleanMemberId !== cleanViewerId) {
+    try {
+      const memberGroups = loadUserCustomBubbles(cleanMemberId);
+      const mIdx = memberGroups.findIndex((g) => g.id === bubbleId);
+      if (mIdx >= 0) {
+        memberGroups[mIdx] = currentBubble;
+        saveUserCustomBubbles(cleanMemberId, memberGroups);
+      }
+    } catch (_) {}
+  }
+
+  // 8. Fire global event for UI reactivity
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(
+      new CustomEvent('sm_bubble_checkin_success', {
+        detail: {
+          bubbleId: currentBubble.id,
+          bubbleName: currentBubble.name,
+          memberAccountId: cleanMemberId,
+          memberName: memberName || 'Maker',
+          pointsAwarded: memberPointsTotal,
+          bubblePointsAwarded: bubblePointsTotal,
+          fullPartyBonus,
+          bubbleWallet: currentBubble.buddyBucks,
+        },
+      })
+    );
+  }
+
+  return {
+    success: true,
+    pointsAwarded: memberPointsTotal,
+    bubblePointsAwarded: bubblePointsTotal,
+    fullPartyBonus,
+    bubble: currentBubble,
+    memberName: memberName || 'Maker',
+  };
 }
 
 /**

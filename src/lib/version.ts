@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.3.2';
+export const APP_VERSION = '4.4';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,20 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.4',
+    date: '2026-11-19',
+    title: 'Custom Bubble Buddy Bucks Wallets, In-Person Check-Ins & Full Party Bonus',
+    changes: [
+      'Bubble Treasury Wallets: Each custom maker circle (excluding Big Bubble and Best Buddies) now has its own dedicated Buddy Bucks wallet balance to fund group activities.',
+      'In-Person Bubble Check-In Kiosk: Bubble Admins can open a dedicated Check-In Kiosk with an active Web NFC reader for member bands/phones and live camera QR scanner for Buddy Passes.',
+      'Display Check-In QR Pass: Admins can display a high-contrast daily check-in QR code for members to scan with their own smartphone cameras.',
+      'Dual Reward Economy: Checking in to a custom bubble awards +5 Buddy Bucks to the attendee and +5 Buddy Bucks to the bubble treasury.',
+      'Anti-Gaming Daily Limit: Check-ins are strictly limited to one check-in per member per bubble per calendar day.',
+      'Full Party Bonus: When 100% of a bubble\'s members check in on the same calendar day, a Full Party bonus awards an extra +5 Buddy Bucks to every member and the bubble treasury!',
+      'Attendance Tracking: Added real-time attendance progress bars, "Checked in today" indicators on member cards, and celebration banners.',
+    ],
+  },
   {
     version: '4.3.2',
     date: '2026-11-19',

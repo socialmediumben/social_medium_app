@@ -369,6 +369,13 @@ export interface BuddyBubbleState {
 
 export type BuiltInBubbleId = 'big-bubble' | 'best-buddies';
 
+export interface BubbleDailyCheckInRecord {
+  date: string;                       // "YYYY-MM-DD" local calendar date
+  checkedInAccountIds: string[];      // Members who checked in on this date
+  fullPartyBonusAwarded: boolean;     // Whether 100% full-party bonus was already granted today
+  checkInTimestamps?: Record<string, string>; // accountId -> ISO timestamp
+}
+
 export interface CustomBubbleGroup {
   id: string;                 // Unique identifier: "bubble_grp_<timestamp>_<rand>"
   name: string;               // e.g. "D&D Club", "Denim Jacket Squad"
@@ -378,6 +385,8 @@ export interface CustomBubbleGroup {
   creatorAccountId: string;   // Account ID of bubble creator
   adminAccountIds: string[];  // Account IDs with admin privileges
   memberAccountIds: string[]; // Account IDs of all members in this bubble
+  buddyBucks?: number;        // Shared Bubble Wallet treasury balance (starts at 0)
+  checkIns?: BubbleDailyCheckInRecord[]; // In-person daily attendance history
   createdAt: string;          // ISO timestamp
   updatedAt: string;          // ISO timestamp
 }

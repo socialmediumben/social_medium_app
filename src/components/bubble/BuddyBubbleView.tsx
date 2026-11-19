@@ -37,6 +37,10 @@ import {
   saveUserCustomBubbles,
   refreshCustomBubbles,
   removeMemberFromCustomBubble,
+  hasMemberCheckedInToday,
+  getBubbleTodayCheckIn,
+  checkInMemberToBubble,
+  BubbleCheckInResult,
 } from '@/lib/bubble';
 import { BuddyAvatarBadge } from '@/components/buddy/BuddyAvatarBadge';
 import { BuddyCanvas } from '@/components/buddy/BuddyCanvas';
@@ -49,6 +53,7 @@ import { AddMembersFromBigBubbleModal } from './AddMembersFromBigBubbleModal';
 import { BubbleJoinPassModal } from './BubbleJoinPassModal';
 import { BubbleSettingsModal } from './BubbleSettingsModal';
 import { AssignBuddyBubblesModal } from './AssignBuddyBubblesModal';
+import { BubbleCheckInModal } from './BubbleCheckInModal';
 
 interface BuddyBubbleViewProps {
   member: MemberProfile | null | undefined;
@@ -81,6 +86,8 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
   const [joinPassBubble, setJoinPassBubble] = useState<CustomBubbleGroup | null>(null);
   const [settingsBubble, setSettingsBubble] = useState<CustomBubbleGroup | null>(null);
   const [assignBuddy, setAssignBuddy] = useState<BuddyBubbleMember | null>(null);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [checkInToast, setCheckInToast] = useState<{ message: string; isParty?: boolean } | null>(null);
   const [expandedBuddyIds, setExpandedBuddyIds] = useState<Set<string>>(new Set());
 
   const toggleExpandBuddy = (buddyAccountId: string) => {
@@ -143,6 +150,44 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
       setConfirmBuddy(initialAddBuddy);
     }
   }, [initialAddBuddy]);
+
+  // Handle URL Check-In Action (?action=bubble-checkin&bubbleId=...)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !accountId) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const action = params.get('action');
+      const bubbleId = params.get('bubbleId');
+
+      if (action === 'bubble-checkin' && bubbleId) {
+        checkInMemberToBubble(
+          bubbleId,
+          accountId,
+          member?.preferredName || member?.name,
+          accountId
+        ).then((res) => {
+          if (res.success) {
+            setCheckInToast({
+              message: res.fullPartyBonus
+                ? `🎉 FULL PARTY BONUS! Checked in to ${res.bubble.name} (+10 Buddy Bucks!)`
+                : `🎉 Checked in to ${res.bubble.name}! (+5 Buddy Bucks)`,
+              isParty: res.fullPartyBonus,
+            });
+            setActiveBubbleId(bubbleId);
+          } else if (res.alreadyCheckedIn) {
+            setCheckInToast({
+              message: `You're already checked in to ${res.bubble?.name || 'this bubble'} today!`,
+              isParty: false,
+            });
+            setActiveBubbleId(bubbleId);
+          }
+          // Clean URL without reloading page
+          const cleanUrl = window.location.pathname;
+          window.history.replaceState({}, '', cleanUrl);
+        });
+      }
+    } catch (_) {}
+  }, [accountId, member]);
 
   const myInterests = useMemo(() => {
     return (member?.interests || []).map((i) => i.toLowerCase());
@@ -390,19 +435,28 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                   <>
                     <button
                       type="button"
+                      onClick={() => setIsCheckInModalOpen(true)}
+                      className="py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-stone-900 shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                      title="Host in-person Bubble Check-In kiosk"
+                    >
+                      <Radio className="w-4 h-4 text-stone-900 animate-pulse" />
+                      <span>Bubble Check-In</span>
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setIsAddMembersModalOpen(true)}
-                      className="py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm bg-white text-stone-900 hover:bg-stone-100 shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                      className="py-2.5 px-3.5 rounded-2xl font-bold text-xs sm:text-sm bg-white text-stone-900 hover:bg-stone-100 shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
                     >
                       <UserPlus className="w-4 h-4 text-[#344ea2]" />
-                      <span>Add from Big Bubble</span>
+                      <span>Add Members</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setJoinPassBubble(activeCustomGroup)}
-                      className="py-2.5 px-4 rounded-2xl font-bold text-xs sm:text-sm bg-stone-900/90 hover:bg-stone-900 text-white border border-white/20 shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                      className="py-2.5 px-3.5 rounded-2xl font-bold text-xs sm:text-sm bg-stone-900/90 hover:bg-stone-900 text-white border border-white/20 shadow-md flex items-center justify-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
                     >
                       <QrCode className="w-4 h-4 text-emerald-400" />
-                      <span>Bubble Pass</span>
+                      <span>Pass</span>
                     </button>
                     <button
                       type="button"
@@ -448,8 +502,8 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
         </div>
 
         {/* Stats Pill Footer */}
-        <div className="mt-6 pt-4 border-t border-white/15 flex items-center justify-between text-xs text-white/80 font-mono">
-          <div className="flex items-center gap-2">
+        <div className="mt-6 pt-4 border-t border-white/15 flex items-center justify-between text-xs text-white/80 font-mono flex-wrap gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-300 animate-pulse" />
             <span>
               <strong>{activeCircleBuddies.length}</strong>{' '}
@@ -457,15 +511,60 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
               {activeCustomGroup ? activeCustomGroup.name : 'this circle'}
             </span>
           </div>
-          <div className="hidden sm:block">
-            <span>
-              {activeCustomGroup
-                ? `Admin: ${activeCustomGroup.adminAccountIds.length} co-admin(s)`
-                : 'Proximity Handshake • No Public Directory'}
-            </span>
-          </div>
+
+          {activeCustomGroup ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-400/25 text-amber-200 border border-amber-300/30 font-bold">
+                <span>🪙</span>
+                <span>{activeCustomGroup.buddyBucks || 0} Buddy Bucks</span>
+              </span>
+              {(() => {
+                const todayRec = getBubbleTodayCheckIn(activeCustomGroup);
+                const checkedCount = todayRec?.checkedInAccountIds?.length || 0;
+                const total = activeCustomGroup.memberAccountIds.length;
+                const isParty = total > 0 && checkedCount >= total;
+                return (
+                  <span
+                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full border text-[11px] font-bold ${
+                      isParty
+                        ? 'bg-emerald-400/20 text-emerald-200 border-emerald-300/40'
+                        : 'bg-white/10 text-white border-white/20'
+                    }`}
+                  >
+                    <Users className="w-3 h-3" />
+                    <span>
+                      {isParty
+                        ? '🎉 Full Party Today!'
+                        : `${checkedCount}/${total} checked in today`}
+                    </span>
+                  </span>
+                );
+              })()}
+            </div>
+          ) : (
+            <div className="hidden sm:block">
+              <span>Proximity Handshake • No Public Directory</span>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Check-In Toast Notification */}
+      {checkInToast && (
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-teal-50 to-amber-50 border border-amber-200 shadow-sm flex items-center justify-between gap-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-2.5 text-xs sm:text-sm font-bold text-stone-900">
+            <span className="text-lg">{checkInToast.isParty ? '🌟' : '🎉'}</span>
+            <span>{checkInToast.message}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setCheckInToast(null)}
+            className="p-1 rounded-full text-stone-400 hover:text-stone-700 cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* ======================================================== */}
       {/* SEARCH / FILTER BAR                                      */}
@@ -502,6 +601,9 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
             const isExpanded = expandedBuddyIds.has(buddy.accountId);
             const buddyInterests = buddy.interests || [];
             const shared = buddyInterests.filter((i) => myInterests.includes(i.toLowerCase()));
+            const isCheckedInToday = activeCustomGroup
+              ? hasMemberCheckedInToday(activeCustomGroup, buddy.accountId)
+              : false;
 
             // Find custom bubbles this buddy belongs to
             const memberCustomGroups = customBubbles.filter((g) =>
@@ -534,9 +636,16 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                       size={44}
                       borderClassName="border-2 border-amber-300 bg-amber-50 shadow-xs shrink-0"
                     />
-                    <h4 className="font-fredoka text-base sm:text-lg font-bold text-stone-900 truncate group-hover:text-teal-700 transition-colors">
-                      {buddy.preferredName || buddy.name}
-                    </h4>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h4 className="font-fredoka text-base sm:text-lg font-bold text-stone-900 truncate group-hover:text-teal-700 transition-colors">
+                        {buddy.preferredName || buddy.name}
+                      </h4>
+                      {isCheckedInToday && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
+                          ✓ Checked in
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1 shrink-0 text-stone-400 group-hover:text-teal-600 transition-colors">
@@ -578,6 +687,12 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
                           {buddy.pronouns && (
                             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-stone-100 text-stone-600 border border-stone-200/80">
                               {buddy.pronouns}
+                            </span>
+                          )}
+                          {isCheckedInToday && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-1">
+                              <Check className="w-3 h-3 text-emerald-600" />
+                              <span>Checked In Today</span>
                             </span>
                           )}
                         </div>
@@ -974,6 +1089,18 @@ export const BuddyBubbleView: React.FC<BuddyBubbleViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* 10. In-Person Bubble Check-In Kiosk & Scanner Modal */}
+      <BubbleCheckInModal
+        isOpen={isCheckInModalOpen}
+        onClose={() => setIsCheckInModalOpen(false)}
+        bubble={activeCustomGroup}
+        adminMember={member}
+        allBuddies={buddies}
+        onCheckInSuccess={(res) => {
+          setCustomBubbles(loadUserCustomBubbles(accountId));
+        }}
+      />
     </div>
   );
 };

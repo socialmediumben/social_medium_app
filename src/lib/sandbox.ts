@@ -157,6 +157,19 @@ export const INITIAL_SANDBOX_CUSTOM_BUBBLES: CustomBubbleGroup[] = [
     creatorAccountId: SANDBOX_ACCOUNT_ID,
     adminAccountIds: [SANDBOX_ACCOUNT_ID, 'demo-buddy-alex'],
     memberAccountIds: [SANDBOX_ACCOUNT_ID, 'demo-buddy-alex', 'demo-buddy-sam'],
+    buddyBucks: 25,
+    checkIns: [
+      {
+        date: '2026-11-18',
+        checkedInAccountIds: [SANDBOX_ACCOUNT_ID, 'demo-buddy-alex', 'demo-buddy-sam'],
+        fullPartyBonusAwarded: true,
+        checkInTimestamps: {
+          [SANDBOX_ACCOUNT_ID]: '2026-11-18T14:15:00Z',
+          'demo-buddy-alex': '2026-11-18T14:20:00Z',
+          'demo-buddy-sam': '2026-11-18T14:25:00Z',
+        },
+      },
+    ],
     createdAt: '2026-11-10T12:00:00Z',
     updatedAt: '2026-11-16T14:00:00Z',
   },
@@ -169,6 +182,8 @@ export const INITIAL_SANDBOX_CUSTOM_BUBBLES: CustomBubbleGroup[] = [
     creatorAccountId: 'demo-buddy-maya',
     adminAccountIds: ['demo-buddy-maya'],
     memberAccountIds: ['demo-buddy-maya', SANDBOX_ACCOUNT_ID],
+    buddyBucks: 10,
+    checkIns: [],
     createdAt: '2026-11-14T10:00:00Z',
     updatedAt: '2026-11-15T16:00:00Z',
   },
