@@ -134,7 +134,6 @@ import {
 } from '@/lib/buddy';
 import { BuddyCanvas } from '@/components/buddy/BuddyCanvas';
 import { DigitalThermometer } from '@/components/impact/DigitalThermometer';
-import { BuddyBubbleDevSimulator } from '@/components/bubble/BuddyBubbleDevSimulator';
 import { Palette, Shirt, Coins, Crown, Smile, Footprints } from 'lucide-react';
 
 // Import canonical universal certification registry
@@ -150,7 +149,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'give-get' | 'portal-door' | 'buddy-assets' | 'bubble' | 'store' | 'gamification' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'give-get' | 'portal-door' | 'buddy-assets' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -1639,19 +1638,6 @@ export default function DeveloperPage() {
         >
           <Palette className="w-4 h-4 text-pink-400" />
           <span>Buddy Assets</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('bubble')}
-          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
-            activeTab === 'bubble'
-              ? 'bg-[#344ea2] text-white shadow-md'
-              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
-          }`}
-        >
-          <Users className="w-4 h-4 text-teal-300" />
-          <span>Buddy Bubble</span>
         </button>
 
         <button
@@ -4605,13 +4591,6 @@ export default function DeveloperPage() {
             </div>
           </div>
         </div>
-      )}
-
-      {/* ========================================================================= */}
-      {/* TAB: BUDDY BUBBLE DEVELOPER SIMULATOR                                    */}
-      {/* ========================================================================= */}
-      {activeTab === 'bubble' && (
-        <BuddyBubbleDevSimulator member={member} />
       )}
 
       {/* ========================================================================= */}

@@ -55,26 +55,29 @@ export function TapCardLogin() {
 
       ndef.onreading = async (event: any) => {
         let detectedCard = '';
+
+        // 1. ALWAYS prioritize the physical hardware serial number (UID) of the band!
+        // Buddy Bands are preset with the app URL so members can open the app easily,
+        // but authentication must strictly read the band's physical chip serial number
+        // and ignore the preset app URL.
         if (event.serialNumber) {
           detectedCard = normalizeNfcTapCard(event.serialNumber);
-        }
-
-        // Also check if any NDEF record has a card query or text
-        if (event.message && event.message.records) {
+        } else if (event.message && event.message.records) {
+          // Fallback only if chip hardware does not expose a hardware serial number
           for (const record of event.message.records) {
-            if (record.recordType === 'url') {
+            if (record.recordType === 'text') {
+              const textDecoder = new TextDecoder(record.encoding || 'utf-8');
+              const text = textDecoder.decode(record.data);
+              if (text && /^\d+$/.test(text.trim())) {
+                detectedCard = text.trim();
+                break;
+              }
+            } else if (record.recordType === 'url') {
               const decoder = new TextDecoder();
               const urlStr = decoder.decode(record.data);
               const match = urlStr.match(/[?&](?:card|tapCard)=([^&]+)/i);
               if (match && match[1]) {
                 detectedCard = match[1];
-                break;
-              }
-            } else if (record.recordType === 'text') {
-              const textDecoder = new TextDecoder(record.encoding || 'utf-8');
-              const text = textDecoder.decode(record.data);
-              if (text && /^\d+$/.test(text.trim())) {
-                detectedCard = text.trim();
                 break;
               }
             }

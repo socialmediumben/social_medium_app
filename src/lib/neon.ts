@@ -617,16 +617,26 @@ export function getCandidateTapCardIds(raw: string): string[] {
     candidates.add(norm);
   }
 
-  // If it's hexadecimal (e.g. 544ca65a), derive decimal immediately
-  if (/^[0-9a-fA-F]{6,16}$/.test(clean)) {
+  // Normalize delimiters (colons, dashes, spaces) so raw NFC hardware UIDs can be tested
+  const unspaced = clean.replace(/[:\-\s]+/g, '');
+  if (unspaced && unspaced !== clean) {
+    candidates.add(unspaced);
+    candidates.add(unspaced.toLowerCase());
+    candidates.add(unspaced.toUpperCase());
+  }
+
+  const hexTestTarget = /^[0-9a-fA-F]{6,16}$/.test(unspaced) ? unspaced : /^[0-9a-fA-F]{6,16}$/.test(clean) ? clean : '';
+
+  // If it's hexadecimal (e.g. 544ca65a or 045ae6da542541), derive decimal candidates immediately
+  if (hexTestTarget) {
     try {
-      const dec = parseInt(clean, 16);
+      const dec = parseInt(hexTestTarget, 16);
       if (!isNaN(dec)) candidates.add(dec.toString());
     } catch (_) {}
 
-    if (/^[0-9a-fA-F]{7,8}$/.test(clean)) {
+    if (/^[0-9a-fA-F]{7,8}$/.test(hexTestTarget)) {
       try {
-        const pad = clean.padStart(8, '0');
+        const pad = hexTestTarget.padStart(8, '0');
         const b0 = pad.substring(0, 2);
         const b1 = pad.substring(2, 4);
         const b2 = pad.substring(4, 6);
@@ -636,17 +646,17 @@ export function getCandidateTapCardIds(raw: string): string[] {
       } catch (_) {}
     }
 
-    if (/^[0-9a-fA-F]{14}$/.test(clean)) {
+    if (/^[0-9a-fA-F]{14}$/.test(hexTestTarget)) {
       try {
-        const b0 = clean.substring(0, 2);
-        const b1 = clean.substring(2, 4);
-        const b2 = clean.substring(4, 6);
-        const b3 = clean.substring(6, 8);
+        const b0 = hexTestTarget.substring(0, 2);
+        const b1 = hexTestTarget.substring(2, 4);
+        const b2 = hexTestTarget.substring(4, 6);
+        const b3 = hexTestTarget.substring(6, 8);
         const decRev = parseInt(b3 + b2 + b1 + b0, 16);
         if (!isNaN(decRev)) candidates.add(decRev.toString());
         const decDir = parseInt(b0 + b1 + b2 + b3, 16);
         if (!isNaN(decDir)) candidates.add(decDir.toString());
-        const fullBigInt = BigInt('0x' + clean).toString();
+        const fullBigInt = BigInt('0x' + hexTestTarget).toString();
         candidates.add(fullBigInt);
       } catch (_) {}
     }

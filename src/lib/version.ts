@@ -11,17 +11,11 @@ export const CHANGELOG: ChangelogRelease[] = [
   {
     version: '4.2',
     date: '2026-11-18',
-    title: 'Buddy Bubble: Proximity Friend Pairing via NFC Tap & QR Passes',
+    title: 'Hardware NFC Serial Number Prioritization & Band URL Handling',
     changes: [
-      'Buddy Bubble Sub-Module: Added a dedicated "Buddy Bubble" tab to Member Profile for connecting with makers you meet at the makerspace.',
-      'Strict No Public Directory Policy: Zero public browsing or user directories; connections strictly require in-person proximity pairing or direct mutual consent.',
-      'NFC Band-to-Phone Pairing: Tap a member\'s physical Buddy Band wristband or card against any NFC-enabled phone to instantly look up and add them to your bubble.',
-      'Phone-to-Phone NFC Beam: Android devices running Chrome can broadcast an NDEF URL beam to touch phones together and connect.',
-      'Universal QR Code Fallback: "My Buddy Pass" displays a high-contrast QR code with the member\'s customized mascot in the center, scannable by in-app camera or native iOS Camera.',
-      'Mutual Consent & Delight: Displays an animated encounter modal with the friend\'s mascot avatar, preferred name, pronouns, level badge, and common maker interests ("Both nerdy for 3D Printing!").',
-      'Interactive Bubble Cards: Floating glassmorphic cards with "Blow Bubble 🫧" celebrations, "View Costume" outfit previews, and friend management.',
-      'Sandbox Demo Pre-Seeding: Demo accounts come pre-loaded with friendly sample makers (Sam Spark, Alex River, Maya Chen) so business demonstrations work out-of-the-box.',
-      'Developer Proximity Simulator: Added dedicated "Buddy Bubble" tools in Developer Mode to simulate NFC Band taps, test QR deep links, and inject custom test friends.',
+      'NFC Hardware Serial Number Prioritization: Web NFC now strictly reads the band chip\'s physical hardware serial number (UID) during card tap login and lookups, ignoring any preset app URLs stored in the tag NDEF records.',
+      'Delimiter-Free Hex & Multi-Candidate UID Derivation: Enhanced getCandidateTapCardIds to automatically derive unspaced hex, big-endian, little-endian, and BigInt decimal values even when the chip UID contains colons (e.g. 04:5a:e6:da:54:25:41).',
+      'Retired Buddy Bubble: Cleanly removed the experimental Buddy Bubble sub-module and profile tabs for future re-architecture.',
     ],
   },
   {

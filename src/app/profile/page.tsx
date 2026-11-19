@@ -47,11 +47,8 @@ import {
 import SMCertifications from '../../../public/shared/sm-certifications.js';
 import { BuddyBuilder } from '@/components/buddy/BuddyBuilder';
 import { BuddyAvatarBadge } from '@/components/buddy/BuddyAvatarBadge';
-import { BuddyBubbleView } from '@/components/bubble/BuddyBubbleView';
 import { loadMemberBuddyBucks } from '@/lib/buddy';
-import { loadBuddyBubble } from '@/lib/bubble';
-import { BuddyBubbleMember } from '@/lib/types';
-import { Palette, Sparkles as SparklesIcon, Coins, Users } from 'lucide-react';
+import { Palette, Sparkles as SparklesIcon, Coins } from 'lucide-react';
 
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
@@ -66,138 +63,12 @@ export default function ProfilePage() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [contactError, setContactError] = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [activeProfileTab, setActiveProfileTab] = useState<'passport' | 'buddy' | 'bubble'>('passport');
+  const [activeProfileTab, setActiveProfileTab] = useState<'passport' | 'buddy'>('passport');
   const [buddyBucks, setBuddyBucks] = useState<number>(() => loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
-  const [bubbleCount, setBubbleCount] = useState<number>(() => loadBuddyBubble(member?.accountId).length);
-  const [initialAddBuddy, setInitialAddBuddy] = useState<BuddyBubbleMember | null>(null);
-  const [bubbleToast, setBubbleToast] = useState<string | null>(null);
-
-  // Deep-link handling: handles ?add=..., ?buddy=..., ?card=..., ?tapCard=..., ?band=...
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab');
-      if (tabParam === 'bubble' || tabParam === 'buddy' || tabParam === 'passport') {
-        setActiveProfileTab(tabParam as any);
-      }
-
-      // Check all possible parameters where a friend's card or account ID might be passed
-      const targetToAdd =
-        params.get('add') ||
-        params.get('buddy') ||
-        (params.get('action') === 'add' ? params.get('band') : null) ||
-        params.get('card') ||
-        params.get('tapCard') ||
-        params.get('band');
-
-      const nameParam = params.get('name');
-      const bandParam = params.get('band') || params.get('card') || params.get('tapCard');
-
-      // Check if target matches own account or own card
-      const myCard = member?.tapCard || '';
-      const myAcc = member?.accountId || '';
-      const isSelf = targetToAdd && (targetToAdd === myCard || targetToAdd === myAcc);
-
-      if (targetToAdd && !isSelf) {
-        setActiveProfileTab('bubble');
-        import('@/lib/bubble').then(({ resolveBuddyFromScanOrUid }) => {
-          resolveBuddyFromScanOrUid(targetToAdd).then((res) => {
-            if (res.success && res.member) {
-              setInitialAddBuddy(res.member);
-            } else {
-              setInitialAddBuddy({
-                accountId: targetToAdd,
-                name: decodeURIComponent(nameParam || 'Fellow Maker'),
-                preferredName: decodeURIComponent(nameParam || 'Fellow Maker'),
-                tapCard: bandParam || undefined,
-                level: 1,
-                levelBadge: '🌱',
-                levelTitle: 'Maker',
-                addedAt: new Date().toISOString(),
-              });
-            }
-          });
-        });
-      }
-    } catch (_) {}
-  }, [member?.tapCard, member?.accountId]);
-
-  // Background Web NFC Tap Listener on Profile: tap any wristband against phone to add friend!
-  useEffect(() => {
-    if (typeof window === 'undefined' || !('NDEFReader' in window) || !member) return;
-
-    let isMounted = true;
-    let abortController: AbortController | null = null;
-
-    const startBackgroundNfc = async () => {
-      try {
-        abortController = new AbortController();
-        const NDEFReaderClass = (window as any).NDEFReader;
-        const ndef = new NDEFReaderClass();
-        await ndef.scan({ signal: abortController.signal });
-
-        ndef.onreading = async (event: any) => {
-          let detected = '';
-          if (event.serialNumber) {
-            const { normalizeNfcTapCard } = await import('@/lib/neon');
-            detected = normalizeNfcTapCard(event.serialNumber);
-          }
-          if (event.message?.records) {
-            for (const record of event.message.records) {
-              if (record.recordType === 'url') {
-                const decoder = new TextDecoder();
-                const urlStr = decoder.decode(record.data);
-                if (/[?&](?:add|buddy|card|tapCard|band)=/i.test(urlStr)) {
-                  detected = urlStr;
-                  break;
-                }
-              } else if (record.recordType === 'text') {
-                const decoder = new TextDecoder(record.encoding || 'utf-8');
-                const text = decoder.decode(record.data).trim();
-                if (text && (/^\d{8,10}$/.test(text) || text.startsWith('demo-') || text.startsWith('sandbox'))) {
-                  detected = text;
-                  break;
-                }
-              }
-            }
-          }
-
-          if (detected && isMounted) {
-            const myCard = member?.tapCard || '';
-            const myAcc = member?.accountId || '';
-            const isSelf = detected === myCard || detected === myAcc;
-
-            if (isSelf) {
-              setBubbleToast("That's your own Buddy Band! Tap another maker's band to connect.");
-              setTimeout(() => setBubbleToast(null), 3500);
-            } else {
-              setActiveProfileTab('bubble');
-              const { resolveBuddyFromScanOrUid } = await import('@/lib/bubble');
-              const res = await resolveBuddyFromScanOrUid(detected);
-              if (res.success && res.member) {
-                setInitialAddBuddy(res.member);
-              }
-            }
-          }
-        };
-      } catch (_) {}
-    };
-
-    startBackgroundNfc();
-
-    return () => {
-      isMounted = false;
-      if (abortController) {
-        abortController.abort();
-      }
-    };
-  }, [member?.tapCard, member?.accountId]);
 
   useEffect(() => {
     if (member?.accountId) {
       setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
-      setBubbleCount(loadBuddyBubble(member.accountId).length);
       try {
         const localCachedAvatar = localStorage.getItem(`sm_buddy_avatar_${member.accountId}`);
         if (localCachedAvatar && localCachedAvatar.trim().startsWith('{') && !member.buddyAvatar) {
@@ -210,18 +81,11 @@ export default function ProfilePage() {
         setBuddyBucks(loadMemberBuddyBucks(member.accountId, member.buddyBucks));
       }
     };
-    const handleBubbleUpdate = (e: any) => {
-      if (member?.accountId) {
-        setBubbleCount(loadBuddyBubble(member.accountId).length);
-      }
-    };
     window.addEventListener('sm_buddy_bucks_updated', handleBucksUpdate);
     window.addEventListener('sm_buddy_updated', handleBucksUpdate);
-    window.addEventListener('sm_buddy_bubble_updated', handleBubbleUpdate);
     return () => {
       window.removeEventListener('sm_buddy_bucks_updated', handleBucksUpdate);
       window.removeEventListener('sm_buddy_updated', handleBucksUpdate);
-      window.removeEventListener('sm_buddy_bubble_updated', handleBubbleUpdate);
     };
   }, [member?.accountId, member?.buddyBucks]);
 
@@ -404,26 +268,20 @@ export default function ProfilePage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="font-fredoka text-2xl sm:text-3xl font-bold text-stone-900">
-            {activeProfileTab === 'buddy'
-              ? 'Buddy Builder'
-              : activeProfileTab === 'bubble'
-              ? 'Buddy Bubble'
-              : 'Member Profile'}
+            {activeProfileTab === 'buddy' ? 'Buddy Builder' : 'Member Profile'}
           </h1>
           <p className="text-stone-600 text-sm">
             {activeProfileTab === 'buddy'
               ? 'Customize your personal Social Medium mascot avatar with dress-up accessories and outfits.'
-              : activeProfileTab === 'bubble'
-              ? 'Connect with fellow makers in person using NFC tap or personal QR passes.'
               : <>Account details and authorized tool Certifications for Tap Card <strong>{member.tapCard}</strong>.</>}
           </p>
         </div>
 
         {/* Sub-Module Switcher */}
-        <div className="flex items-center gap-2 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs flex-wrap">
+        <div className="flex items-center gap-2 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs">
           <button
             onClick={() => setActiveProfileTab('passport')}
-            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
               activeProfileTab === 'passport'
                 ? 'bg-white text-stone-900 shadow-sm'
                 : 'text-stone-600 hover:text-stone-900'
@@ -434,7 +292,7 @@ export default function ProfilePage() {
           </button>
           <button
             onClick={() => setActiveProfileTab('buddy')}
-            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition-all ${
+            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all ${
               activeProfileTab === 'buddy'
                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-sm'
                 : 'text-stone-600 hover:text-stone-900'
@@ -450,24 +308,6 @@ export default function ProfilePage() {
               🪙 {buddyBucks} BB
             </span>
           </button>
-          <button
-            onClick={() => setActiveProfileTab('bubble')}
-            className={`px-3.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 transition-all ${
-              activeProfileTab === 'bubble'
-                ? 'bg-gradient-to-r from-teal-500 to-emerald-600 text-white shadow-sm'
-                : 'text-stone-600 hover:text-stone-900'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            <span>Buddy Bubble</span>
-            <span className={`px-2 py-0.5 rounded-full text-[11px] font-mono font-bold ${
-              activeProfileTab === 'bubble'
-                ? 'bg-black/20 text-white'
-                : 'bg-teal-100 text-teal-900 border border-teal-200'
-            }`}>
-              🫧 {bubbleCount}
-            </span>
-          </button>
         </div>
       </div>
 
@@ -475,13 +315,6 @@ export default function ProfilePage() {
         <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm flex items-center gap-2">
           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           <span>Profile information successfully updated!</span>
-        </div>
-      )}
-
-      {bubbleToast && (
-        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold flex items-center gap-2 animate-in fade-in">
-          <Sparkles className="w-4 h-4 text-amber-600 shrink-0" />
-          <span>{bubbleToast}</span>
         </div>
       )}
 
@@ -495,10 +328,6 @@ export default function ProfilePage() {
               }
             }}
           />
-        </div>
-      ) : activeProfileTab === 'bubble' ? (
-        <div className="space-y-4">
-          <BuddyBubbleView member={member} initialAddBuddy={initialAddBuddy} />
         </div>
       ) : (
         <div className="space-y-6">
