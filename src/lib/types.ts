@@ -300,7 +300,15 @@ export interface ImpactCampaignSettings {
   endDate?: string;
   useLiveNeonStats: boolean;
   autoSyncNeon?: boolean;
+  buddyBucksRewardRatio?: number; // Ratio of Buddy Bucks awarded per dollar donated (default: 1)
   updatedAt?: string;
+}
+
+export interface GivingTuesdayCreditResult {
+  newCreditedBucks: number;
+  totalDonated: number;
+  newDonationIds: string[];
+  alreadyCreditedDonationIds: string[];
 }
 
 export interface NeonCampaignSummary {

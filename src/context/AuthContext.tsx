@@ -193,6 +193,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem(`sm_profile_${profile.tapCard}`, JSON.stringify(profile));
       }
     } catch (_) {}
+
+    const accId = profile.accountId;
+    if (accId && !isSandboxAccount(accId)) {
+      import('@/lib/neon').then(({ syncGivingTuesdayDonationsForMember }) => {
+        syncGivingTuesdayDonationsForMember(accId).catch(() => {});
+      });
+    }
   };
 
   const loginAsSandbox = () => {

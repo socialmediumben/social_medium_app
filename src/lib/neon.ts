@@ -9,6 +9,7 @@ import {
   StoreItem,
   PortalDoorSettings,
   ImpactCampaignSettings,
+  GivingTuesdayCreditResult,
   NeonCampaignSummary,
   NeonCampaignDetail,
   VolunteerSession,
@@ -531,6 +532,13 @@ export async function fetchMemberProfileByAccountId(
       buddyAvatar: finalBuddyAvatar,
       buddyBucks: finalBuddyBucks,
     };
+
+    // Auto-sync Giving Tuesday donations for 1:1 Buddy Bucks in the background
+    if (accountId && typeof window !== 'undefined') {
+      setTimeout(() => {
+        syncGivingTuesdayDonationsForMember(String(accountId)).catch(() => {});
+      }, 600);
+    }
 
     return { success: true, member: memberProfile };
   } catch (err: any) {
@@ -1078,6 +1086,7 @@ export const DEFAULT_IMPACT_SETTINGS: ImpactCampaignSettings = {
     'Every dollar supports our accessible community equipment, tools, and hands-on workshops. Thank you for making a difference!',
   thermometerColor: '#f16622',
   useLiveNeonStats: true,
+  buddyBucksRewardRatio: 1,
   updatedAt: new Date().toISOString(),
 };
 
@@ -1176,6 +1185,177 @@ export async function saveImpactCampaignSettings(
     settings: res.settings?.impactSettings || merged,
     error: res.error,
   };
+}
+
+/**
+ * Synchronizes a member's direct Giving Tuesday donations from Neon One CRM
+ * and credits 1 Buddy Buck per dollar donated (idempotently).
+ */
+export async function syncGivingTuesdayDonationsForMember(
+  accountId?: string | null
+): Promise<GivingTuesdayCreditResult> {
+  if (!accountId) {
+    return { newCreditedBucks: 0, totalDonated: 0, newDonationIds: [], alreadyCreditedDonationIds: [] };
+  }
+
+  // In sandbox demo mode, skip querying real CRM
+  if (isSandboxAccount(accountId)) {
+    return { newCreditedBucks: 0, totalDonated: 0, newDonationIds: [], alreadyCreditedDonationIds: [] };
+  }
+
+  const storageKey = `sm_giving_tuesday_credited_${accountId}`;
+  let alreadyCredited: string[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) alreadyCredited = JSON.parse(stored);
+    } catch (_) {}
+  }
+
+  // Active Impact Campaign settings
+  const impactSettings = await fetchImpactCampaignSettings();
+  const targetCampaignId = String(impactSettings.campaignId || '2').trim();
+  const rewardRatio =
+    typeof impactSettings.buddyBucksRewardRatio === 'number' && impactSettings.buddyBucksRewardRatio >= 0
+      ? impactSettings.buddyBucksRewardRatio
+      : 1; // Default 1:1 Buddy Buck per dollar
+
+  let donations: any[] = [];
+  try {
+    const res = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}/donations?pageSize=100`, {
+      cache: 'no-store',
+    });
+    if (res.ok) {
+      const data = await res.json();
+      donations = data?.donations || [];
+    }
+  } catch (err) {
+    console.warn('[Giving Tuesday] Failed to query donations for account:', err);
+    return { newCreditedBucks: 0, totalDonated: 0, newDonationIds: [], alreadyCreditedDonationIds: alreadyCredited };
+  }
+
+  let newCreditedBucks = 0;
+  let totalDonated = 0;
+  const newDonationIds: string[] = [];
+
+  for (const d of donations) {
+    if (d.status && d.status.toLowerCase() !== 'succeeded') continue;
+    const donationId = String(d.id || '');
+    if (!donationId) continue;
+
+    const campId = String(d.campaign?.id || '');
+    const campName = (d.campaign?.name || '').trim().toLowerCase();
+
+    // Check if donation is designated for Giving Tuesday
+    const isGivingTuesday =
+      campId === targetCampaignId ||
+      campName.includes('giving tuesday') ||
+      campName.includes('giving-tuesday') ||
+      campName === 'giving tuesday 2026';
+
+    if (!isGivingTuesday) continue;
+
+    const amt = Number(d.amount) || 0;
+    if (amt <= 0) continue;
+
+    totalDonated += amt;
+
+    if (!alreadyCredited.includes(donationId)) {
+      const bucksToAward = Math.floor(amt * rewardRatio);
+      if (bucksToAward > 0) {
+        newCreditedBucks += bucksToAward;
+        newDonationIds.push(donationId);
+      }
+    }
+  }
+
+  if (newCreditedBucks > 0) {
+    const { awardBuddyBucks } = await import('./buddy');
+    await awardBuddyBucks(
+      accountId,
+      newCreditedBucks,
+      `Giving Tuesday Donation (+${newCreditedBucks} BB)`
+    );
+
+    const updatedCredited = [...alreadyCredited, ...newDonationIds];
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(updatedCredited));
+        window.dispatchEvent(
+          new CustomEvent('sm_giving_tuesday_bucks_awarded', {
+            detail: {
+              accountId,
+              bucksAwarded: newCreditedBucks,
+              newDonationIds,
+              totalDonated,
+            },
+          })
+        );
+      } catch (_) {}
+    }
+
+    return {
+      newCreditedBucks,
+      totalDonated,
+      newDonationIds,
+      alreadyCreditedDonationIds: updatedCredited,
+    };
+  }
+
+  return {
+    newCreditedBucks: 0,
+    totalDonated,
+    newDonationIds: [],
+    alreadyCreditedDonationIds: alreadyCredited,
+  };
+}
+
+/**
+ * Simulates a Giving Tuesday donation (for testing, sandbox demo, and developer mode)
+ * and immediately awards the 1:1 Buddy Bucks with celebration events.
+ */
+export async function simulateGivingTuesdayDonation(
+  accountId: string,
+  amount: number
+): Promise<{ success: boolean; bucksAwarded: number; newBalance: number }> {
+  const safeAmt = Math.max(1, Math.round(amount));
+  const donationId = `sim_gt_${Date.now()}`;
+  const storageKey = `sm_giving_tuesday_credited_${accountId}`;
+
+  let alreadyCredited: string[] = [];
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) alreadyCredited = JSON.parse(stored);
+    } catch (_) {}
+  }
+
+  const { awardBuddyBucks } = await import('./buddy');
+  const newBalance = await awardBuddyBucks(
+    accountId,
+    safeAmt,
+    `Giving Tuesday Donation ($${safeAmt})`
+  );
+
+  const updatedCredited = [...alreadyCredited, donationId];
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(updatedCredited));
+      window.dispatchEvent(
+        new CustomEvent('sm_giving_tuesday_bucks_awarded', {
+          detail: {
+            accountId,
+            bucksAwarded: safeAmt,
+            newDonationIds: [donationId],
+            totalDonated: safeAmt,
+            isSimulation: true,
+          },
+        })
+      );
+    } catch (_) {}
+  }
+
+  return { success: true, bucksAwarded: safeAmt, newBalance };
 }
 
 /**

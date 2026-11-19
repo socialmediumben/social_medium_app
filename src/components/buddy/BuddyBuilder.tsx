@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import Link from 'next/link';
 import {
   Sparkles,
   RotateCcw,
@@ -300,6 +301,30 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
       setBuddyBucks(loadMemberBuddyBucks(member?.accountId, member?.buddyBucks));
     }
   }, [member?.accountId, member?.buddyBucks]);
+
+  // Sync Giving Tuesday donations for 1:1 Buddy Bucks on avatar studio mount
+  useEffect(() => {
+    const accId = member?.accountId;
+    if (accId) {
+      import('@/lib/neon').then(({ syncGivingTuesdayDonationsForMember }) => {
+        syncGivingTuesdayDonationsForMember(accId).catch(() => {});
+      });
+    }
+  }, [member?.accountId]);
+
+  // Keep wallet in sync with any awards or simulation events
+  useEffect(() => {
+    const handleBucksUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent<{ accountId: string; newBalance: number }>;
+      if (customEvent.detail && (customEvent.detail.accountId === accountId || !accountId)) {
+        setBuddyBucks(customEvent.detail.newBalance);
+      }
+    };
+    window.addEventListener('sm_buddy_bucks_updated', handleBucksUpdated);
+    return () => {
+      window.removeEventListener('sm_buddy_bucks_updated', handleBucksUpdated);
+    };
+  }, [accountId]);
 
   // Auto-sync configuration to localStorage & Neon One whenever config changes
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -619,8 +644,11 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
             <div className="text-lg font-black text-white leading-none mt-0.5">
               {buddyBucks} <span className="text-xs font-bold text-amber-200">Buddy Bucks</span>
             </div>
-            <div className="text-[10px] text-stone-300 mt-0.5">
-              Earn more by leveling up XP!
+            <div className="text-[10px] text-stone-300 mt-1 flex items-center gap-1">
+              <span>Earn XP or get 1 🪙 per $1 on</span>
+              <Link href="/impact" className="text-amber-300 underline font-semibold hover:text-white transition-colors">
+                Giving Tuesday →
+              </Link>
             </div>
           </div>
         </div>
@@ -1367,6 +1395,27 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
             {purchaseError && (
               <div className="p-2.5 rounded-xl bg-red-50 text-red-700 text-xs font-medium border border-red-200">
                 {purchaseError}
+              </div>
+            )}
+
+            {((pendingColor && buddyBucks < (pendingColor.price || 10)) ||
+              (pendingItem && buddyBucks < pendingItem.price)) && (
+              <div className="p-3 rounded-2xl bg-orange-50 border border-orange-200 text-xs text-orange-950 flex items-center justify-between gap-2 shadow-2xs">
+                <div>
+                  <div className="font-bold text-[11px] flex items-center gap-1 text-orange-900">
+                    <span>🪙</span>
+                    <span>Need more Buddy Bucks?</span>
+                  </div>
+                  <div className="text-[10px] text-stone-600 mt-0.5">
+                    Earn 1 Buddy Buck per $1 donated on Giving Tuesday!
+                  </div>
+                </div>
+                <Link
+                  href="/impact"
+                  className="px-2.5 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-[11px] whitespace-nowrap transition-colors shadow-xs"
+                >
+                  Give & Earn
+                </Link>
               </div>
             )}
 

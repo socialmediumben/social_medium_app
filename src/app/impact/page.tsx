@@ -17,12 +17,15 @@ import {
   GraduationCap,
   Hammer,
   Settings,
+  Coins,
+  Sparkles,
 } from 'lucide-react';
 import { DigitalThermometer } from '@/components/impact/DigitalThermometer';
 import { GiveGetModule } from '@/components/impact/GiveGetModule';
 import {
   fetchImpactCampaignSettings,
   fetchNeonCampaignDetail,
+  syncGivingTuesdayDonationsForMember,
   DEFAULT_IMPACT_SETTINGS,
 } from '@/lib/neon';
 import { ImpactCampaignSettings } from '@/lib/types';
@@ -153,15 +156,32 @@ function ImpactContent() {
     };
   }, []);
 
+  // Sync member's Giving Tuesday donations for 1:1 Buddy Bucks on page view
+  useEffect(() => {
+    if (member?.accountId) {
+      syncGivingTuesdayDonationsForMember(member.accountId).catch(() => {});
+    }
+  }, [member?.accountId]);
+
+  const effectiveDonationUrl = React.useMemo(() => {
+    if (!settings.donationFormUrl) return '';
+    if (member?.accountId) {
+      const sep = settings.donationFormUrl.includes('?') ? '&' : '?';
+      return `${settings.donationFormUrl}${sep}user.accountId=${encodeURIComponent(member.accountId)}`;
+    }
+    return settings.donationFormUrl;
+  }, [settings.donationFormUrl, member?.accountId]);
+
   const handleCopyLink = () => {
-    if (!settings.donationFormUrl) return;
-    navigator.clipboard.writeText(settings.donationFormUrl);
+    const targetUrl = effectiveDonationUrl || settings.donationFormUrl;
+    if (!targetUrl) return;
+    navigator.clipboard.writeText(targetUrl);
     setCopiedLink(true);
     setTimeout(() => setCopiedLink(false), 3000);
   };
 
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&margin=10&data=${encodeURIComponent(
-    settings.donationFormUrl || 'https://www.socialmedium.space'
+    effectiveDonationUrl || settings.donationFormUrl || 'https://www.socialmedium.space'
   )}`;
 
   return (
@@ -252,7 +272,7 @@ function ImpactContent() {
 
               <div className="flex items-center gap-3 w-full sm:w-auto">
                 <a
-                  href={settings.donationFormUrl}
+                  href={effectiveDonationUrl || settings.donationFormUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex-1 sm:flex-initial px-6 py-3.5 rounded-2xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black text-base shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 cursor-pointer"
@@ -264,7 +284,7 @@ function ImpactContent() {
                 <button
                   type="button"
                   onClick={() => setShowQrModal(true)}
-                  className="p-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors shrink-0"
+                  className="p-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors shrink-0 cursor-pointer"
                   title="View Scan-to-Donate QR Code"
                 >
                   <QrCode className="w-5 h-5" />
@@ -273,7 +293,7 @@ function ImpactContent() {
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="p-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors shrink-0"
+                  className="p-3.5 rounded-2xl bg-stone-100 hover:bg-stone-200 text-stone-700 transition-colors shrink-0 cursor-pointer"
                   title="Copy Donation Form Link"
                 >
                   {copiedLink ? <Check className="w-5 h-5 text-emerald-600" /> : <Share2 className="w-5 h-5" />}
@@ -281,14 +301,41 @@ function ImpactContent() {
               </div>
             </div>
 
+            {/* Giving Tuesday 1:1 Buddy Bucks Reward Banner */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/15 border border-amber-300/60 flex flex-col sm:flex-row items-center justify-between gap-3 text-stone-900">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+                  🪙
+                </div>
+                <div>
+                  <div className="text-xs sm:text-sm font-black flex items-center gap-1.5 text-orange-950">
+                    <span>Giving Tuesday Special: 1 Buddy Buck per $1 Donated!</span>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-400/30 text-amber-900 text-[10px] uppercase font-extrabold tracking-wide">
+                      1:1 Reward
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-600 mt-0.5">
+                    Every dollar directly powers makerspace tools & rewards your personal Buddy Avatar with currency to unlock costumes, hats, and accessories.
+                  </p>
+                </div>
+              </div>
+              <Link
+                href="/profile"
+                className="px-3.5 py-1.5 rounded-xl bg-white hover:bg-amber-50 border border-amber-300 text-amber-900 text-xs font-bold shrink-0 transition-colors shadow-2xs whitespace-nowrap"
+              >
+                View Avatar Studio →
+              </Link>
+            </div>
+
             {/* Quick Giving Tiers Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-stone-100">
               {GIVING_TIERS.map((tier) => {
                 const Icon = tier.icon;
+                const earnedBucks = Math.floor(tier.amount * (settings.buddyBucksRewardRatio || 1));
                 return (
                   <a
                     key={tier.amount}
-                    href={settings.donationFormUrl}
+                    href={effectiveDonationUrl || settings.donationFormUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="group p-5 rounded-2xl bg-stone-50/70 hover:bg-orange-50/50 border border-stone-200/80 hover:border-orange-300 transition-all text-left flex flex-col justify-between"
@@ -301,6 +348,10 @@ function ImpactContent() {
                         <span className="text-xl font-black text-stone-900 font-fredoka group-hover:text-orange-600 transition-colors">
                           ${tier.amount}
                         </span>
+                      </div>
+                      <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-100 text-amber-900 text-[10px] font-black uppercase tracking-wider mb-2">
+                        <span>🪙</span>
+                        <span>+{earnedBucks} Buddy Bucks</span>
                       </div>
                       <h3 className="text-sm font-bold text-stone-900 group-hover:text-orange-950 transition-colors">
                         {tier.title}

@@ -7,6 +7,11 @@ import { XpAwardEventDetail } from '@/lib/types';
 export default function LevelUpModal() {
   const [levelUpData, setLevelUpData] = useState<XpAwardEventDetail | null>(null);
   const [xpToast, setXpToast] = useState<{ activity: string; xp: number; id: number } | null>(null);
+  const [givingTuesdayToast, setGivingTuesdayToast] = useState<{
+    bucksAwarded: number;
+    totalDonated: number;
+    isSimulation?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     const handleXpEvent = (e: Event) => {
@@ -26,9 +31,27 @@ export default function LevelUpModal() {
       }
     };
 
+    const handleGivingTuesdayEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{
+        accountId: string;
+        bucksAwarded: number;
+        totalDonated: number;
+        isSimulation?: boolean;
+      }>;
+      const detail = customEvent.detail;
+      if (!detail || detail.bucksAwarded <= 0) return;
+      setGivingTuesdayToast({
+        bucksAwarded: detail.bucksAwarded,
+        totalDonated: detail.totalDonated,
+        isSimulation: detail.isSimulation,
+      });
+    };
+
     window.addEventListener('sm_xp_awarded', handleXpEvent);
+    window.addEventListener('sm_giving_tuesday_bucks_awarded', handleGivingTuesdayEvent);
     return () => {
       window.removeEventListener('sm_xp_awarded', handleXpEvent);
+      window.removeEventListener('sm_giving_tuesday_bucks_awarded', handleGivingTuesdayEvent);
     };
   }, []);
 
@@ -40,6 +63,15 @@ export default function LevelUpModal() {
     }, 4000);
     return () => clearTimeout(timer);
   }, [xpToast]);
+
+  // Auto-dismiss Giving Tuesday toast after 6 seconds
+  useEffect(() => {
+    if (!givingTuesdayToast) return;
+    const timer = setTimeout(() => {
+      setGivingTuesdayToast(null);
+    }, 6000);
+    return () => clearTimeout(timer);
+  }, [givingTuesdayToast]);
 
   return (
     <>
@@ -59,6 +91,35 @@ export default function LevelUpModal() {
                 <span className="text-white/80 font-normal text-xs">• {xpToast.activity}</span>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Giving Tuesday Buddy Bucks Reward Floating Toast */}
+      {givingTuesdayToast && (
+        <div className="fixed bottom-6 left-6 z-50 animate-bounce duration-300 max-w-sm">
+          <div className="flex items-center gap-3 bg-gradient-to-r from-orange-600/95 via-amber-600/95 to-orange-500/95 backdrop-blur-md text-white p-3.5 rounded-2xl shadow-xl shadow-orange-500/30 border border-amber-300/50">
+            <div className="w-10 h-10 rounded-xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-xl shadow-md shrink-0">
+              🪙
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[10px] font-extrabold uppercase tracking-wider text-amber-200">
+                {givingTuesdayToast.isSimulation ? 'Giving Tuesday Simulation' : 'Giving Tuesday Reward!'}
+              </div>
+              <div className="text-sm font-black text-white">
+                +{givingTuesdayToast.bucksAwarded} Buddy Bucks Earned!
+              </div>
+              <div className="text-[11px] text-amber-100 font-medium">
+                1:1 Reward for your ${givingTuesdayToast.totalDonated} donation.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setGivingTuesdayToast(null)}
+              className="p-1 text-white/70 hover:text-white rounded-lg hover:bg-black/10 transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

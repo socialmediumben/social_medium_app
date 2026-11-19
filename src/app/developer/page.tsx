@@ -94,6 +94,7 @@ import {
   fetchNeonCampaignDetail,
   fetchImpactCampaignSettings,
   saveImpactCampaignSettings,
+  simulateGivingTuesdayDonation,
   DEFAULT_IMPACT_SETTINGS,
   fetchBoardRosterSummary,
   DEFAULT_GIVE_GET_HOURLY_RATE,
@@ -844,6 +845,8 @@ export default function DeveloperPage() {
   const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(false);
   const [isSavingImpact, setIsSavingImpact] = useState(false);
   const [impactNotice, setImpactNotice] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [simulateGtAmount, setSimulateGtAmount] = useState<number>(50);
+  const [isSimulatingGt, setIsSimulatingGt] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -949,6 +952,42 @@ export default function DeveloperPage() {
       });
     } finally {
       setIsSavingImpact(false);
+    }
+  };
+
+  const handleSimulateGtDonation = async () => {
+    if (!member?.accountId) {
+      setImpactNotice({
+        message: 'Please log in or impersonate a member account to test donation crediting.',
+        type: 'error',
+      });
+      return;
+    }
+    setIsSimulatingGt(true);
+    try {
+      const res = await simulateGivingTuesdayDonation(member.accountId, simulateGtAmount);
+      if (res.success) {
+        setImpactNotice({
+          message: `Successfully credited +${res.bucksAwarded} Buddy Bucks to ${member.preferredName || member.firstName || 'Member'}! New wallet balance: ${res.newBalance} 🪙 BB`,
+          type: 'success',
+        });
+        window.dispatchEvent(
+          new CustomEvent('sm_buddy_bucks_updated', {
+            detail: {
+              accountId: member.accountId,
+              newBalance: res.newBalance,
+              amountAdded: res.bucksAwarded,
+            },
+          })
+        );
+      }
+    } catch (err: any) {
+      setImpactNotice({
+        message: `Simulation failed: ${err.message}`,
+        type: 'error',
+      });
+    } finally {
+      setIsSimulatingGt(false);
     }
   };
 
@@ -2869,6 +2908,112 @@ export default function DeveloperPage() {
                       ))}
                     </div>
                   </div>
+                </div>
+
+                {/* Giving Tuesday Buddy Bucks Reward Ratio Setting */}
+                <div className="pt-3 border-t border-stone-100">
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="text-xs font-bold text-stone-800">
+                      Giving Tuesday Buddy Bucks Reward Ratio:
+                    </label>
+                    <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-extrabold uppercase">
+                      1:1 Reward
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      value={impactSettings.buddyBucksRewardRatio ?? 1}
+                      onChange={(e) =>
+                        setImpactSettings((prev) => ({
+                          ...prev,
+                          buddyBucksRewardRatio: Math.max(0, Number(e.target.value) || 0),
+                        }))
+                      }
+                      className="w-24 px-3 py-1.5 rounded-xl border border-stone-200 text-stone-900 font-mono text-sm font-bold bg-stone-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                    <span className="text-xs text-stone-600 font-medium">
+                      🪙 Buddy Bucks awarded per <strong>$1.00 donated</strong> to Giving Tuesday.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card 4: Giving Tuesday Buddy Bucks Interactive Simulator */}
+              <div className="p-6 rounded-3xl bg-gradient-to-br from-amber-50/80 via-white to-orange-50/50 border-2 border-amber-300/80 shadow-xs space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-amber-400 text-amber-950 flex items-center justify-center font-black text-xl shadow-xs shrink-0">
+                      🪙
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-fredoka text-base font-bold text-stone-900">
+                          Giving Tuesday Donation Simulator
+                        </h3>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 text-[10px] font-extrabold uppercase">
+                          Developer Test
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-500">
+                        Test and demonstrate crediting 1 Buddy Buck per dollar without submitting real credit card payments.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1">
+                  <span className="text-xs font-bold text-stone-700">Select Test Gift:</span>
+                  {[25, 50, 100, 250].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setSimulateGtAmount(amt)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        simulateGtAmount === amt
+                          ? 'bg-amber-600 text-white shadow-xs'
+                          : 'bg-white border border-stone-200 text-stone-700 hover:bg-amber-100'
+                      }`}
+                    >
+                      ${amt} (+{amt} 🪙)
+                    </button>
+                  ))}
+                  <div className="flex items-center gap-1 bg-white border border-stone-200 rounded-xl px-2 py-1">
+                    <span className="text-xs text-stone-400">$</span>
+                    <input
+                      type="number"
+                      min="1"
+                      value={simulateGtAmount}
+                      onChange={(e) => setSimulateGtAmount(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-16 text-xs font-mono font-bold text-stone-900 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-amber-200/60">
+                  <div className="text-xs text-stone-600">
+                    Recipient: <strong className="text-stone-900">{member?.preferredName || member?.firstName || 'Current User'}</strong> ({member?.accountId || 'No constituent active'})
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleSimulateGtDonation}
+                    disabled={isSimulatingGt || !member?.accountId}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 disabled:opacity-50 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {isSimulatingGt ? (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Crediting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Simulate ${simulateGtAmount} Gift (+{simulateGtAmount} 🪙 BB)</span>
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 

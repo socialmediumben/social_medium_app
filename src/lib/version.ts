@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.0';
+export const APP_VERSION = '4.1';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,20 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.1',
+    date: '2026-11-18',
+    title: 'Giving Tuesday 1:1 Buddy Bucks Reward System & Sandbox Demo Enhancements',
+    changes: [
+      'Giving Tuesday 1:1 Buddy Bucks Reward: Donors to the Giving Tuesday campaign now receive 1 Buddy Buck (🪙 BB) per dollar donated to customize and equip their personal mascot avatar.',
+      'Automated Neon One CRM Sync: Background synchronization queries completed constituent donations and idempotently credits Buddy Bucks without duplicate rewards.',
+      'Impact Page Badges & Banners: Added celebratory Giving Tuesday perk callout and per-tier rewards (+25, +50, +100, +250 BB) on the Community Impact page (/impact).',
+      'Buddy Builder Wallet Integration: Direct links in the avatar studio wallet and low-balance prompts guide members to support Giving Tuesday to unlock accessories.',
+      'Giving Tuesday Simulation Tool: Developer Mode now features an interactive donation testing tool to simulate $25, $50, $100 gifts and verify instant wallet crediting.',
+      'Pre-Signed Waiver & Pro Maker Kiosk Sandbox: Testers can check in as active Pro Makers skipping waiver prompts across both Neon Kiosk and Square Front Desk kiosks.',
+      'Smart Google Drive Normalizer: Automatically converts sharing links (drive.google.com/file/d/...) to direct CDN image URLs in the Buddy catalog.',
+    ],
+  },
   {
     version: '4.0',
     date: '2026-11-18',
