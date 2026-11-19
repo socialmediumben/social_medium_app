@@ -50,6 +50,7 @@ import {
   GOOGLE_DRIVE_BUDDY_ART_FOLDER_URL,
   DEFAULT_CATEGORY_LAYER_ORDER,
   normalizeGoogleDriveUrl,
+  hexToRgbRatios,
 } from '@/lib/buddy';
 import { updateMemberBuddyConfigInNeon } from '@/lib/neon';
 import { BuddyCanvas } from './BuddyCanvas';
@@ -612,8 +613,50 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
     }
   };
 
+  // Collect all colors needed for SVG tint filters in the builder
+  const tintFilterColors = useMemo(() => {
+    const set = new Set<string>();
+    ACCESSORY_COLOR_PRESETS.forEach((p) => set.add(p.hex));
+    BUDDY_BASE_COLORS.forEach((c) => set.add(c.hex));
+    if (config.equippedColors) {
+      Object.values(config.equippedColors).forEach((c) => {
+        if (c && typeof c === 'string') set.add(c);
+      });
+    }
+    return Array.from(set);
+  }, [config.equippedColors]);
+
   return (
     <div className="space-y-6">
+      {/* SVG Color Tint Filters (universal, CORS-free, preserves black line art) */}
+      <svg
+        aria-hidden="true"
+        className="absolute pointer-events-none"
+        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}
+      >
+        <defs>
+          {tintFilterColors.map((hex) => {
+            const { r, g, b, cleanHex } = hexToRgbRatios(hex);
+            return (
+              <filter
+                key={cleanHex}
+                id={`sm-tint-${cleanHex}`}
+                colorInterpolationFilters="sRGB"
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+              >
+                <feColorMatrix
+                  type="matrix"
+                  values={`${r} 0 0 0 0  0 ${g} 0 0 0  0 0 ${b} 0 0  0 0 0 1 0`}
+                />
+              </filter>
+            );
+          })}
+        </defs>
+      </svg>
+
       {/* 1. Header Banner & Currency Balance */}
       <div className="p-6 rounded-3xl bg-gradient-to-r from-stone-900 via-indigo-950 to-stone-900 text-white shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-4 border border-stone-800">
         <div>
@@ -1105,36 +1148,19 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
                           <div className="w-full aspect-square rounded-xl bg-stone-100/60 flex items-center justify-center p-2 mb-2 overflow-hidden relative">
                             {item.assetUrl ? (() => {
                               const cleanUrl = normalizeGoogleDriveUrl(item.assetUrl);
-                              return item.colorPicker ? (
-                                <div className="relative w-full h-full flex items-center justify-center">
-                                  <div
-                                    className="absolute inset-0 w-full h-full transition-colors duration-200"
-                                    style={{
-                                      backgroundColor: isEquipped
-                                        ? (config.equippedColors?.[item.category] || config.equippedColors?.[item.id] || '#ffffff')
-                                        : '#3bc0cd',
-                                      WebkitMaskImage: `url(${cleanUrl})`,
-                                      maskImage: `url(${cleanUrl})`,
-                                      WebkitMaskSize: 'contain',
-                                      maskSize: 'contain',
-                                      WebkitMaskRepeat: 'no-repeat',
-                                      maskRepeat: 'no-repeat',
-                                      WebkitMaskPosition: 'center',
-                                      maskPosition: 'center',
-                                    }}
-                                  />
-                                  <img
-                                    src={cleanUrl}
-                                    alt={item.name}
-                                    className="absolute inset-0 w-full h-full object-contain pointer-events-none group-hover:scale-105 transition-transform"
-                                    style={{ mixBlendMode: 'multiply' }}
-                                  />
-                                </div>
-                              ) : (
+                              const itemColor = isEquipped
+                                ? (config.equippedColors?.[item.category] || config.equippedColors?.[item.id] || '#ffffff')
+                                : '#3bc0cd';
+                              const { cleanHex } = hexToRgbRatios(itemColor);
+                              const isFiltered = item.colorPicker && cleanHex !== 'ffffff';
+                              return (
                                 <img
                                   src={cleanUrl}
                                   alt={item.name}
-                                  className="w-full h-full object-contain group-hover:scale-105 transition-transform"
+                                  className="w-full h-full object-contain group-hover:scale-105 transition-all duration-200"
+                                  style={{
+                                    filter: isFiltered ? `url(#sm-tint-${cleanHex})` : undefined,
+                                  }}
                                 />
                               );
                             })() : (
@@ -1271,41 +1297,22 @@ export const BuddyBuilder: React.FC<BuddyBuilderProps> = ({ member, onBuddySaved
               >
                 🎨
               </div>
-            ) : pendingItem?.colorPicker && pendingItem?.assetUrl ? (() => {
+            ) : pendingItem?.assetUrl ? (() => {
               const cleanUrl = normalizeGoogleDriveUrl(pendingItem.assetUrl);
+              const itemColor = config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#3bc0cd';
+              const { cleanHex } = hexToRgbRatios(itemColor);
+              const isFiltered = pendingItem.colorPicker && cleanHex !== 'ffffff';
               return (
-                <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs relative">
-                  <div
-                    className="absolute inset-0 w-full h-full transition-colors duration-200"
-                    style={{
-                      backgroundColor: config.equippedColors?.[pendingItem.category] || config.equippedColors?.[pendingItem.id] || '#ffffff',
-                      WebkitMaskImage: `url(${cleanUrl})`,
-                      maskImage: `url(${cleanUrl})`,
-                      WebkitMaskSize: 'contain',
-                      maskSize: 'contain',
-                      WebkitMaskRepeat: 'no-repeat',
-                      maskRepeat: 'no-repeat',
-                      WebkitMaskPosition: 'center',
-                      maskPosition: 'center',
-                    }}
-                  />
+                <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs">
                   <img
                     src={cleanUrl}
                     alt={pendingItem.name}
-                    className="absolute inset-0 w-full h-full object-contain pointer-events-none"
-                    style={{ mixBlendMode: 'multiply' }}
+                    className="max-h-full max-w-full object-contain"
+                    style={{ filter: isFiltered ? `url(#sm-tint-${cleanHex})` : undefined }}
                   />
                 </div>
               );
-            })() : pendingItem?.assetUrl ? (
-              <div className="w-16 h-16 rounded-2xl bg-stone-100 border border-stone-200 mx-auto flex items-center justify-center p-1 overflow-hidden shadow-xs">
-                <img
-                  src={normalizeGoogleDriveUrl(pendingItem.assetUrl)}
-                  alt={pendingItem.name}
-                  className="max-h-full max-w-full object-contain"
-                />
-              </div>
-            ) : (
+            })() : (
               <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 mx-auto flex items-center justify-center text-2xl shadow-xs">
                 🪙
               </div>

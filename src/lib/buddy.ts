@@ -13,6 +13,8 @@ import { isSandboxAccount } from './sandbox';
 // ==========================================
 
 export const DEFAULT_CATEGORY_LAYER_ORDER: Record<string, number> = {
+  tails: 15,
+  back: 20,
   capes: 20,
   base_body: 30,
   mouth: 40,
@@ -23,6 +25,7 @@ export const DEFAULT_CATEGORY_LAYER_ORDER: Record<string, number> = {
   face_accessory: 80,
   headwear: 90,
   hair: 95,
+  righthand: 100,
   props: 110,
 };
 
@@ -52,6 +55,28 @@ export function normalizeGoogleDriveUrl(url?: string): string {
     return `https://lh3.googleusercontent.com/d/${driveMatch[1]}`;
   }
   return clean;
+}
+
+/**
+ * Converts a hex color string to normalized 0..1 RGB channel ratios for SVG feColorMatrix tinting.
+ */
+export function hexToRgbRatios(hex: string): { r: number; g: number; b: number; cleanHex: string } {
+  let clean = String(hex || '#ffffff').replace('#', '').trim();
+  if (clean.length === 3) {
+    clean = clean.split('').map((c) => c + c).join('');
+  }
+  if (clean.length !== 6) {
+    clean = 'ffffff';
+  }
+  const r = parseInt(clean.substring(0, 2), 16) / 255;
+  const g = parseInt(clean.substring(2, 4), 16) / 255;
+  const b = parseInt(clean.substring(4, 6), 16) / 255;
+  return {
+    r: isNaN(r) ? 1 : Math.round(r * 1000) / 1000,
+    g: isNaN(g) ? 1 : Math.round(g * 1000) / 1000,
+    b: isNaN(b) ? 1 : Math.round(b * 1000) / 1000,
+    cleanHex: clean.toLowerCase(),
+  };
 }
 
 /**

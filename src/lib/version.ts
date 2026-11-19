@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.3';
+export const APP_VERSION = '4.3.1';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,17 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.3.1',
+    date: '2026-11-19',
+    title: 'Hardware-Accelerated SVG feColorMatrix Tinting Engine for White Buddy Items',
+    changes: [
+      'Universal SVG feColorMatrix Tinting: Replaced CSS mask-image and multiply blend-modes with a client-side SVG color matrix filter engine. Seamlessly tints white coloring-book templates to any chosen hex color without CORS blocks or layer bleed-through.',
+      'Crisp Black Line Art Preservation: The mathematical color matrix precisely multiplies white pixels into the target tint while preserving 100% of black ink outlines and alpha transparency.',
+      'Catalog & Modal Preview Support: Real-time SVG tinting now applies across the studio canvas, catalog item cards, and purchase confirmation modals.',
+      'Expanded Layer Stack Hierarchy: Added native z-index ordering for tails (15), back items & capes (20), and right-hand accessories (100).',
+    ],
+  },
   {
     version: '4.3',
     date: '2026-11-18',

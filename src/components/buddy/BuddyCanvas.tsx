@@ -2,7 +2,13 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { BuddyConfig, BuddyItem } from '@/lib/types';
-import { getAllBuddyItems, BUDDY_BASE_COLORS, DEFAULT_BUDDY_ITEMS, normalizeGoogleDriveUrl } from '@/lib/buddy';
+import {
+  getAllBuddyItems,
+  BUDDY_BASE_COLORS,
+  DEFAULT_BUDDY_ITEMS,
+  normalizeGoogleDriveUrl,
+  hexToRgbRatios,
+} from '@/lib/buddy';
 
 interface BuddyCanvasProps {
   config: BuddyConfig;
@@ -87,6 +93,18 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
     return layers.sort((a, b) => (a.zIndex || 50) - (b.zIndex || 50));
   }, [config.equipped, allItems]);
 
+  // Collect all colors needed for active layers to build hardware-accelerated SVG tint filters
+  const neededColors = useMemo(() => {
+    const set = new Set<string>();
+    if (activeColor?.hex) set.add(activeColor.hex);
+    if (config.equippedColors) {
+      Object.values(config.equippedColors).forEach((c) => {
+        if (c && typeof c === 'string') set.add(c);
+      });
+    }
+    return Array.from(set);
+  }, [activeColor, config.equippedColors]);
+
   return (
     <div
       className={`relative flex items-center justify-center select-none ${className}`}
@@ -96,6 +114,35 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
         aspectRatio: '1 / 1',
       }}
     >
+      {/* SVG Color Tint Filters (universal, CORS-free, preserves black line art & alpha) */}
+      <svg
+        aria-hidden="true"
+        className="absolute pointer-events-none"
+        style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden', opacity: 0 }}
+      >
+        <defs>
+          {neededColors.map((hex) => {
+            const { r, g, b, cleanHex } = hexToRgbRatios(hex);
+            return (
+              <filter
+                key={cleanHex}
+                id={`sm-tint-${cleanHex}`}
+                colorInterpolationFilters="sRGB"
+                x="0"
+                y="0"
+                width="100%"
+                height="100%"
+              >
+                <feColorMatrix
+                  type="matrix"
+                  values={`${r} 0 0 0 0  0 ${g} 0 0 0  0 0 ${b} 0 0  0 0 0 1 0`}
+                />
+              </filter>
+            );
+          })}
+        </defs>
+      </svg>
+
       {/* Optional Character Drop Shadow on Floor */}
       {showShadow && (
         <div
@@ -107,11 +154,17 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
       {/* Render all active layers in strict ascending z-index order */}
       {activeLayers.map((layer, index) => {
         const isBaseBody = layer.category === 'base_body';
-        const isTintable = isBaseBody || layer.colorPicker || !!config.equippedColors?.[layer.category] || !!config.equippedColors?.[layer.id];
+        const isTintable =
+          isBaseBody ||
+          layer.colorPicker ||
+          !!config.equippedColors?.[layer.category] ||
+          !!config.equippedColors?.[layer.id];
         const layerColorHex = isBaseBody
           ? activeColor.hex
           : (config.equippedColors?.[layer.category] || config.equippedColors?.[layer.id] || '#ffffff');
 
+        const { cleanHex } = hexToRgbRatios(layerColorHex);
+        const isFiltered = isTintable && cleanHex !== 'ffffff';
         const assetUrl = normalizeGoogleDriveUrl(layer.assetUrl);
 
         return (
@@ -123,38 +176,14 @@ export const BuddyCanvas: React.FC<BuddyCanvasProps> = ({
             }}
           >
             {assetUrl ? (
-              isTintable ? (
-                <div className="relative w-full h-full flex items-center justify-center">
-                  {/* Color Tint Silhouette Layer */}
-                  <div
-                    className="absolute inset-0 w-full h-full transition-colors duration-200"
-                    style={{
-                      backgroundColor: layerColorHex,
-                      WebkitMaskImage: `url(${assetUrl})`,
-                      maskImage: `url(${assetUrl})`,
-                      WebkitMaskSize: 'contain',
-                      maskSize: 'contain',
-                      WebkitMaskRepeat: 'no-repeat',
-                      maskRepeat: 'no-repeat',
-                      WebkitMaskPosition: 'center',
-                      maskPosition: 'center',
-                    }}
-                  />
-                  {/* Crisp Ink/Line Art on top */}
-                  <img
-                    src={assetUrl}
-                    alt={layer.name}
-                    className="absolute inset-0 w-full h-full object-contain pointer-events-none drop-shadow-xs"
-                    style={{ mixBlendMode: 'multiply' }}
-                  />
-                </div>
-              ) : (
-                <img
-                  src={assetUrl}
-                  alt={layer.name}
-                  className="w-full h-full object-contain pointer-events-none drop-shadow-xs"
-                />
-              )
+              <img
+                src={assetUrl}
+                alt={layer.name}
+                className="w-full h-full object-contain pointer-events-none drop-shadow-xs transition-all duration-200"
+                style={{
+                  filter: isFiltered ? `url(#sm-tint-${cleanHex})` : undefined,
+                }}
+              />
             ) : null}
           </div>
         );
