@@ -66,6 +66,14 @@
       "color": "#344ea2",
       "icon": "icons/electronics.svg",
       "keywords": ["electronics", "arduino", "raspberry pi", "esp32", "breadboard"]
+    },
+    "whittling": {
+      "id": "whittling",
+      "name": "Whittling & Wood Carving",
+      "category": "Woodshop",
+      "color": "#f16622",
+      "icon": "icons/whittling.svg",
+      "keywords": ["whittling", "whittle", "wood carving", "carving", "carve", "pocket knife"]
     }
   }
 }

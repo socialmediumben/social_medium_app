@@ -28,6 +28,7 @@
     'cnc-routing': '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="6" rx="1"/><path d="M10 8v4l2 3 2-3V8z"/><line x1="12" y1="15" x2="12" y2="18"/><line x1="4" y1="20" x2="20" y2="20"/><path d="M7 17q2-2 5 0t5 0"/></svg>',
     'vinyl-cutting': '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="6" rx="2"/><circle cx="6" cy="7" r="1.5" fill="currentColor"/><path d="M12 10v4l-1 2h2l-1-2"/><path d="M5 14h14v6H5z"/><path d="M8 17l2 2 4-4"/></svg>',
     'electronics': '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><circle cx="9" cy="9" r="1" fill="currentColor"/><line x1="2" y1="9" x2="6" y2="9"/><line x1="2" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="22" y2="9"/><line x1="18" y1="15" x2="22" y2="15"/><line x1="9" y1="2" x2="9" y2="6"/><line x1="15" y1="2" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="22"/><line x1="15" y1="18" x2="15" y2="22"/></svg>',
+    'whittling': '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4l6 6-2.5 2.5-6-6L14 4z"/><path d="M11.5 6.5L6 12l3.5 1.5 4-4"/><path d="M3 19l12-7"/><path d="M5 22l11-6.5"/><ellipse cx="16" cy="12" rx="1.5" ry="2.5"/><path d="M3 19a2 2 0 0 0 2 3"/><path d="M7 14.5c-1-1.5 0-3 1.5-2.5s1.5 2 0 3"/></svg>',
     'tool-generic': '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>'
   };
 
@@ -96,6 +97,14 @@
       color: '#344ea2',
       iconSvg: SVG_ICONS['electronics'],
       keywords: ['electronics', 'arduino', 'raspberry pi', 'esp32', 'breadboard']
+    },
+    'whittling': {
+      id: 'whittling',
+      name: 'Whittling',
+      category: 'Woodshop',
+      color: '#f16622',
+      iconSvg: SVG_ICONS['whittling'],
+      keywords: ['whittling', 'whittle', 'wood carving', 'carving', 'carve', 'pocket knife']
     }
   };
 
