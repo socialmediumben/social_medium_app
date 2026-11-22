@@ -1,0 +1,5 @@
+:HL["/_next/static/css/aca13ac528b9d875.css","style"]
+:HL["/_next/static/css/d7a08d174ba662b5.css","style"]
+2:[["children",{"s":"__PAGE__","h":160}]]
+1:[["children",{"s":"kiosk-display","h":96,"c":"$Q2"}]]
+0:{"b":"wro3FqY_KHXnNHt0MtaiA","t":{"t":{"s":"","h":80,"c":"$Q1"}}}
