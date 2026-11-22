@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <!-- Whittling / Carving Knife -->
+  <path d="M14 4l6 6-2.5 2.5-6-6L14 4z"/>
+  <path d="M11.5 6.5L6 12l3.5 1.5 4-4"/>
+  <!-- Wood Branch / Stick -->
+  <path d="M3 19l12-7"/>
+  <path d="M5 22l11-6.5"/>
+  <ellipse cx="16" cy="12" rx="1.5" ry="2.5"/>
+  <path d="M3 19a2 2 0 0 0 2 3"/>
+  <!-- Wood Carving Curl -->
+  <path d="M7 14.5c-1-1.5 0-3 1.5-2.5s1.5 2 0 3"/>
+</svg>
