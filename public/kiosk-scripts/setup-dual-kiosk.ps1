@@ -5,22 +5,24 @@
 
 Write-Host "Setting up Social Medium Dual-Monitor Kiosk..." -ForegroundColor Cyan
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$sourceBat = Join-Path $scriptDir "launch-dual-kiosk.bat"
-
-if (-not (Test-Path $sourceBat)) {
-    Write-Host "Error: Could not find launch-dual-kiosk.bat in $scriptDir" -ForegroundColor Red
-    Exit 1
-}
-
 # 1. Create target directories
 $targetDir = "C:\SocialMediumKiosk"
 $targetBat = "$targetDir\launch-dual-kiosk.bat"
 New-Item -ItemType Directory -Force -Path "$targetDir\Profiles\Touchscreen" | Out-Null
 New-Item -ItemType Directory -Force -Path "$targetDir\Profiles\Display" | Out-Null
 
-Copy-Item -Path $sourceBat -Destination $targetBat -Force
-Write-Host "Copied launcher script to $targetBat" -ForegroundColor Green
+# 2. Get launcher script (either from local folder or download from cloud)
+$scriptDir = if ($MyInvocation.MyCommand.Path) { Split-Path -Parent $MyInvocation.MyCommand.Path } else { "" }
+$sourceBat = if ($scriptDir) { Join-Path $scriptDir "launch-dual-kiosk.bat" } else { "" }
+
+if ($sourceBat -and (Test-Path $sourceBat)) {
+    Copy-Item -Path $sourceBat -Destination $targetBat -Force
+    Write-Host "Installed local launcher script to $targetBat" -ForegroundColor Green
+} else {
+    Write-Host "Downloading latest launcher from Social Medium Cloud..." -ForegroundColor Cyan
+    Invoke-WebRequest -Uri "https://app.socialmedium.space/kiosk-scripts/launch-dual-kiosk.bat" -OutFile $targetBat -UseBasicParsing
+    Write-Host "Downloaded latest launcher to $targetBat" -ForegroundColor Green
+}
 
 # 2. Place shortcut into current user's Startup folder
 $startupFolder = [Environment]::GetFolderPath('Startup')
