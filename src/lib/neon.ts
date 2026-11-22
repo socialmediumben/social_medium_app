@@ -958,6 +958,97 @@ export async function updateMemberInterestsInNeon(
 }
 
 /**
+ * Updates the member's Certifications (Field 116) in Neon One and local cache.
+ */
+export async function updateMemberCertificationsInNeon(
+  accountId: string,
+  certifications: string[]
+): Promise<NeonUpdateResult> {
+  if (!accountId) {
+    return { success: false, error: 'No account ID provided for update.' };
+  }
+
+  // Update local cache & dispatch update event
+  if (typeof window !== 'undefined') {
+    try {
+      const storedMember = localStorage.getItem(`sm_member_${accountId}`);
+      if (storedMember) {
+        const parsed = JSON.parse(storedMember);
+        parsed.certifications = certifications;
+        localStorage.setItem(`sm_member_${accountId}`, JSON.stringify(parsed));
+      }
+      // Also update active session member if applicable
+      const activeSession = localStorage.getItem('sm_active_member');
+      if (activeSession) {
+        const parsedActive = JSON.parse(activeSession);
+        if (parsedActive.accountId === accountId || parsedActive.tapCard === accountId) {
+          parsedActive.certifications = certifications;
+          localStorage.setItem('sm_active_member', JSON.stringify(parsedActive));
+        }
+      }
+      window.dispatchEvent(
+        new CustomEvent('sm_member_updated', {
+          detail: { accountId, certifications },
+        })
+      );
+    } catch (_) {}
+  }
+
+  // Handle sandbox account
+  if (isSandboxAccount(accountId)) {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('sm_sandbox_member');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          parsed.certifications = certifications;
+          localStorage.setItem('sm_sandbox_member', JSON.stringify(parsed));
+        }
+      } catch (_) {}
+    }
+    return { success: true };
+  }
+
+  try {
+    const payload = {
+      individualAccount: {
+        accountCustomFields: [
+          {
+            id: '116',
+            value: certifications.join('; '),
+            optionValues: certifications.map((c) => ({ name: c })),
+          },
+        ],
+      },
+    };
+
+    const response = await fetch(`${NEON_PROXY_URL}/api/v2/accounts/${accountId}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      const errData = await response.json().catch(() => null);
+      const msg =
+        errData?.message ||
+        errData?.[0]?.message ||
+        'Failed to update certifications in Neon One.';
+      return { success: false, error: msg };
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || 'Error updating certifications in Neon One.',
+    };
+  }
+}
+
+/**
  * Updates primary contact details (first name, last name, preferred name, pronouns/gender, email, phone) in Neon One.
  */
 export async function updateMemberContactInNeon(

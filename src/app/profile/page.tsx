@@ -51,8 +51,13 @@ import { BuddyBubbleView } from '@/components/bubble/BuddyBubbleView';
 import { JoinBubbleConfirmationModal } from '@/components/bubble/JoinBubbleConfirmationModal';
 import { loadMemberBuddyBucks } from '@/lib/buddy';
 import { loadBuddyBubble } from '@/lib/bubble';
-import { BuddyBubbleMember, BubbleJoinInvite } from '@/lib/types';
+import { BuddyBubbleMember, BubbleJoinInvite, CertificationRequest } from '@/lib/types';
 import { Palette, Sparkles as SparklesIcon, Coins, Users } from 'lucide-react';
+import { RequestCertificationModal } from '@/components/RequestCertificationModal';
+import {
+  getMemberCertificationRequests,
+  refreshCertificationRequests,
+} from '@/lib/certifications';
 
 export default function ProfilePage() {
   const { activeCardId, member, updateMember, isLoading } = useAuth();
@@ -74,6 +79,8 @@ export default function ProfilePage() {
   const [bubbleJoinInvite, setBubbleJoinInvite] = useState<BubbleJoinInvite | null>(null);
   const [initialActiveBubbleId, setInitialActiveBubbleId] = useState<string>('big-bubble');
   const [bubbleToast, setBubbleToast] = useState<string | null>(null);
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+  const [myCertRequests, setMyCertRequests] = useState<CertificationRequest[]>([]);
 
   // Deep-link handling: handles ?add=..., ?buddy=..., ?card=..., ?tapCard=..., ?band=...
   useEffect(() => {
@@ -282,6 +289,26 @@ export default function ProfilePage() {
     };
     window.addEventListener('sm_xp_awarded', handleXpUpdate);
     return () => window.removeEventListener('sm_xp_awarded', handleXpUpdate);
+  }, [member?.accountId]);
+
+  // Certification Requests state & listener
+  useEffect(() => {
+    if (!member?.accountId) return;
+    setMyCertRequests(getMemberCertificationRequests(member.accountId));
+    refreshCertificationRequests().then((refreshed) => {
+      setMyCertRequests(
+        refreshed.filter(
+          (r) => r.accountId.toLowerCase() === (member.accountId || '').toLowerCase()
+        )
+      );
+    });
+    const handleUpdate = () => {
+      setMyCertRequests(getMemberCertificationRequests(member.accountId));
+    };
+    window.addEventListener('sm_cert_requests_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('sm_cert_requests_updated', handleUpdate);
+    };
   }, [member?.accountId]);
 
   const levelInfo = calculateLevelFromXp(member?.xp, levelTiers);
@@ -910,7 +937,7 @@ export default function ProfilePage() {
         {/* Left Column (2 Cols): Certifications & Developer Mode */}
         <div className="lg:col-span-2 space-y-4">
           <div className="p-6 rounded-2xl bg-white border border-stone-200 shadow-xs">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
               <div>
                 <h2 className="font-fredoka text-lg font-bold text-stone-900">
                   Certifications
@@ -919,9 +946,19 @@ export default function ProfilePage() {
                   Tools and machinery authorized for independent operation (Certified Tools list).
                 </p>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
-                {deduplicatedCerts.length} Certified {deduplicatedCerts.length === 1 ? 'Tool' : 'Tools'}
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-stone-100 text-stone-700">
+                  {deduplicatedCerts.length} Certified {deduplicatedCerts.length === 1 ? 'Tool' : 'Tools'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="py-1.5 px-3 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-600 text-stone-950 shadow-xs flex items-center gap-1.5 transition-transform active:scale-95 cursor-pointer"
+                >
+                  <Award className="w-3.5 h-3.5" />
+                  <span>Request Cert</span>
+                </button>
+              </div>
             </div>
 
             {deduplicatedCerts.length === 0 ? (
@@ -981,6 +1018,86 @@ export default function ProfilePage() {
                     </div>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* My Certification Requests Tracker */}
+            {myCertRequests.length > 0 && (
+              <div className="mt-6 pt-5 border-t border-stone-100">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-fredoka text-sm font-bold text-stone-800 flex items-center gap-1.5">
+                    <History className="w-4 h-4 text-stone-500" />
+                    <span>My Certification Requests ({myCertRequests.length})</span>
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsRequestModalOpen(true)}
+                    className="text-xs font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>New Request</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {myCertRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className={`p-3.5 rounded-xl border text-xs transition-colors ${
+                        req.status === 'pending'
+                          ? 'bg-amber-50/60 border-amber-200 text-amber-950'
+                          : req.status === 'approved'
+                          ? 'bg-emerald-50/60 border-emerald-200 text-emerald-950'
+                          : 'bg-rose-50/50 border-rose-200 text-stone-800'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-sm text-stone-900">{req.toolName}</span>
+                          <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] uppercase tracking-wider ${
+                            req.level === 'Advanced' ? 'bg-amber-500 text-stone-950' : 'bg-stone-200 text-stone-700'
+                          }`}>
+                            {req.level}
+                          </span>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] flex items-center gap-1 ${
+                          req.status === 'pending'
+                            ? 'bg-amber-200/70 text-amber-900'
+                            : req.status === 'approved'
+                            ? 'bg-emerald-200/70 text-emerald-900'
+                            : 'bg-rose-100 text-rose-800'
+                        }`}>
+                          {req.status === 'pending' && '⏳ Pending Review'}
+                          {req.status === 'approved' && '✅ Approved'}
+                          {req.status === 'rejected' && '❌ Declined'}
+                        </span>
+                      </div>
+
+                      {req.memberNote && (
+                        <div className="mt-2 text-stone-600 bg-white/70 p-2 rounded-lg border border-black/5 text-[11px]">
+                          <span className="font-semibold text-stone-500">Your note: </span>
+                          {req.memberNote}
+                        </div>
+                      )}
+
+                      {req.adminFeedback && (
+                        <div className="mt-2 text-stone-700 bg-white p-2 rounded-lg border border-black/5 text-[11px]">
+                          <span className="font-semibold text-stone-800">
+                            Staff Feedback ({req.reviewedBy || 'Staff'}):{' '}
+                          </span>
+                          {req.adminFeedback}
+                        </div>
+                      )}
+
+                      <div className="mt-2 text-[10px] text-stone-400 flex items-center justify-between">
+                        <span>Submitted {new Date(req.requestedAt).toLocaleDateString()}</span>
+                        {req.reviewedAt && (
+                          <span>Reviewed {new Date(req.reviewedAt).toLocaleDateString()}</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
           </div>
@@ -1518,6 +1635,18 @@ export default function ProfilePage() {
           setInitialActiveBubbleId(joinedGroup.id);
           setActiveProfileTab('bubble');
           setBubbleToast(`You've joined ${joinedGroup.icon} ${joinedGroup.name}!`);
+        }}
+      />
+
+      {/* Request Certification Modal */}
+      <RequestCertificationModal
+        isOpen={isRequestModalOpen}
+        onClose={() => setIsRequestModalOpen(false)}
+        member={member}
+        onRequestSubmitted={() => {
+          if (member?.accountId) {
+            setMyCertRequests(getMemberCertificationRequests(member.accountId));
+          }
         }}
       />
     </div>

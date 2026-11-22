@@ -1,4 +1,4 @@
-import { MemberProfile, VolunteerSession, GiveGetSummary, BuddyBubbleMember, CustomBubbleGroup } from './types';
+import { MemberProfile, VolunteerSession, GiveGetSummary, BuddyBubbleMember, CustomBubbleGroup, CertificationRequest } from './types';
 
 export const SANDBOX_ACCOUNT_ID = 'sandbox-demo';
 export const SANDBOX_TAP_CARD = 'DEMO-2026';
@@ -190,6 +190,60 @@ export const INITIAL_SANDBOX_CUSTOM_BUBBLES: CustomBubbleGroup[] = [
 ];
 
 /**
+ * Initial sample tool certification requests for the Sandbox demonstration.
+ */
+export const INITIAL_SANDBOX_CERTIFICATION_REQUESTS: CertificationRequest[] = [
+  {
+    id: 'cert_req_demo_1',
+    accountId: 'demo-buddy-alex',
+    memberName: 'Alex Rivera',
+    memberEmail: 'alex.rivera@demo-maker.com',
+    tapCard: '1414309467',
+    toolId: 'laser-cutting',
+    toolName: 'Laser Cutting',
+    category: 'Digital Fabrication',
+    level: 'Advanced',
+    certificationString: 'Laser Cutting (Advanced)',
+    memberNote: 'Completed the rotary attachment and 80W acrylic deep-cut checkout with Ben on Tuesday.',
+    requestedAt: '2026-11-20T14:30:00Z',
+    status: 'pending',
+  },
+  {
+    id: 'cert_req_demo_2',
+    accountId: 'demo-buddy-sam',
+    memberName: 'Sam Chen',
+    memberEmail: 'sam.chen@demo-maker.com',
+    tapCard: '1414309468',
+    toolId: 'cnc-routing',
+    toolName: 'CNC Routing',
+    category: 'Digital Fabrication',
+    level: 'Beginner',
+    certificationString: 'CNC Routing',
+    memberNote: 'Attended the Shapeoko 4 introductory workshop and safety checkout on Saturday.',
+    requestedAt: '2026-11-21T10:15:00Z',
+    status: 'pending',
+  },
+  {
+    id: 'cert_req_demo_3',
+    accountId: SANDBOX_ACCOUNT_ID,
+    memberName: 'Jordan Taylor',
+    memberEmail: 'jordan.taylor@demo-partner.com',
+    tapCard: SANDBOX_TAP_CARD,
+    toolId: 'machine-sewing',
+    toolName: 'Machine Sewing',
+    category: 'Textiles',
+    level: 'Beginner',
+    certificationString: 'Machine Sewing',
+    memberNote: 'Reviewed heavy canvas stitch settings and bobbin winding with Chelsea.',
+    requestedAt: '2026-11-19T16:00:00Z',
+    status: 'approved',
+    reviewedAt: '2026-11-20T09:00:00Z',
+    reviewedBy: 'Ilana Jaffe-Lewis',
+    adminFeedback: 'Great work! You are all set to use the sewing machines.',
+  },
+];
+
+/**
  * Rich pristine member profile for interactive business demonstrations.
  */
 export const INITIAL_SANDBOX_MEMBER: MemberProfile = {
@@ -306,6 +360,10 @@ export function initSandboxSession(): MemberProfile {
         `sm_custom_bubbles_${SANDBOX_ACCOUNT_ID}`,
         JSON.stringify(INITIAL_SANDBOX_CUSTOM_BUBBLES)
       );
+      localStorage.setItem(
+        'sm_certification_requests',
+        JSON.stringify(INITIAL_SANDBOX_CERTIFICATION_REQUESTS)
+      );
     } catch (_) {}
   }
   return { ...INITIAL_SANDBOX_MEMBER };
@@ -319,6 +377,7 @@ export function resetSandboxData(): MemberProfile {
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('sm_balance_updated', { detail: { newBalance: fresh.storeBalance } }));
     window.dispatchEvent(new CustomEvent('sm_buddy_bucks_updated', { detail: fresh.buddyBucks }));
+    window.dispatchEvent(new CustomEvent('sm_cert_requests_updated', { detail: INITIAL_SANDBOX_CERTIFICATION_REQUESTS }));
     if (fresh.buddyAvatar) {
       window.dispatchEvent(new CustomEvent('sm_buddy_updated', { detail: fresh.buddyAvatar }));
     }

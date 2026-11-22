@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.4.1';
+export const APP_VERSION = '4.5.0';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,20 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.5.0',
+    date: '2026-11-21',
+    title: 'Member Tool Certification Requests & Staff Approval Workflow',
+    changes: [
+      'Self-Service Tool Certification Requests: Members can now request tool certifications directly from their Profile page (Certifications card), selecting tools from the makerspace equipment catalog (3D Printer, Laser Cutter, Woodworking Table Saw, Soldering, Machine Sewing, CNC Router, Vinyl Cutter, Whittling, or custom tool).',
+      'Certification Levels: Members choose between Beginner and Advanced (+) certification tiers and provide training or verification notes for review.',
+      'Profile Request Tracker: Members have a live status tracker on their profile showing pending requests (⏳ Pending Review), approvals with grant timestamps, or staff feedback for declined requests.',
+      'Staff Portal Cert Requests Review: Makerspace staff and admins have a dedicated "Cert Requests" tab in the Staff Portal (/staff) with real-time pending badge count, tool badges, member notes, and search/filter tools.',
+      'One-Click Staff Approval: Accepting a request automatically updates the member\'s Neon CRM constituent record (Field 116), logs safety audit activity, awards leveling XP (+50 XP) and Buddy Bucks (+25), and notifies the member.',
+      'Staff Decline with Constructive Feedback: Staff can decline unverified requests with clear coaching and feedback so members know what safety walkthrough or workshop is required.',
+      'Real-Time Cloud & Multi-Device Sync: Certification requests and updates sync across devices via Neon Proxy global settings and reactive browser storage events.',
+    ],
+  },
   {
     version: '4.4.1',
     date: '2026-11-19',

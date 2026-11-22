@@ -400,3 +400,34 @@ export interface BubbleJoinInvite {
   inviterAccountId: string;
 }
 
+// ==========================================
+// TOOL CERTIFICATION REQUESTS
+// ==========================================
+
+export type CertificationRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface CertificationRequest {
+  id: string;                      // "cert_req_<timestamp>_<random>"
+  accountId: string;               // Constituent Account ID
+  memberName: string;              // Member Name (e.g. "Jordan Taylor")
+  memberEmail?: string;
+  tapCard?: string;                // 10-digit NFC Tap Card
+  
+  // Tool & Certification Details
+  toolId: string;                  // Canonical tool slug (e.g. "laser-cutting")
+  toolName: string;                // e.g. "Laser Cutting"
+  category: string;                // e.g. "Digital Fabrication"
+  level: 'Beginner' | 'Advanced';  // Beginner (base tool) or Advanced (+)
+  certificationString: string;     // Exact string added to profile: e.g. "Laser Cutting" or "Laser Cutting (Advanced)"
+  
+  // Justification & Audit
+  memberNote?: string;             // Member's training evidence or workshop note
+  requestedAt: string;             // ISO timestamp
+  
+  // Review Details
+  status: CertificationRequestStatus;
+  reviewedAt?: string;             // ISO timestamp
+  reviewedBy?: string;             // Admin name / ID
+  adminFeedback?: string;          // Staff notes / decline explanation
+}
+

@@ -3,33 +3,55 @@
 import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useDevMode } from '@/context/DevModeContext';
+import { useAuth } from '@/context/AuthContext';
 import {
   Shield,
   BarChart3,
   ClipboardList,
   Home,
+  Award,
 } from 'lucide-react';
 import Link from 'next/link';
 import { StaffDashboardTab } from '@/components/staff/StaffDashboardTab';
 import { StaffActivityTab } from '@/components/staff/StaffActivityTab';
+import { StaffCertificationRequestsTab } from '@/components/staff/StaffCertificationRequestsTab';
+import { getPendingCertificationRequestsCount } from '@/lib/certifications';
 
 function StaffPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isStaffMode, canAccessStaff, setMode } = useDevMode();
+  const { member } = useAuth();
 
   const tabParam = searchParams.get('tab');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'activity'>(() => {
-    return tabParam === 'activity' ? 'activity' : 'dashboard';
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'activity' | 'cert-requests'>(() => {
+    return tabParam === 'activity'
+      ? 'activity'
+      : tabParam === 'cert-requests'
+      ? 'cert-requests'
+      : 'dashboard';
   });
 
+  const [pendingCertCount, setPendingCertCount] = useState<number>(0);
+
   useEffect(() => {
-    if (tabParam === 'activity' || tabParam === 'dashboard') {
+    if (tabParam === 'activity' || tabParam === 'dashboard' || tabParam === 'cert-requests') {
       setActiveTab(tabParam);
     }
   }, [tabParam]);
 
-  const handleTabChange = (newTab: 'dashboard' | 'activity') => {
+  useEffect(() => {
+    setPendingCertCount(getPendingCertificationRequestsCount());
+    const handleUpdate = () => {
+      setPendingCertCount(getPendingCertificationRequestsCount());
+    };
+    window.addEventListener('sm_cert_requests_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('sm_cert_requests_updated', handleUpdate);
+    };
+  }, []);
+
+  const handleTabChange = (newTab: 'dashboard' | 'activity' | 'cert-requests') => {
     setActiveTab(newTab);
     router.replace(`/staff?tab=${newTab}`, { scroll: false });
   };
@@ -97,12 +119,14 @@ function StaffPageContent() {
           <p className="text-stone-600 text-xs sm:text-sm mt-1">
             {activeTab === 'dashboard'
               ? 'View live event attendance, check-in trends, and member activity ledger.'
-              : 'Log safety walkthroughs, tool certifications, incident reports, and member notes.'}
+              : activeTab === 'activity'
+              ? 'Log safety walkthroughs, tool certifications, incident reports, and member notes.'
+              : 'Review, accept, or decline makerspace tool and machine certification requests.'}
           </p>
         </div>
 
-        {/* Sub-Module Switcher (Dashboard vs Log Activity) */}
-        <div className="flex items-center gap-1.5 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs">
+        {/* Sub-Module Switcher (Dashboard vs Log Activity vs Cert Requests) */}
+        <div className="flex items-center gap-1.5 p-1 bg-stone-100 rounded-2xl border border-stone-200 self-start sm:self-auto shrink-0 shadow-xs flex-wrap">
           <button
             type="button"
             onClick={() => handleTabChange('dashboard')}
@@ -115,6 +139,7 @@ function StaffPageContent() {
             <BarChart3 className="w-4 h-4 text-indigo-600" />
             <span>Dashboard</span>
           </button>
+
           <button
             type="button"
             onClick={() => handleTabChange('activity')}
@@ -127,14 +152,34 @@ function StaffPageContent() {
             <ClipboardList className="w-4 h-4" />
             <span>Log Activity</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => handleTabChange('cert-requests')}
+            className={`px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === 'cert-requests'
+                ? 'bg-amber-500 text-stone-950 shadow-sm'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Award className="w-4 h-4 text-amber-800" />
+            <span>Cert Requests</span>
+            {pendingCertCount > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-stone-950 text-[10px] font-black border border-amber-300 shadow-2xs">
+                {pendingCertCount}
+              </span>
+            )}
+          </button>
         </div>
       </div>
 
       {/* Active Tab Content */}
       {activeTab === 'dashboard' ? (
         <StaffDashboardTab />
-      ) : (
+      ) : activeTab === 'activity' ? (
         <StaffActivityTab />
+      ) : (
+        <StaffCertificationRequestsTab staffMember={member} />
       )}
     </div>
   );
