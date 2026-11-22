@@ -1,4 +1,4 @@
-export const APP_VERSION = '4.5.0';
+export const APP_VERSION = '4.6.0';
 
 export interface ChangelogRelease {
   version: string;
@@ -8,6 +8,18 @@ export interface ChangelogRelease {
 }
 
 export const CHANGELOG: ChangelogRelease[] = [
+  {
+    version: '4.6.0',
+    date: '2026-11-22',
+    title: 'Dual-Monitor Windows Kiosk Mode with Dynamic Google Photos Display',
+    changes: [
+      'Dual-Monitor Windows Kiosk Architecture: Enabled back-to-back dual-screen support for the all-in-one touchscreen PC, running the Check-In Kiosk on Screen 1 (Touchscreen) and an Ambient Google Photos showcase on Screen 2 (HDMI out).',
+      'Dynamic Remote Album Controller (/developer): Added full control in Developer Mode to choose which Google Photos album to display in real-time with sub-15s cloud synchronization to the kiosk display.',
+      'Dedicated Ambient Display Route (/kiosk-display): Built a hardware-accelerated, full-bleed slideshow viewer featuring cinematic Ken Burns pan & zoom, cross-fade transitions, makerspace branding watermark, live digital clock, and companion app onboarding QR code.',
+      'Auto-Hiding Cursor & Zero-Gaze Distraction: Secondary display automatically hides the mouse cursor and provides keyboard controls (Space to pause, arrows to navigate, F for fullscreen).',
+      'Turnkey Windows Setup Scripts: Packaged launch-dual-kiosk.bat and setup-dual-kiosk.ps1 in the Developer Module and /kiosk-scripts for 1-click startup automation on Windows boot.',
+    ],
+  },
   {
     version: '4.5.0',
     date: '2026-11-21',

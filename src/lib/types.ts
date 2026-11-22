@@ -431,3 +431,22 @@ export interface CertificationRequest {
   adminFeedback?: string;          // Staff notes / decline explanation
 }
 
+// ==========================================
+// DUAL-MONITOR KIOSK & AMBIENT DISPLAY
+// ==========================================
+
+export interface KioskDisplaySettings {
+  enabled: boolean;
+  googlePhotosAlbumUrl: string;          // Shared public album URL: e.g. "https://photos.app.goo.gl/..."
+  albumTitle?: string;                   // Display title: e.g. "Social Medium Community Moments"
+  slideshowIntervalSeconds: number;      // 5, 8, 10, 15, 20, 30
+  transitionEffect: 'ken-burns' | 'fade' | 'slide' | 'none';
+  displayMode: 'slideshow' | 'direct-link';
+  showMakerspaceLogo: boolean;
+  showTimeAndDate: boolean;
+  showCompanionAppQr: boolean;           // Visitor onboarding QR code in corner
+  photoUrls?: string[];                  // Direct or parsed photo image URLs
+  updatedAt?: string;
+}
+
+

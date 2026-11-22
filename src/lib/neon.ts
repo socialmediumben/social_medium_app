@@ -15,6 +15,7 @@ import {
   VolunteerSession,
   GiveGetSummary,
   GiveGetServiceCategory,
+  KioskDisplaySettings,
 } from './types';
 import { calculateLevelFromXp } from './gamification';
 import { isSandboxAccount, INITIAL_SANDBOX_MEMBER } from './sandbox';
@@ -1171,7 +1172,94 @@ export interface GlobalAppSettings {
     categories?: GiveGetServiceCategory[];
     defaultCategoryId?: string;
   };
+  kioskDisplaySettings?: KioskDisplaySettings;
   [key: string]: any;
+}
+
+export const DEFAULT_KIOSK_DISPLAY_SETTINGS: KioskDisplaySettings = {
+  enabled: true,
+  googlePhotosAlbumUrl: '',
+  albumTitle: 'Social Medium Makerspace Highlights',
+  slideshowIntervalSeconds: 8,
+  transitionEffect: 'ken-burns',
+  displayMode: 'slideshow',
+  showMakerspaceLogo: true,
+  showTimeAndDate: true,
+  showCompanionAppQr: true,
+  photoUrls: [],
+  updatedAt: new Date().toISOString(),
+};
+
+const KIOSK_DISPLAY_STORAGE_KEY = 'sm_kiosk_display_settings';
+
+/**
+ * Fetches the current live Kiosk Display settings from cloud settings or local cache.
+ */
+export async function fetchKioskDisplaySettings(): Promise<KioskDisplaySettings> {
+  // 1. Check local cache first for instant response
+  let cached: KioskDisplaySettings | null = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(KIOSK_DISPLAY_STORAGE_KEY);
+      if (stored) cached = JSON.parse(stored);
+    } catch (_) {}
+  }
+
+  // 2. Fetch from cloud global app settings
+  try {
+    const globalSettings = await fetchGlobalAppSettings();
+    if (globalSettings?.kioskDisplaySettings) {
+      const merged: KioskDisplaySettings = {
+        ...DEFAULT_KIOSK_DISPLAY_SETTINGS,
+        ...globalSettings.kioskDisplaySettings,
+      };
+      if (typeof window !== 'undefined') {
+        try {
+          localStorage.setItem(KIOSK_DISPLAY_STORAGE_KEY, JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('sm_kiosk_display_updated', { detail: merged }));
+        } catch (_) {}
+      }
+      return merged;
+    }
+  } catch (err) {
+    console.warn('[Kiosk Display] Notice: Cloud fetch failed, using local settings:', err);
+  }
+
+  return cached || DEFAULT_KIOSK_DISPLAY_SETTINGS;
+}
+
+/**
+ * Updates Kiosk Display settings across the makerspace and synchronizes with cloud.
+ */
+export async function updateKioskDisplaySettings(
+  partial: Partial<KioskDisplaySettings>
+): Promise<{ success: boolean; settings?: KioskDisplaySettings; error?: string }> {
+  const current = await fetchKioskDisplaySettings();
+  const merged: KioskDisplaySettings = {
+    ...current,
+    ...partial,
+    updatedAt: new Date().toISOString(),
+  };
+
+  // 1. Immediately update localStorage and notify listeners
+  if (typeof window !== 'undefined') {
+    try {
+      localStorage.setItem(KIOSK_DISPLAY_STORAGE_KEY, JSON.stringify(merged));
+      window.dispatchEvent(new CustomEvent('sm_kiosk_display_updated', { detail: merged }));
+    } catch (_) {}
+  }
+
+  // 2. Persist to Neon One proxy global app settings
+  const res = await updateGlobalAppSettings({ kioskDisplaySettings: merged });
+  if (!res.success) {
+    return {
+      success: false,
+      settings: merged,
+      error: res.error || 'Saved locally, but failed to sync to cloud.',
+    };
+  }
+
+  return { success: true, settings: merged };
 }
 
 export const DEFAULT_IMPACT_SETTINGS: ImpactCampaignSettings = {

@@ -54,6 +54,10 @@ import {
   QrCode,
   TrendingUp,
   HandCoins,
+  Tv,
+  Monitor,
+  Download,
+  Clock,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useDevMode, AppMode } from '@/context/DevModeContext';
@@ -68,6 +72,7 @@ import {
   NeonCampaignSummary,
   NeonCampaignDetail,
   GiveGetServiceCategory,
+  KioskDisplaySettings,
 } from '@/lib/types';
 import {
   fetchCommunityAnnouncement,
@@ -102,6 +107,9 @@ import {
   DEFAULT_GIVE_GET_CATEGORIES,
   getGiveGetServiceCategories,
   saveGiveGetServiceCategories,
+  fetchKioskDisplaySettings,
+  updateKioskDisplaySettings,
+  DEFAULT_KIOSK_DISPLAY_SETTINGS,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -150,7 +158,7 @@ interface ToolItem {
   iconSvg: string;
 }
 
-type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'give-get' | 'portal-door' | 'buddy-assets' | 'bubble' | 'store' | 'gamification' | 'icons' | 'system';
+type DevSubTab = 'impersonate' | 'announcements' | 'visibility' | 'impact' | 'give-get' | 'portal-door' | 'kiosk-display' | 'buddy-assets' | 'bubble' | 'store' | 'gamification' | 'icons' | 'system';
 
 export default function DeveloperPage() {
   const {
@@ -180,6 +188,78 @@ export default function DeveloperPage() {
   } = useDevMode();
 
   const [activeTab, setActiveTab] = useState<DevSubTab>('impersonate');
+
+  // ==========================================
+  // DUAL-MONITOR KIOSK & AMBIENT DISPLAY STATE
+  // ==========================================
+  const [kioskDisplaySettings, setKioskDisplaySettings] = useState<KioskDisplaySettings>(DEFAULT_KIOSK_DISPLAY_SETTINGS);
+  const [kioskAlbumUrlInput, setKioskAlbumUrlInput] = useState('');
+  const [kioskAlbumTitleInput, setKioskAlbumTitleInput] = useState('');
+  const [kioskIntervalInput, setKioskIntervalInput] = useState(8);
+  const [kioskTransitionInput, setKioskTransitionInput] = useState<'ken-burns' | 'fade' | 'slide' | 'none'>('ken-burns');
+  const [kioskDisplayModeInput, setKioskDisplayModeInput] = useState<'slideshow' | 'direct-link'>('slideshow');
+  const [kioskShowLogo, setKioskShowLogo] = useState(true);
+  const [kioskShowClock, setKioskShowClock] = useState(true);
+  const [kioskShowQr, setKioskShowQr] = useState(true);
+  const [kioskCustomPhotosInput, setKioskCustomPhotosInput] = useState('');
+  const [isSavingKioskDisplay, setIsSavingKioskDisplay] = useState(false);
+  const [kioskDisplayNotice, setKioskDisplayNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    fetchKioskDisplaySettings().then((cfg) => {
+      setKioskDisplaySettings(cfg);
+      setKioskAlbumUrlInput(cfg.googlePhotosAlbumUrl || '');
+      setKioskAlbumTitleInput(cfg.albumTitle || '');
+      setKioskIntervalInput(cfg.slideshowIntervalSeconds || 8);
+      setKioskTransitionInput(cfg.transitionEffect || 'ken-burns');
+      setKioskDisplayModeInput(cfg.displayMode || 'slideshow');
+      setKioskShowLogo(cfg.showMakerspaceLogo ?? true);
+      setKioskShowClock(cfg.showTimeAndDate ?? true);
+      setKioskShowQr(cfg.showCompanionAppQr ?? true);
+      setKioskCustomPhotosInput((cfg.photoUrls || []).join('\n'));
+    });
+  }, []);
+
+  const handleSaveKioskDisplay = async () => {
+    setIsSavingKioskDisplay(true);
+    setKioskDisplayNotice(null);
+
+    const parsedUrls = kioskCustomPhotosInput
+      .split('\n')
+      .map((s) => s.trim())
+      .filter((s) => s.startsWith('http'));
+
+    const updatePayload: Partial<KioskDisplaySettings> = {
+      enabled: kioskDisplaySettings.enabled,
+      googlePhotosAlbumUrl: kioskAlbumUrlInput.trim(),
+      albumTitle: kioskAlbumTitleInput.trim() || 'Social Medium Makerspace Highlights',
+      slideshowIntervalSeconds: Math.max(3, Number(kioskIntervalInput) || 8),
+      transitionEffect: kioskTransitionInput,
+      displayMode: kioskDisplayModeInput,
+      showMakerspaceLogo: kioskShowLogo,
+      showTimeAndDate: kioskShowClock,
+      showCompanionAppQr: kioskShowQr,
+      photoUrls: parsedUrls.length > 0 ? parsedUrls : undefined,
+    };
+
+    const res = await updateKioskDisplaySettings(updatePayload);
+    setIsSavingKioskDisplay(false);
+
+    if (res.success && res.settings) {
+      setKioskDisplaySettings(res.settings);
+      setKioskDisplayNotice({
+        type: 'success',
+        message: 'Kiosk display settings saved and synced to cloud! Monitor 2 will update automatically.',
+      });
+      setTimeout(() => setKioskDisplayNotice(null), 5000);
+    } else {
+      setKioskDisplayNotice({
+        type: 'error',
+        message: res.error || 'Failed to sync kiosk display settings.',
+      });
+    }
+  };
+
   // ==========================================
   // GIVE/GET & BOARD MEMBER DEVELOPER STATE
   // ==========================================
@@ -1625,6 +1705,22 @@ export default function DeveloperPage() {
           )}
           {portalSettings.impactMode && (
             <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse ml-0.5" title="Impact Mode Active on Door" />
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('kiosk-display')}
+          className={`px-4 py-2.5 rounded-2xl font-semibold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap transition-all cursor-pointer ${
+            activeTab === 'kiosk-display'
+              ? 'bg-[#344ea2] text-white shadow-md'
+              : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200'
+          }`}
+        >
+          <Tv className="w-4 h-4 text-cyan-500" />
+          <span>Kiosk & Display</span>
+          {kioskDisplaySettings.enabled && (
+            <span className="w-2 h-2 rounded-full bg-emerald-400 ml-0.5" title="Dual Kiosk Enabled" />
           )}
         </button>
 
@@ -3857,6 +3953,393 @@ export default function DeveloperPage() {
                 Last Synced: {new Date(portalSettings.updatedAt).toLocaleTimeString()} ({portalSettings.updatedBy === "door" ? "Chosen on Portal Door" : "Set via Phone"})
               </span>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB: DUAL-MONITOR KIOSK & AMBIENT DISPLAY                                */}
+      {/* ========================================================================= */}
+      {activeTab === 'kiosk-display' && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-cyan-500/15 text-cyan-700 flex items-center justify-center shrink-0 shadow-xs">
+                <Tv className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-fredoka text-xl font-bold text-stone-900">
+                    Dual-Monitor Kiosk & Ambient Display
+                  </h2>
+                  <span className="px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 font-mono text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-600 animate-pulse" />
+                    Back-to-Back Screen Live Sync
+                  </span>
+                </div>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  Control the outward-facing secondary monitor attached back-to-back to the touchscreen check-in kiosk. Choose which Google Photos album to display in real-time.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => window.open('/kiosk-display', '_blank')}
+                className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                <span>Preview Display</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Feedback notice */}
+          {kioskDisplayNotice && (
+            <div
+              className={`p-4 rounded-2xl text-xs font-semibold flex items-center gap-2 shadow-xs ${
+                kioskDisplayNotice.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-900 border border-emerald-200'
+                  : 'bg-red-50 text-red-900 border border-red-200'
+              }`}
+            >
+              {kioskDisplayNotice.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              )}
+              <span>{kioskDisplayNotice.message}</span>
+            </div>
+          )}
+
+          {/* Configuration Form Card */}
+          <div className="p-6 rounded-3xl bg-white border border-stone-200 shadow-xs space-y-6">
+            <div className="flex items-center justify-between border-b border-stone-100 pb-4">
+              <div>
+                <h3 className="font-fredoka text-base font-bold text-stone-900">
+                  Google Photos Album & Presentation Settings
+                </h3>
+                <p className="text-stone-500 text-xs">
+                  Settings are pushed to the cloud instantly. The secondary monitor on the kiosk updates automatically within 15 seconds.
+                </p>
+              </div>
+
+              <label className="flex items-center gap-2 text-xs font-semibold text-stone-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={kioskDisplaySettings.enabled}
+                  onChange={(e) =>
+                    setKioskDisplaySettings((prev) => ({
+                      ...prev,
+                      enabled: e.target.checked,
+                    }))
+                  }
+                  className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                />
+                <span>Enable Secondary Display</span>
+              </label>
+            </div>
+
+            {/* Display Mode Switcher */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
+                Secondary Monitor Presentation Mode
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setKioskDisplayModeInput('slideshow')}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                    kioskDisplayModeInput === 'slideshow'
+                      ? 'border-cyan-500 bg-cyan-50/50 ring-2 ring-cyan-500/20 shadow-xs'
+                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-stone-900 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-cyan-600" />
+                      <span>Makerspace Ambient Slideshow</span>
+                    </span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-200/80 text-cyan-900 uppercase">
+                      Recommended
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                    Full-bleed showcase with Ken Burns cinematic pan & zoom, makerspace watermark, live clock, and visitor companion app QR code.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setKioskDisplayModeInput('direct-link')}
+                  className={`p-4 rounded-2xl border text-left transition-all cursor-pointer ${
+                    kioskDisplayModeInput === 'direct-link'
+                      ? 'border-cyan-500 bg-cyan-50/50 ring-2 ring-cyan-500/20 shadow-xs'
+                      : 'border-stone-200 bg-white hover:bg-stone-50'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-stone-900 flex items-center gap-1.5">
+                      <ExternalLink className="w-4 h-4 text-purple-600" />
+                      <span>Direct Google Photos Webview</span>
+                    </span>
+                  </div>
+                  <p className="text-xs text-stone-500 mt-1 leading-relaxed">
+                    Navigates the secondary monitor directly to Google Photos native shared album page.
+                  </p>
+                </button>
+              </div>
+            </div>
+
+            {/* Google Photos Album URL Input */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-cyan-600" />
+                  <span>Google Photos Shared Album Link</span>
+                </label>
+                <span className="text-[11px] text-stone-400">
+                  Must be a public sharing link
+                </span>
+              </div>
+              <input
+                type="url"
+                value={kioskAlbumUrlInput}
+                onChange={(e) => setKioskAlbumUrlInput(e.target.value)}
+                placeholder="https://photos.app.goo.gl/YourSharedAlbumLink or https://photos.google.com/share/..."
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+              />
+              <p className="text-[11px] text-stone-500 mt-1.5">
+                💡 <strong>How to get this:</strong> In Google Photos, open your album, click <strong>Share</strong>, then click <strong>&quot;Create link&quot;</strong> and paste the link here.
+              </p>
+            </div>
+
+            {/* Album Display Title */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1.5">
+                Album Display Title (Watermark)
+              </label>
+              <input
+                type="text"
+                value={kioskAlbumTitleInput}
+                onChange={(e) => setKioskAlbumTitleInput(e.target.value)}
+                placeholder="e.g. Social Medium Makerspace Highlights or Halloween 2026 Showcase"
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              />
+            </div>
+
+            {/* Slideshow Interval & Transition Effect */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
+                  Slideshow Interval (Seconds per photo)
+                </label>
+                <div className="flex items-center gap-2">
+                  {[5, 8, 12, 15, 20, 30].map((sec) => (
+                    <button
+                      key={sec}
+                      type="button"
+                      onClick={() => setKioskIntervalInput(sec)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        kioskIntervalInput === sec
+                          ? 'bg-cyan-600 text-white shadow-xs'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {sec}s
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
+                  Cinematic Transition Style
+                </label>
+                <div className="flex items-center gap-2">
+                  {[
+                    { id: 'ken-burns', label: 'Ken Burns' },
+                    { id: 'fade', label: 'Fade' },
+                    { id: 'slide', label: 'Slide' },
+                    { id: 'none', label: 'Cut' },
+                  ].map((tr) => (
+                    <button
+                      key={tr.id}
+                      type="button"
+                      onClick={() => setKioskTransitionInput(tr.id as any)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        kioskTransitionInput === tr.id
+                          ? 'bg-cyan-600 text-white shadow-xs'
+                          : 'bg-stone-100 hover:bg-stone-200 text-stone-700'
+                      }`}
+                    >
+                      {tr.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* On-Screen Ambient Overlays */}
+            <div>
+              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-2">
+                On-Screen Ambient Overlays
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label className="p-3 rounded-xl border border-stone-200 bg-stone-50/60 flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={kioskShowLogo}
+                    onChange={(e) => setKioskShowLogo(e.target.checked)}
+                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-stone-800 block">Makerspace Logo</span>
+                    <span className="text-[10px] text-stone-500">Top-left branding watermark</span>
+                  </div>
+                </label>
+
+                <label className="p-3 rounded-xl border border-stone-200 bg-stone-50/60 flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={kioskShowClock}
+                    onChange={(e) => setKioskShowClock(e.target.checked)}
+                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-stone-800 block">Digital Clock & Date</span>
+                    <span className="text-[10px] text-stone-500">Top-right live ambient time</span>
+                  </div>
+                </label>
+
+                <label className="p-3 rounded-xl border border-stone-200 bg-stone-50/60 flex items-center gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={kioskShowQr}
+                    onChange={(e) => setKioskShowQr(e.target.checked)}
+                    className="w-4 h-4 rounded text-cyan-600 focus:ring-cyan-500"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-stone-800 block">Visitor QR Code</span>
+                    <span className="text-[10px] text-stone-500">Links to Companion App</span>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Custom Photo URLs (Optional Direct Feed) */}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-bold text-stone-700 uppercase tracking-wider">
+                  Direct Photo Image Links (Optional Manual Feed)
+                </label>
+                <span className="text-[11px] text-stone-400">One URL per line</span>
+              </div>
+              <textarea
+                rows={3}
+                value={kioskCustomPhotosInput}
+                onChange={(e) => setKioskCustomPhotosInput(e.target.value)}
+                placeholder="https://lh3.googleusercontent.com/...&#10;https://images.unsplash.com/..."
+                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+              />
+              <p className="text-[11px] text-stone-500 mt-1">
+                Leave blank to automatically use curated makerspace showcase photos.
+              </p>
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-3 border-t border-stone-100 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={handleSaveKioskDisplay}
+                disabled={isSavingKioskDisplay}
+                className="px-6 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 text-white font-bold text-xs flex items-center gap-2 shadow-xs transition-transform active:scale-95 cursor-pointer disabled:opacity-50"
+              >
+                {isSavingKioskDisplay ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving & Syncing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>Save Kiosk Display Settings</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Windows Dual-Monitor Kiosk Automation Guide & Scripts */}
+          <div className="p-6 rounded-3xl bg-stone-900 text-white shadow-lg space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-cyan-400">
+                  <Monitor className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-fredoka text-lg font-bold text-white">
+                    Windows Dual-Monitor Kiosk Setup Guide
+                  </h3>
+                  <p className="text-xs text-stone-400">
+                    Automates Screen 1 (Touchscreen Check-In) & Screen 2 (HDMI Google Photos) on boot.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <a
+                  href="/kiosk-scripts/launch-dual-kiosk.bat"
+                  download="launch-dual-kiosk.bat"
+                  className="px-3.5 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Download .bat</span>
+                </a>
+                <a
+                  href="/kiosk-scripts/setup-dual-kiosk.ps1"
+                  download="setup-dual-kiosk.ps1"
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center gap-1.5 transition-colors"
+                >
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Download Setup .ps1</span>
+                </a>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs pt-1">
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+                <div className="font-bold text-cyan-400 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">1</span>
+                  <span>Extend Displays</span>
+                </div>
+                <p className="text-stone-300 text-[11px] leading-relaxed">
+                  Press <strong>Win + P</strong> on the All-in-One and ensure <strong>&quot;Extend&quot;</strong> is selected. Make sure the touchscreen is set as Primary Display at (0, 0).
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+                <div className="font-bold text-cyan-400 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">2</span>
+                  <span>1-Click Install</span>
+                </div>
+                <p className="text-stone-300 text-[11px] leading-relaxed">
+                  Download and right-click <strong>setup-dual-kiosk.ps1</strong> &rarr; <em>&quot;Run with PowerShell&quot;</em>. This automatically registers the launcher in the Windows Startup folder.
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-1.5">
+                <div className="font-bold text-cyan-400 flex items-center gap-1.5">
+                  <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">3</span>
+                  <span>Boot & Enjoy</span>
+                </div>
+                <p className="text-stone-300 text-[11px] leading-relaxed">
+                  On reboot, Windows automatically locks Screen 1 to the Check-In Kiosk and Screen 2 to the Google Photos ambient display.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
