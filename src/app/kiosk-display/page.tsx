@@ -128,30 +128,6 @@ export default function KioskDisplayPage() {
     };
   }, []);
 
-  // Keyboard controls: Space to pause/resume, Arrows to navigate, F for fullscreen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.code === 'Space') {
-        setIsPaused((p) => !p);
-      } else if (e.key === 'ArrowRight') {
-        setCurrentIndex((prev) => (prev + 1) % activePhotos.length);
-      } else if (e.key === 'ArrowLeft') {
-        setCurrentIndex((prev) => (prev - 1 + activePhotos.length) % activePhotos.length);
-      } else if (e.key.toLowerCase() === 'f') {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen().catch(() => {});
-          setIsFullscreen(true);
-        } else {
-          document.exitFullscreen().catch(() => {});
-          setIsFullscreen(false);
-        }
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activePhotos.length]);
-
   // Direct Link mode redirect if specified
   useEffect(() => {
     if (
@@ -163,19 +139,9 @@ export default function KioskDisplayPage() {
     }
   }, [settings.displayMode, settings.googlePhotosAlbumUrl]);
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    }
-  };
-
   return (
     <div
-      className={`relative w-screen h-screen overflow-hidden bg-black select-none ${
+      className={`fixed inset-0 w-screen h-screen overflow-hidden bg-black select-none z-50 ${
         !cursorVisible ? 'cursor-none' : 'cursor-default'
       }`}
     >
@@ -273,63 +239,6 @@ export default function KioskDisplayPage() {
           </div>
         </div>
       )}
-
-      {/* Bottom Left: Slideshow Progress Indicator & Control Bar (Reveals on mouse hover) */}
-      <div
-        className={`absolute bottom-6 left-8 z-20 flex items-center gap-3 transition-opacity duration-300 ${
-          cursorVisible ? 'opacity-90' : 'opacity-0'
-        }`}
-      >
-        <div className="flex items-center gap-1.5 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-white text-xs">
-          <button
-            type="button"
-            onClick={() => setCurrentIndex((prev) => (prev - 1 + activePhotos.length) % activePhotos.length)}
-            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
-            title="Previous Photo (Left Arrow)"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setIsPaused((p) => !p)}
-            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
-            title={isPaused ? 'Resume Slideshow (Space)' : 'Pause Slideshow (Space)'}
-          >
-            {isPaused ? <Play className="w-4 h-4 text-emerald-400" /> : <Pause className="w-4 h-4" />}
-          </button>
-          <button
-            type="button"
-            onClick={() => setCurrentIndex((prev) => (prev + 1) % activePhotos.length)}
-            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer"
-            title="Next Photo (Right Arrow)"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <span className="text-[11px] font-mono text-stone-300 ml-1">
-            {currentIndex + 1} / {activePhotos.length}
-          </span>
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="p-1 hover:bg-white/20 rounded-lg transition-colors cursor-pointer ml-1"
-            title="Toggle Fullscreen (F)"
-          >
-            {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-          </button>
-        </div>
-
-        {settings.googlePhotosAlbumUrl && (
-          <a
-            href={settings.googlePhotosAlbumUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 text-[11px] bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/10 text-stone-300 hover:text-white transition-colors"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            <span>Open Album</span>
-          </a>
-        )}
-      </div>
 
       {/* Subtle Progress Bar along bottom edge */}
       <div className="absolute bottom-0 left-0 right-0 h-1 bg-white/10 z-20">

@@ -1,12 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { Fredoka, Roboto } from "next/font/google";
 import "./globals.css";
-import { Navbar, BottomNav } from "@/components/Navigation";
 import { AuthProvider } from "@/context/AuthContext";
 import { DevModeProvider } from "@/context/DevModeContext";
-import { ChangelogModal } from "@/components/ChangelogModal";
-import { CertificationManagerModal } from "@/components/CertificationManagerModal";
-import { ImpersonationBanner } from "@/components/ImpersonationBanner";
+import { AppShell } from "@/components/AppShell";
 
 const fredoka = Fredoka({
   variable: "--font-fredoka",
@@ -45,14 +42,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-[#f4f4f4] text-stone-800 font-roboto">
         <AuthProvider>
           <DevModeProvider>
-            <ImpersonationBanner />
-            <Navbar />
-            <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 pt-4 sm:pt-6 pb-36 md:pb-12">
-              {children}
-            </main>
-            <BottomNav />
-            <ChangelogModal />
-            <CertificationManagerModal />
+            <AppShell>{children}</AppShell>
           </DevModeProvider>
         </AuthProvider>
       </body>
