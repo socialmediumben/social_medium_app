@@ -110,6 +110,7 @@ import {
   fetchKioskDisplaySettings,
   updateKioskDisplaySettings,
   DEFAULT_KIOSK_DISPLAY_SETTINGS,
+  NEON_PROXY_URL,
 } from '@/lib/neon';
 import {
   fetchXpActivityRules,
@@ -216,9 +217,64 @@ export default function DeveloperPage() {
       setKioskShowLogo(cfg.showMakerspaceLogo ?? true);
       setKioskShowClock(cfg.showTimeAndDate ?? true);
       setKioskShowQr(cfg.showCompanionAppQr ?? true);
-      setKioskCustomPhotosInput((cfg.photoUrls || []).join('\n'));
     });
   }, []);
+
+  const [isSyncingAlbum, setIsSyncingAlbum] = useState(false);
+
+  const handleSyncAlbumNow = async () => {
+    const url = kioskAlbumUrlInput.trim();
+    if (!url) {
+      setKioskDisplayNotice({
+        type: 'error',
+        message: 'Please paste a Google Photos shared album URL first.',
+      });
+      return;
+    }
+    setIsSyncingAlbum(true);
+    setKioskDisplayNotice(null);
+    try {
+      const res = await fetch(
+        `${NEON_PROXY_URL}/api/parse-google-photos?url=${encodeURIComponent(url)}`
+      );
+      const data = await res.json();
+      if (data.success && Array.isArray(data.photos) && data.photos.length > 0) {
+        const updated = await updateKioskDisplaySettings({
+          ...kioskDisplaySettings,
+          googlePhotosAlbumUrl: url,
+          photoUrls: data.photos,
+        });
+        if (updated.settings) {
+          setKioskDisplaySettings(updated.settings);
+        } else {
+          setKioskDisplaySettings((prev) => ({
+            ...prev,
+            googlePhotosAlbumUrl: url,
+            photoUrls: data.photos,
+          }));
+        }
+        setKioskDisplayNotice({
+          type: 'success',
+          message: `Successfully connected and loaded ${data.photos.length} photos from Google Photos album!`,
+        });
+        setTimeout(() => setKioskDisplayNotice(null), 6000);
+      } else {
+        setKioskDisplayNotice({
+          type: 'error',
+          message:
+            data.error ||
+            'Could not find any photos in this album link. Make sure the album is set to Public link sharing.',
+        });
+      }
+    } catch (e: any) {
+      setKioskDisplayNotice({
+        type: 'error',
+        message: 'Failed to sync album photos: ' + (e.message || String(e)),
+      });
+    } finally {
+      setIsSyncingAlbum(false);
+    }
+  };
 
   const handleSaveKioskDisplay = async () => {
     setIsSavingKioskDisplay(true);
@@ -228,6 +284,14 @@ export default function DeveloperPage() {
       .split('\n')
       .map((s) => s.trim())
       .filter((s) => s.startsWith('http'));
+
+    // Keep existing photoUrls unless overridden by custom manual URLs
+    let finalPhotoUrls: string[] | undefined = undefined;
+    if (parsedUrls.length > 0) {
+      finalPhotoUrls = parsedUrls;
+    } else if (kioskDisplaySettings.photoUrls && kioskDisplaySettings.photoUrls.length > 0) {
+      finalPhotoUrls = kioskDisplaySettings.photoUrls;
+    }
 
     const updatePayload: Partial<KioskDisplaySettings> = {
       enabled: kioskDisplaySettings.enabled,
@@ -239,7 +303,7 @@ export default function DeveloperPage() {
       showMakerspaceLogo: kioskShowLogo,
       showTimeAndDate: kioskShowClock,
       showCompanionAppQr: kioskShowQr,
-      photoUrls: parsedUrls.length > 0 ? parsedUrls : undefined,
+      photoUrls: finalPhotoUrls,
     };
 
     const res = await updateKioskDisplaySettings(updatePayload);
@@ -249,7 +313,7 @@ export default function DeveloperPage() {
       setKioskDisplaySettings(res.settings);
       setKioskDisplayNotice({
         type: 'success',
-        message: 'Kiosk display settings saved and synced to cloud! Monitor 2 will update automatically.',
+        message: `Kiosk display settings saved and synced to cloud (${(res.settings.photoUrls || []).length} photos active)! Monitor 2 will update automatically.`,
       });
       setTimeout(() => setKioskDisplayNotice(null), 5000);
     } else {
@@ -4094,8 +4158,8 @@ export default function DeveloperPage() {
             </div>
 
             {/* Google Photos Album URL Input */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-bold text-stone-700 uppercase tracking-wider flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-cyan-600" />
                   <span>Google Photos Shared Album Link</span>
@@ -4104,14 +4168,62 @@ export default function DeveloperPage() {
                   Must be a public sharing link
                 </span>
               </div>
-              <input
-                type="url"
-                value={kioskAlbumUrlInput}
-                onChange={(e) => setKioskAlbumUrlInput(e.target.value)}
-                placeholder="https://photos.app.goo.gl/YourSharedAlbumLink or https://photos.google.com/share/..."
-                className="w-full px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
-              />
-              <p className="text-[11px] text-stone-500 mt-1.5">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="url"
+                  value={kioskAlbumUrlInput}
+                  onChange={(e) => setKioskAlbumUrlInput(e.target.value)}
+                  placeholder="https://photos.app.goo.gl/YourSharedAlbumLink or https://photos.google.com/share/..."
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-stone-200 text-xs text-stone-900 placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={handleSyncAlbumNow}
+                  disabled={isSyncingAlbum || !kioskAlbumUrlInput.trim()}
+                  className="px-4 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-700 disabled:opacity-50 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition-transform active:scale-95 cursor-pointer whitespace-nowrap"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingAlbum ? 'animate-spin' : ''}`} />
+                  <span>{isSyncingAlbum ? 'Extracting Photos...' : 'Sync / Fetch Album'}</span>
+                </button>
+              </div>
+
+              {/* Album Sync Status & Thumbnail Preview */}
+              {kioskDisplaySettings.photoUrls && kioskDisplaySettings.photoUrls.length > 0 ? (
+                <div className="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200/80 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Album Synced: {kioskDisplaySettings.photoUrls.length} photos ready for dual kiosk</span>
+                    </span>
+                    <span className="text-[11px] text-emerald-700 font-mono">
+                      Streaming live to Monitor 2
+                    </span>
+                  </div>
+
+                  {/* Thumbnail Strip */}
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                    {kioskDisplaySettings.photoUrls.slice(0, 7).map((url, i) => (
+                      <div
+                        key={i}
+                        className="w-14 h-14 rounded-lg bg-cover bg-center border border-white shadow-xs shrink-0"
+                        style={{ backgroundImage: `url(${url})` }}
+                      />
+                    ))}
+                    {kioskDisplaySettings.photoUrls.length > 7 && (
+                      <div className="w-14 h-14 rounded-lg bg-emerald-200/60 border border-emerald-300 flex items-center justify-center text-emerald-800 text-[11px] font-bold shrink-0">
+                        +{kioskDisplaySettings.photoUrls.length - 7}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-stone-50 border border-stone-200 text-stone-500 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span>No album photos synced yet. Click <strong>&quot;Sync / Fetch Album&quot;</strong> above to pull all pictures from the album.</span>
+                </div>
+              )}
+
+              <p className="text-[11px] text-stone-500">
                 💡 <strong>How to get this:</strong> In Google Photos, open your album, click <strong>Share</strong>, then click <strong>&quot;Create link&quot;</strong> and paste the link here.
               </p>
             </div>

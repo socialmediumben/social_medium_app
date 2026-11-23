@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   fetchKioskDisplaySettings,
   DEFAULT_KIOSK_DISPLAY_SETTINGS,
+  NEON_PROXY_URL,
 } from '@/lib/neon';
 import { KioskDisplaySettings } from '@/lib/types';
 import {
@@ -98,6 +99,42 @@ export default function KioskDisplayPage() {
     }
     return DEFAULT_SHOWCASE_PHOTOS;
   }, [settings.photoUrls]);
+
+  // If settings loaded but photoUrls is empty and an album URL is provided, fetch parsed photos dynamically
+  useEffect(() => {
+    if (
+      settings.googlePhotosAlbumUrl &&
+      (!settings.photoUrls || settings.photoUrls.length === 0)
+    ) {
+      const fetchParsed = async () => {
+        try {
+          const res = await fetch(
+            `${NEON_PROXY_URL}/api/parse-google-photos?url=${encodeURIComponent(
+              settings.googlePhotosAlbumUrl
+            )}`
+          );
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && Array.isArray(data.photos) && data.photos.length > 0) {
+              setSettings((prev) => ({ ...prev, photoUrls: data.photos }));
+            }
+          }
+        } catch (e) {
+          console.warn('[Kiosk Display] Auto-parse fallback failed:', e);
+        }
+      };
+      fetchParsed();
+    }
+  }, [settings.googlePhotosAlbumUrl, settings.photoUrls]);
+
+  // Preload next image in sequence for instant smooth transition
+  useEffect(() => {
+    if (activePhotos.length > 1) {
+      const nextIdx = (currentIndex + 1) % activePhotos.length;
+      const nextImg = new Image();
+      nextImg.src = activePhotos[nextIdx];
+    }
+  }, [currentIndex, activePhotos]);
 
   // Slideshow Timer Interval
   useEffect(() => {
